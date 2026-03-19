@@ -126,13 +126,13 @@ button:disabled {
   border-radius: 50%;
   background-color: var(--text-muted);
 }
-/* Анимация зеленой точки, когда бот работает */
+/* animation of the green dot when the bot is running */
 .dot.active { 
   background-color: var(--success); 
   box-shadow: 0 0 8px var(--success); 
 }
 
-/* --- СТИЛИ НАШЕГО ТЕРМИНАЛА --- */
+/* terminal styles */
 #log_area {
   background-color: var(--log-bg);
   border: 1px solid var(--border);
@@ -146,7 +146,7 @@ button:disabled {
   color: var(--log-text);
 }
 
-/* Мигающий курсор (блок) в конце терминала */
+/* blinking cursor (_) at the end of the terminal */
 #log_area::after {
   content: "_";
   animation: blink 1s step-start infinite;
@@ -156,7 +156,7 @@ button:disabled {
   50% { opacity: 0; }
 }
 
-/* Тонкий кастомный скроллбар */
+/* Thin custom scrollbar */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: var(--bg-main); border-radius: 4px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }

@@ -1,34 +1,49 @@
 function startBot() {
-  let count = document.getElementById('count_input').value;
+  const countStr = document.getElementById('count_input').value;
+  const count = parseInt(countStr, 10);
+
+  if (isNaN(count) || count <= 0) {
+    alert("Please enter a valid positive number!");
+    return;
+  }
   
-  // 1. Блокируем кнопку
+  // 1. Block the button and change its text
   document.getElementById('start_btn').disabled = true;
   document.getElementById('start_btn').innerText = "In Progress...";
   
-  // 2. Включаем зеленую лампочку
+  // 2. Green dot on and status text
   document.getElementById('dot').classList.add('active');
   document.getElementById('status_text').innerText = "Executing";
   
-  // Опционально: можно очищать лог при каждом новом старте
-  // document.getElementById('log_area').innerHTML = ""; 
+
   
-  // 3. Отправляем команду в Python
-  pywebview.api.start_farm(count);
+  // 3. Call the Python function to start the bot
+  pywebview.api.main(count);
 }
 
-// Эта функция стала ПРОЩЕ!
-// Python (наш LogRedirector) уже заменяет \n на <br>,
-// поэтому мы просто приклеиваем всё, что прилетает, в конец блока.
+// Function to safely escape log messages for HTML display
+function clear_log(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+}
+
+// Called from Python to update the logs in the terminal
 function update_log(message) {
   let logDiv = document.getElementById('log_area');
-  
-  logDiv.innerHTML += message;
-  
-  // Автопрокрутка вниз
+
+  const safeHtml = clear_log(message).replace(/\n/g, '<br>'); // newlines
+  logDiv.insertAdjacentHTML('beforeend', safeHtml);
+
+  // Auto-scroll to the bottom
   logDiv.scrollTop = logDiv.scrollHeight;
 }
 
-// Вызывается из Питона, когда цикл закончен
+// Called from Python when the loop is finished
 function enable_start_button() {
   let btn = document.getElementById('start_btn');
   btn.disabled = false;
