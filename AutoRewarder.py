@@ -131,7 +131,7 @@ if __name__ == "__main__":
         url='GUI/index.html',
         js_api=api,
         width=570,
-        height=494,
+        height=500,
         resizable=False,
         #frameless=True
     )
