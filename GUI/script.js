@@ -29,15 +29,14 @@ function clear_log(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-
 }
 
 // Called from Python to update the logs in the terminal
 function update_log(message) {
   let logDiv = document.getElementById('log_area');
 
-  const safeHtml = clear_log(message).replace(/\n/g, '<br>'); // newlines
-  logDiv.insertAdjacentHTML('beforeend', safeHtml);
+  const safeHtml = clear_log(message).replace(/\n/g, '<br>'); 
+  logDiv.insertAdjacentHTML('beforeend', safeHtml + '<br>'); // new line after each message
 
   // Auto-scroll to the bottom
   logDiv.scrollTop = logDiv.scrollHeight;

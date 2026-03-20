@@ -24,13 +24,17 @@ class AutoRewarderAPI:
         self.webview_window = None
     
     def set_window(self, window):
-        # store reference to webview window for JS to call
+        # store reference to webview window so Python can call JS (evaluate_js)
         self.webview_window = window
     
     def log(self, message):
         # send message to UI
         if self.webview_window:
-            self.webview_window.evaluate_js(f"update_log('{message}')")
+            try:
+                safe_message = json.dumps(message)
+                self.webview_window.evaluate_js(f"update_log({safe_message})")
+            except Exception as e:
+                print(f"Log error: {e}")
 
     def load_queries_from_json(self, filepath, num_needed):
         # load queries from JSON file and return a random sample
