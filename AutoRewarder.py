@@ -120,24 +120,30 @@ class AutoRewarderAPI:
         # Perform searches
         for i, query in enumerate(queries):
             try:
+                # Open Bing homepage
                 driver.get("https://www.bing.com")
                 time.sleep(random.uniform(4, 8))  # Random delay to mimic human behavior
 
+                # Longer break every 5 searches to mimic human behavior and avoid detection
                 if i % 5 == 0 and i != 0: 
                     self.log("Taking a short break to mimic human behavior...")
-                    time.sleep(random.uniform(15, 25))  # Longer break every 5 searches
+                    time.sleep(random.uniform(15, 25))
 
+                # Find the search box, clear it
                 search_box = driver.find_element("name", "q")
                 search_box.clear()
 
+                # Log the search query in log area
                 self.log(f"Search #{i + 1}: {query}")
 
+                # Type the query with human-like delays
                 self.human_typing(search_box, query)
-                search_box.send_keys(Keys.RETURN)
+                search_box.send_keys(Keys.RETURN) # Press Enter to search
 
+                # Wait for result to load
                 time.sleep(random.uniform(2, 4))
 
-                # Smooth scroll down to mimic human behavior
+                # JS script for smooth scroll down to mimic human behavior
                 smooth_scroll_script = """
                     let currentScroll = 0;
                     let maxScroll = document.body.scrollHeight / 2;
@@ -153,10 +159,13 @@ class AutoRewarderAPI:
                     }, 50);
                 """
 
+                # Execute the smooth scroll script
                 driver.execute_script(smooth_scroll_script)
 
+                # Wait a bit after scrolling
                 time.sleep(random.uniform(5, 10))
 
+                # Add to history.json
                 self.add_to_history(query, "Success")
                 
             except NoSuchElementException:
