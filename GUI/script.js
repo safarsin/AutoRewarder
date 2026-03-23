@@ -53,5 +53,5 @@ function enable_start_button() {
 }
 
 function show_history() {
-
+  pywebview.api.open_history_window();
 }

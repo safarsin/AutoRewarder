@@ -1,0 +1,50 @@
+[
+    {
+        "date": "23-03-2026",
+        "time": "14:42:51",
+        "query": "Ed Sheeran",
+        "status": "Success"
+    },
+    {
+        "date": "03-23-2026",
+        "time": "18:27:12",
+        "query": "Olympics Closing Ceremony",
+        "status": "Success"
+    },
+    {
+        "date": "03-23-2026",
+        "time": "18:27:19",
+        "query": "Chadwick Boseman",
+        "status": "[ERROR] WebDriver Error: Message: invalid session id:"
+    },
+    {
+        "date": "03-23-2026",
+        "time": "18:27:19",
+        "query": "Ireland vs New Zealand",
+        "status": "[ERROR] WebDriver Error: Message: invalid session id;"
+    },
+    {
+        "date": "03-23-2026",
+        "time": "18:41:20",
+        "query": "Indian Premier League",
+        "status": "Success"
+    },
+    {
+        "date": "03-23-2026",
+        "time": "18:43:48",
+        "query": "How to make hand sanitizer",
+        "status": "Success"
+    },
+    {
+        "date": "03-23-2026",
+        "time": "18:53:17",
+        "query": "Bradley Cooper",
+        "status": "Success"
+    },
+    {
+        "date": "03-23-2026",
+        "time": "18:56:02",
+        "query": "How did coronavirus start?",
+        "status": "Success"
+    }
+]

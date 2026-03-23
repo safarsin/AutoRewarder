@@ -12,7 +12,7 @@
 }
 
 body {
-  font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
   background-color: var(--bg-main);
   color: var(--text-main);
   margin: 0;
