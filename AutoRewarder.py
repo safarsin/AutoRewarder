@@ -22,19 +22,19 @@ JSON_FILE_PATH = "queries.json"
 
 class AutoRewarderAPI:
     def __init__(self):
-        self.webview_window = None
+        self._webview_window = None
     
     def set_window(self, window):
         self.history_file = "history.json"
         # store reference to webview window so Python can call JS (evaluate_js)
-        self.webview_window = window
+        self._webview_window = window
 
     def open_history_window(self):
         # open a new window to show search history
         webview.create_window(
             title="Query History",
             url='GUI/history.html',
-            js_api=self,
+            js_api=self,  
             width=700,
             height=500,
             resizable=True,
@@ -73,10 +73,10 @@ class AutoRewarderAPI:
 
     def log(self, message):
         # send message to UI
-        if self.webview_window:
+        if self._webview_window:
             try:
                 safe_message = json.dumps(message)
-                self.webview_window.evaluate_js(f"update_log({safe_message})")
+                self._webview_window.evaluate_js(f"update_log({safe_message})")
             except Exception as e:
                 print(f"Log error: {e}")
 
@@ -113,8 +113,8 @@ class AutoRewarderAPI:
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         
         # Automatic driver dowload and setup
-        driver = webdriver.Edge(options=options)
-        return driver
+        _driver = webdriver.Edge(options=options)
+        return _driver
 
     def perform_searches(self, driver, queries):
         # Perform searches
@@ -191,13 +191,13 @@ class AutoRewarderAPI:
             return
 
         # 2. Setup browser
-        self.driver = self.setup_driver()
+        self._driver = self.setup_driver()
         try:
             # 3. Perform searches
-            self.perform_searches(self.driver, queries_to_search)
+            self.perform_searches(self._driver, queries_to_search)
         finally:
             try:
-                self.driver.quit()
+                self._driver.quit()
             except Exception as e:
                 self.log(f"[WARNING] Error closing driver: {e}")
             
@@ -205,8 +205,8 @@ class AutoRewarderAPI:
 
             self.log("Done!")
             # Re-enable button after finish
-            if self.webview_window:
-                self.webview_window.evaluate_js("enable_start_button()")
+            if self._webview_window:
+                self._webview_window.evaluate_js("enable_start_button()")
 
 if __name__ == "__main__":
     api = AutoRewarderAPI()

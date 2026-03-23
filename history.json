@@ -46,5 +46,23 @@
         "time": "18:56:02",
         "query": "How did coronavirus start?",
         "status": "Success"
+    },
+    {
+        "date": "03-23-2026",
+        "time": "19:08:23",
+        "query": "Somebody That I Used to Know",
+        "status": "Success"
+    },
+    {
+        "date": "03-23-2026",
+        "time": "19:21:19",
+        "query": "13 Reasons Why",
+        "status": "Success"
+    },
+    {
+        "date": "03-23-2026",
+        "time": "19:21:35",
+        "query": "Olympics",
+        "status": "Success"
     }
 ]
