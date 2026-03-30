@@ -30,6 +30,7 @@ class AutoRewarderAPI:
     def __init__(self):
         self._webview_window = None
         self.history_file = HISTORY_FILE_PATH
+        self.hide_browser = False
     
     def set_window(self, window):
         # store reference to webview window so Python can call JS (evaluate_js)
@@ -71,7 +72,7 @@ class AutoRewarderAPI:
     def first_setup(self):
         self.log("Starting First Setup... Please log in to your Microsoft account.")
 
-        setup_driver = self.setup_driver(headless=False)
+        setup_driver = self.setup_driver(headless=False)  # Open browser in normal mode for login
 
         try:
             self.log("Opening Bing page...")
@@ -90,7 +91,7 @@ class AutoRewarderAPI:
                 pass 
             else:
                 # If unexpected error, log it and add to history
-                self.log(f"[ERROR] Real error during setup: {e}")
+                self.log(f"[ERROR] Error during setup: {e}")
                 self.add_to_history("First Setup Failed", "Error")
                 return
 
@@ -109,6 +110,10 @@ class AutoRewarderAPI:
             if self._webview_window:
                 self._webview_window.evaluate_js("enable_start_button()")
                 self._webview_window.evaluate_js("hide_setup_button()")
+
+    def set_hide_browser(self, is_hide):
+        self.hide_browser = is_hide
+        self.log(f"Browser hidden mode: {'ON' if is_hide else 'OFF'}")
 
     # Load search history from JSON file
     def get_history(self):
@@ -172,7 +177,11 @@ class AutoRewarderAPI:
             element.send_keys(char)
             time.sleep(random.uniform(0.05, 0.18))
 
-    def setup_driver(self):
+    def setup_driver(self, headless=None):
+
+        if headless is None:
+            headless = self.hide_browser
+
         #Setup Microsoft Edge (driver will be downloaded automatically!)
         options = Options()
         options.add_argument(f"--user-data-dir={EDGE_PROFILE_PATH}")
@@ -180,6 +189,12 @@ class AutoRewarderAPI:
         options.add_argument("--disable-blink-features=AutomationControlled") # Hide automation
         options.add_argument("--no-default-browser-check")  # Don't check if Edge is default
         options.add_experimental_option("excludeSwitches", ["enable-automation"]) # Remove "Browser is being controlled by automated test software" infobar
+        
+        if headless:
+            # Run in headless mode (invisible)
+            options.add_argument("--headless=new")
+            options.add_argument("--window-size=1920,1080")
+            options.add_argument("--disable-gpu")  # Disable GPU for headless mode
         
         # Automatic driver dowload and setup
         _driver = webdriver.Edge(options=options)

@@ -89,7 +89,12 @@ function show_history() {
 }
 
 function hideBrowserToggle() {
-  const checkbox = document.getElementById('hide_browser_checkbox');
+  const toggle = document.getElementById('hideBrowserToggle');
+  if (!toggle) {
+    return;
+  }
+
+  pywebview.api.set_hide_browser(Boolean(toggle.checked));
 }
 
 window.addEventListener('pywebviewready', function() {
@@ -98,5 +103,18 @@ window.addEventListener('pywebviewready', function() {
     if (settings.first_setup_done === true) {
       hide_setup_button();
     }
+
+    const toggle = document.getElementById('hideBrowserToggle');
+    if (toggle) {
+      toggle.checked = Boolean(settings.hide_browser);
+    }
+
   });
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  const toggle = document.getElementById('hideBrowserToggle');
+  if (toggle) {
+    toggle.addEventListener('change', hideBrowserToggle);
+  }
 });
