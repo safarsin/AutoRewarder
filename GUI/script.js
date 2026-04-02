@@ -19,6 +19,13 @@ function hide_setup_button() {
   }
 }
 
+function enable_setup_button() {
+  const setupBtn = document.getElementById('setup_btn');
+  if (setupBtn) {
+      setupBtn.disabled = false;
+  }
+}
+
 function start_bot() {
 
   if (isSetupDone === false) {
