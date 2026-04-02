@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Query History</title>
+
+  <link rel="stylesheet" href="normalize.css">
+  
+  <style>
+    :root {
+      --bg-main: #0d1117; 
+      --bg-panel: #161b22;
+      --text-main: #c9d1d9;
+      --text-muted: #8b949e;
+      --border: #30363d;
+      --success: #2ea043;
+      --error: #f85149;
+    }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      margin: 0;
+      padding: 20px;
+      user-select: text;
+    }
+
+    h2 {
+      margin-top: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* History table layout */
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .history-table th {
+      text-align: left;
+      padding: 12px 15px;
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+      background-color: #010409;
+    }
+
+    .history-table td {
+      padding: 12px 15px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* delete border for last row */
+    .history-table tr:last-child td {
+      border-bottom: none; 
+    }
+
+    .status-success { 
+      color: var(--success); 
+      font-weight: 500; 
+    }
+
+    .status-error { 
+      color: var(--error); 
+      font-weight: 500; 
+    }
+
+    /* WebKit-only scrollbar styling (Chromium/Edge). */
+    ::-webkit-scrollbar { 
+      width: 8px; 
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track { 
+      background: var(--bg-main); 
+      border-radius: 4px; 
+    }
+    ::-webkit-scrollbar-thumb { 
+      background: var(--border); 
+      border-radius: 4px; 
+    }
+    ::-webkit-scrollbar-thumb:hover { 
+      background: var(--text-muted); 
+    }
+  </style>
+
+</head>
+<body>
+
+  <h2>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+    </svg>
+    Execution History
+  </h2>
+
+  <table class="history-table">
+    <thead>
+      <tr>
+        <th width="16%">Date</th>
+        <th width="10%">Time</th>
+        <th width="40%">Search Query</th>
+        <th width="34%">Status</th>
+      </tr>
+    </thead>
+    <tbody id="table_body">
+      <tr>
+        <td colspan="4" style="text-align: center; color: var(--text-muted);">Loading history...</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <script>
+    // Wait until JS bridge is ready; pywebview.api is not usable before this event.
+    window.addEventListener('pywebviewready', function() {
+        
+      // Fetch history from Python API and render it into table rows.
+      pywebview.api.get_history().then(function(data) {
+        const tbody = document.getElementById('table_body');
+        tbody.innerHTML = ''; // delete loading text
+
+        // if no history records
+        if (data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No queries have been executed yet.</td></tr>';
+          return;
+        }
+
+        // make reverse loop to show latest records first
+        data.reverse().forEach(item => {
+            
+          // success -> green, error -> red
+          let statusClass = item.status.includes("ERROR") 
+            ? "status-error" 
+            : "status-success";
+
+          let row = `<tr>
+            <td style="color: var(--text-muted); font-size: 13px;">
+              ${item.date}
+            </td>
+            <td style="color: var(--text-muted); font-size: 13px;">
+              ${item.time}
+            </td>
+            <td>${item.query}</td>
+            <td class="${statusClass}">${item.status}</td>
+          </tr>`;
+          
+          tbody.innerHTML += row;
+        });
+      });
+    });
+  </script>
+
+</body>
+</html>
