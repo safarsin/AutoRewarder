@@ -1,0 +1,2 @@
+selenium==4.41.0
+pywebview==6.1

@@ -107,6 +107,11 @@ function start_loader() {
     startBtn.disabled = true;
   }
 
+  let setupBtn = document.getElementById('setup_btn');
+  if (setupBtn && isSetupDone === false) {
+    setupBtn.disabled = true;
+  }
+
   const tryShowLoader = () => {
     pywebview.api.check_driver_status().then(isLoading => {
       if (isLoading === true && !document.getElementById('inline_loader')) {
@@ -144,6 +149,11 @@ function stop_loader() {
   if (startBtn && isSetupDone) {
     startBtn.disabled = false;
   }
+
+  let setupBtn = document.getElementById('setup_btn');
+  if (setupBtn && isSetupDone === false) {
+    setupBtn.disabled = false;
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -158,6 +168,8 @@ window.addEventListener('pywebviewready', function() {
   pywebview.api.get_settings().then(function(settings) {
     if (settings.first_setup_done === true) {
       hide_setup_button();
+    } else {
+      pywebview.api.log("Please complete the First Setup before starting the bot!");
     }
 
     start_loader();

@@ -19,13 +19,17 @@ APP_DIR = os.path.join(
     "AutoRewarder"
 )
 
+# Base paths
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+GUI_DIR = os.path.join(BASE_DIR, "GUI")
+
 if not os.path.exists(APP_DIR):
     os.makedirs(APP_DIR)
 
 EDGE_PROFILE_PATH = os.path.join(APP_DIR, "EdgeProfile")
 HISTORY_FILE_PATH = os.path.join(APP_DIR, "history.json")
 SETTINGS_FILE_PATH = os.path.join(APP_DIR, "settings.json")
-JSON_FILE_PATH = "queries.json"
+JSON_FILE_PATH = os.path.join(BASE_DIR, "queries.json")
 
 class AutoRewarderAPI:
     def __init__(self):
@@ -54,7 +58,7 @@ class AutoRewarderAPI:
     def open_history_window(self):
         webview.create_window(
             title="Query History",
-            url='GUI/history.html',
+            url=os.path.join(GUI_DIR, "history.html"),
             js_api=self,  
             width=700,
             height=500,
@@ -73,11 +77,9 @@ class AutoRewarderAPI:
             driver.quit()
         except Exception as e:
             self.log(f"[ERROR] Error loading WebDriver: {e}")
-            self.add_to_history("N/A", f"[ERROR] WebDriver loading failed: {str(e)[:50]}")
         finally:
             self.is_driver_loading = False
 
-            # if 
             if hasattr(self, "_webview_window") and self._webview_window:
                 self._webview_window.evaluate_js("stop_loader()")
     
@@ -116,7 +118,9 @@ class AutoRewarderAPI:
 
         try:
             self.log("Opening Bing page...")
-            self.log("Log in directly on the Bing page.\nIMPORTANT: Do NOT sync the Edge profile!\nJust log in and close the browser when done.")
+            self.log(f"""Log in directly on the Bing page.
+            IMPORTANT: Do NOT sync the Edge profile!
+            Just log in and close the browser when done.""")
             time.sleep(4)
             setup_driver.get("https://www.bing.com")
             self.log("Waiting for you to log in...\nClose the browser window when done!")
@@ -371,7 +375,7 @@ if __name__ == "__main__":
     api = AutoRewarderAPI()
     window = webview.create_window(
         title= "AutoRewarder",
-        url='GUI/index.html',
+        url=os.path.join(GUI_DIR, "index.html"),
         js_api=api,
         width=570,
         height=490,
