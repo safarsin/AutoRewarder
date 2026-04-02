@@ -89,18 +89,32 @@ class AutoRewarderAPI:
     
     # Get settings from settings.json or create it with default values if it doesn't exist
     def get_settings(self):
-        if not os.path.exists(SETTINGS_FILE_PATH):
-            default_settings = {
+        default_settings = {
                 "first_setup_done": False,
                 "hide_browser": False
             }
 
+        if not os.path.exists(SETTINGS_FILE_PATH):
             with open(SETTINGS_FILE_PATH, "w", encoding="utf-8") as file:
                 json.dump(default_settings, file, indent=4)
             return default_settings
+
+        try:
+            with open(SETTINGS_FILE_PATH, "r", encoding="utf-8") as file:
+                return json.load(file)
+        except json.JSONDecodeError:
+            # Preserve the damaged file for inspection, then recreate defaults.
+            backup_path = SETTINGS_FILE_PATH + ".backup"
+
+            if os.path.exists(backup_path):
+                os.remove(backup_path)
+            
+            os.replace(SETTINGS_FILE_PATH, backup_path)
+
+            with open(SETTINGS_FILE_PATH, "w", encoding="utf-8") as file:
+                json.dump(default_settings, file, indent=4)
         
-        with open(SETTINGS_FILE_PATH, "r", encoding="utf-8") as file:
-            return json.load(file)
+            return default_settings
 
     # Mark in settings that first setup is done    
     def mark_up_as_done(self):
@@ -115,6 +129,8 @@ class AutoRewarderAPI:
         self.log("Starting First Setup... Please log in to your Microsoft account.")
 
         setup_driver = self.setup_driver(headless=False)  # Open browser in normal mode for login
+        # Used to avoid false "completed" state when finally executes after a failure.
+        setup_succeeded = False
 
         try:
             self.log("Opening Bing page...")
@@ -128,16 +144,17 @@ class AutoRewarderAPI:
             while len(setup_driver.window_handles) > 0:
                 time.sleep(1)
 
+            setup_succeeded = True
+
         except Exception as e:
             error_msg = str(e).lower()
 
             if "target window already closed" in error_msg or "disconnected" in error_msg or "not reachable" in error_msg:
-                pass 
+                setup_succeeded = True
             else:
                 # If unexpected error, log it and add to history
                 self.log(f"[ERROR] Error during setup: {e}")
-                self.add_to_history("First Setup Failed", "Error")
-                return
+                self.add_to_history("First Setup Failed", "[ERROR] " + str(e)[:50])
 
         finally:
             try:
@@ -145,15 +162,20 @@ class AutoRewarderAPI:
             except Exception:
                 pass
 
-            self.log("First Setup completed! You can now start the bot.")
+            if setup_succeeded:
+                self.log("First Setup completed! You can now start the bot.")
 
-            self.mark_up_as_done()
+                self.mark_up_as_done()
 
-            self.add_to_history("First Setup Completed", "Success")
+                self.add_to_history("First Setup Completed", "Success")
 
-            if self._webview_window:
-                self._webview_window.evaluate_js("enable_start_button()")
-                self._webview_window.evaluate_js("hide_setup_button()")
+                if self._webview_window:
+                    self._webview_window.evaluate_js("enable_start_button()")
+                    self._webview_window.evaluate_js("hide_setup_button()")
+            else:
+                if self._webview_window:
+                    # Allow retry after a failed setup attempt.
+                    self._webview_window.evaluate_js("enable_setup_button()")
 
     # Function for toggle browser hidden mode and save the setting
     def set_hide_browser(self, is_hide):
@@ -177,6 +199,18 @@ class AutoRewarderAPI:
                 return json.load(file)
         except json.JSONDecodeError:
             self.log("[ERROR] History file was empty or damaged. Starting with a fresh one.")
+
+            # Keep the damaged history file as backup and start with a clean one.
+            backup_path = self.history_file + ".backup"
+
+            if os.path.exists(backup_path):
+                os.remove(backup_path)
+            
+            os.replace(self.history_file, backup_path)
+
+            with open(self.history_file, "w", encoding="utf-8") as file:
+                json.dump([], file, indent=4)
+
             return []
 
     # Save search history to temp file first and then replace the original file to avoid data corruption    
