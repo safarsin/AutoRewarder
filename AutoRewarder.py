@@ -154,7 +154,7 @@ class AutoRewarderAPI:
             else:
                 # If unexpected error, log it and add to history
                 self.log(f"[ERROR] Error during setup: {e}")
-                self.add_to_history("First Setup Failed", "Error")
+                self.add_to_history("First Setup Failed", "[ERROR] " + str(e)[:50])
 
         finally:
             try:

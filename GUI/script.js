@@ -41,8 +41,8 @@ function start_bot() {
     return;
   }
 
-  if (count > 100) {
-    alert("Please enter a number less than or equal to 100!");
+  if (count > 99) {
+    alert("Please enter a number less than or equal to 99!");
     return;
   }
   
@@ -137,6 +137,10 @@ function start_loader() {
       if (isLoading === false) {
         stop_loader();
       }
+    }).catch(error => {
+      console.error('Failed to check driver status:', error);
+      pywebview.api.log("Failed to check driver status: " + String(error));
+      stop_loader();
     });
   };
 
