@@ -25,10 +25,12 @@
         <label for="count_input">Queries:</label>
         <input type="number" id="count_input" value="30" min="1" max="99">
       </div>
+      <!-- First Setup creates/validates browser profile before regular runs. -->
       <button id="setup_btn" onclick="start_first_setup()">First Setup</button>
       <button id="start_btn" onclick="start_bot()">Start</button>
     </div>
 
+    <!-- Terminal header: quick actions (history/toggle) + live execution status. -->
     <div class="status-bar">
       <div class="log-left-section">
         <span>SYSTEM.LOG</span>
@@ -57,6 +59,7 @@
       </div>  
     </div>
       
+    <!-- Python pushes messages here via update_log(...) from script.js. -->
     <div id="log_area">Waiting for core startup...<br></div>
   </div>
 

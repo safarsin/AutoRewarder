@@ -108,6 +108,7 @@ function start_loader() {
   }
 
   let setupBtn = document.getElementById('setup_btn');
+  // Avoid running First Setup while warmup uses the same browser profile.
   if (setupBtn && isSetupDone === false) {
     setupBtn.disabled = true;
   }
@@ -132,7 +133,7 @@ function start_loader() {
     });
   };
 
-  // Check immediately and then every 700ms until the driver is loaded
+  // Check immediately, then poll until Python reports warmup completed.
   tryShowLoader();
   loaderInterval = setInterval(tryShowLoader, 500);
 }
@@ -151,6 +152,7 @@ function stop_loader() {
   }
 
   let setupBtn = document.getElementById('setup_btn');
+  // Re-enable First Setup only if setup was not completed yet.
   if (setupBtn && isSetupDone === false) {
     setupBtn.disabled = false;
   }
@@ -166,6 +168,7 @@ document.addEventListener('DOMContentLoaded', function() {
 window.addEventListener('pywebviewready', function() {
     
   pywebview.api.get_settings().then(function(settings) {
+    // Sync UI from persisted settings before user interaction.
     if (settings.first_setup_done === true) {
       hide_setup_button();
     } else {

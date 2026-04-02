@@ -108,6 +108,7 @@ button:disabled {
 }
 
 #setup_btn {
+  /* Keeps First Setup near the Start button */
   margin-left: 200px;
 }
 
@@ -265,6 +266,7 @@ transition: color 0.2s;
 }
 
 /* Thin custom scrollbar */
+/* WebKit-only (Chromium/Edge); harmlessly ignored by unsupported engines. */
 ::-webkit-scrollbar { 
   width: 8px; 
   height: 8px;

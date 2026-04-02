@@ -73,8 +73,8 @@ class AutoRewarderAPI:
 
         try:
             # Trigger Selenium Manager to download/prepare the driver
-            driver = self.setup_driver(headless=True)
-            driver.quit()
+            warmup_driver = self.setup_driver(headless=True)
+            warmup_driver.quit()
         except Exception as e:
             self.log(f"[ERROR] Error loading WebDriver: {e}")
         finally:

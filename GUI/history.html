@@ -36,7 +36,7 @@
       border-bottom: 1px solid var(--border);
     }
 
-    /* Стили таблицы */
+    /* History table layout */
     .history-table {
       width: 100%;
       border-collapse: collapse;
@@ -76,7 +76,7 @@
       font-weight: 500; 
     }
 
-    /* Thin custom scrollbar */
+    /* WebKit-only scrollbar styling (Chromium/Edge). */
     ::-webkit-scrollbar { 
       width: 8px; 
       height: 8px;
@@ -122,10 +122,10 @@
   </table>
 
   <script>
-    // "pywebviewready" works like "DOMContentLoaded", but for when the PyWebView API is ready to be used
+    // Wait until JS bridge is ready; pywebview.api is not usable before this event.
     window.addEventListener('pywebviewready', function() {
         
-      // get history from Python
+      // Fetch history from Python API and render it into table rows.
       pywebview.api.get_history().then(function(data) {
         const tbody = document.getElementById('table_body');
         tbody.innerHTML = ''; // delete loading text
