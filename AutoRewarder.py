@@ -22,6 +22,7 @@ APP_DIR = os.path.join(
 # Base paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 GUI_DIR = os.path.join(BASE_DIR, "GUI")
+ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 
 if not os.path.exists(APP_DIR):
     os.makedirs(APP_DIR)
@@ -29,7 +30,7 @@ if not os.path.exists(APP_DIR):
 EDGE_PROFILE_PATH = os.path.join(APP_DIR, "EdgeProfile")
 HISTORY_FILE_PATH = os.path.join(APP_DIR, "history.json")
 SETTINGS_FILE_PATH = os.path.join(APP_DIR, "settings.json")
-JSON_FILE_PATH = os.path.join(BASE_DIR, "queries.json")
+JSON_FILE_PATH = os.path.join(ASSETS_DIR, "queries.json")
 
 class AutoRewarderAPI:
     def __init__(self):
@@ -427,4 +428,4 @@ if __name__ == "__main__":
         #frameless=True
     )
     api.set_window(window)  # pass window reference to AutoRewarderAPI for logging
-    webview.start(icon=None) # add an icon 
+    webview.start(icon=os.path.join(ASSETS_DIR, "icon.ico")) 
