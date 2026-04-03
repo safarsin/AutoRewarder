@@ -101,8 +101,13 @@ class AutoRewarderAPI:
 
         try:
             with open(SETTINGS_FILE_PATH, "r", encoding="utf-8") as file:
-                return json.load(file)
-        except json.JSONDecodeError:
+                settings = json.load(file)
+
+                if not isinstance(settings, dict):
+                    raise ValueError("Settings file must contain a JSON object")
+
+                return settings
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
             # Preserve the damaged file for inspection, then recreate defaults.
             backup_path = SETTINGS_FILE_PATH + ".backup"
 
@@ -196,9 +201,14 @@ class AutoRewarderAPI:
         
         try:
             with open(self.history_file, "r", encoding="utf-8") as file:
-                return json.load(file)
-        except json.JSONDecodeError:
-            self.log("[ERROR] History file was empty or damaged. Starting with a fresh one.")
+                history = json.load(file)
+
+                if not isinstance(history, list):
+                    raise ValueError("History data must be a list")
+                
+                return history
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
+            self.log("[ERROR] History file was unreadable or damaged. Starting with a fresh one.")
 
             # Keep the damaged history file as backup and start with a clean one.
             backup_path = self.history_file + ".backup"

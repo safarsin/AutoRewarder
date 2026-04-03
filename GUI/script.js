@@ -139,7 +139,6 @@ function start_loader() {
       }
     }).catch(error => {
       console.error('Failed to check driver status:', error);
-      pywebview.api.log("Failed to check driver status: " + String(error));
       stop_loader();
     });
   };
