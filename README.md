@@ -134,6 +134,16 @@ history.json   # Search history (date, time, query, status)
 - Verify internet connection
 - Check that Edge is not blocked by antivirus/firewall
 
+## Roadmap
+
+- [ ] Browser choice (Chrome, Firefox support in addition to Edge)
+- [ ] Advanced scheduling (automated daily runs at specific times)
+- [ ] Statistics dashboard (points tracking, session summaries)
+- [ ] Multi-account support (manage multiple Rewards accounts)
+- [ ] Script-only version (CLI tool without GUI)
+- [ ] An intaller version (Inno Setup or similar)
+- [ ] Keyboard shortcuts
+
 ## Disclaimer
 
 Using automation against third-party services may violate their Terms of Service.
