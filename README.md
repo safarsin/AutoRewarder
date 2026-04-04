@@ -6,6 +6,8 @@ The UI is rendered with HTML/CSS/JS in a native window, while the automation log
 
 Fully portable: no installation required for end users (release build).
 
+> **For a complete user guide, see [USER_GUIDE.md](USER_GUIDE.md)**
+
 ## Screenshots
 
 | Main Window | History Window |

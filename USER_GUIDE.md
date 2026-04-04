@@ -153,8 +153,7 @@ For best results:
 
 For detailed technical troubleshooting, see the [Troubleshooting](README.md#troubleshooting) section in the main README.
 
-If your issue isn't listed, please open an issue on GitHub or [contact me](sinosafarov1919@gmail.com).
-
+If your issue isn't listed, please open an issue on GitHub or [contact me](mailto:sinosafarov1919@gmail.com).
 ---
 
 ## FAQ
