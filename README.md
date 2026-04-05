@@ -17,6 +17,10 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 ## Screenshots
 
+| Perform Searches | Driver Preparation |
+| :---: | :---: |
+|<img src="assets/screenshots/preform.gif">|<img src="assets/screenshots/warm_up.gif">|
+
 | Main Window | History Window |
 | :---: | :---: |
 | <img src="assets/screenshots/main_window.png"> | <img src="assets/screenshots/history_window.png"> |
