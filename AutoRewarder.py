@@ -1,4 +1,5 @@
 import os
+import platform
 import json
 import random
 import time
@@ -10,14 +11,26 @@ from selenium.webdriver.edge.options import Options
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException, WebDriverException
 
-# Configs 
+PLATFORM_NAME = platform.system()
+
+# Configs
 # Create a separate folder for the bot's profile to avoid conflicts with your main browser
-APP_DIR = os.path.join(
-    os.environ["USERPROFILE"],
-    "AppData", 
-    "Local", 
-    "AutoRewarder"
-)
+APP_DIR = ""
+# Get Linux app directory
+if PLATFORM_NAME == "Linux":
+    APP_DIR = os.path.expanduser("~/.local/share/AutoRewarder")
+# Get Windows app directory
+elif PLATFORM_NAME == "Windows":
+    APP_DIR = os.path.join(
+        os.environ["USERPROFILE"],
+        "AppData",
+        "Local",
+        "AutoRewarder"
+    )
+# Quit on invalid platform
+else:
+    print("Only Linux & Windows platforms are supported!")
+    quit()
 
 # Base paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -35,11 +48,11 @@ JSON_FILE_PATH = os.path.join(ASSETS_DIR, "queries.json")
 class AutoRewarderAPI:
     def __init__(self):
         self._webview_window = None # Reference to the webview window for logging
-        self.history_file = HISTORY_FILE_PATH 
+        self.history_file = HISTORY_FILE_PATH
         self._driver_loader_thread_started = False
 
         # Load settings from file or create with default values if it doesn't exist
-        settings = self.get_settings() 
+        settings = self.get_settings()
         self.hide_browser = settings.get("hide_browser", False) # Default mode is visible browser or it will run in hidden mode (headless)
 
         self.is_driver_loading = False
@@ -60,14 +73,14 @@ class AutoRewarderAPI:
         webview.create_window(
             title="Query History",
             url=os.path.join(GUI_DIR, "history.html"),
-            js_api=self,  
+            js_api=self,
             width=700,
             height=500,
             resizable=True,
             background_color='#0d1117',
             text_select=True
         )
-    
+
     # Load the WebDriver in a bg thread
     def load_driver_in_background(self):
         self.is_driver_loading = True
@@ -83,11 +96,11 @@ class AutoRewarderAPI:
 
             if hasattr(self, "_webview_window") and self._webview_window:
                 self._webview_window.evaluate_js("stop_loader()")
-    
+
     # Fun for JS to check status of the driver
     def check_driver_status(self):
         return self.is_driver_loading
-    
+
     # Get settings from settings.json or create it with default values if it doesn't exist
     def get_settings(self):
         default_settings = {
@@ -114,22 +127,22 @@ class AutoRewarderAPI:
 
             if os.path.exists(backup_path):
                 os.remove(backup_path)
-            
+
             os.replace(SETTINGS_FILE_PATH, backup_path)
 
             with open(SETTINGS_FILE_PATH, "w", encoding="utf-8") as file:
                 json.dump(default_settings, file, indent=4)
-        
+
             return default_settings
 
-    # Mark in settings that first setup is done    
+    # Mark in settings that first setup is done
     def mark_up_as_done(self):
         settings = self.get_settings()
         settings["first_setup_done"] = True
 
         with open(SETTINGS_FILE_PATH, "w", encoding="utf-8") as file:
             json.dump(settings, file, indent=4)
-    
+
     # First setup function to let user log in to their Microsoft account and prepare the Edge profile for the bot
     def first_setup(self):
         self.log("Starting First Setup... Please log in to your Microsoft account.")
@@ -199,14 +212,14 @@ class AutoRewarderAPI:
     def get_history(self):
         if not os.path.exists(self.history_file) or os.path.getsize(self.history_file) == 0:
             return []
-        
+
         try:
             with open(self.history_file, "r", encoding="utf-8") as file:
                 history = json.load(file)
 
                 if not isinstance(history, list):
                     raise ValueError("History data must be a list")
-                
+
                 return history
         except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
             self.log("[ERROR] History file was unreadable or damaged. Starting with a fresh one.")
@@ -216,7 +229,7 @@ class AutoRewarderAPI:
 
             if os.path.exists(backup_path):
                 os.remove(backup_path)
-            
+
             os.replace(self.history_file, backup_path)
 
             with open(self.history_file, "w", encoding="utf-8") as file:
@@ -224,16 +237,16 @@ class AutoRewarderAPI:
 
             return []
 
-    # Save search history to temp file first and then replace the original file to avoid data corruption    
+    # Save search history to temp file first and then replace the original file to avoid data corruption
     def save_history(self, history_list):
         temp_file = self.history_file + ".tmp"
 
         with open(temp_file, "w", encoding="utf-8") as file:
             json.dump(history_list, file, indent=4)
-        
+
         # Replace the original file with the updated one
         os.replace(temp_file, self.history_file)
-    
+
     # Add a search query to history JSON file
     def add_to_history(self, query_text, status):
         now = datetime.now()
@@ -244,12 +257,12 @@ class AutoRewarderAPI:
         new_record = {
             "date": current_date,
             "time": current_time,
-            "query": query_text, 
+            "query": query_text,
             "status": status
         }
 
         history_list = self.get_history()
-        
+
         history_list.append(new_record)
 
         self.save_history(history_list)
@@ -269,13 +282,13 @@ class AutoRewarderAPI:
             with open(filepath, "r", encoding="utf-8") as file:
                 data = json.load(file)
                 all_queries = data.get("queries", [])
-                
+
                 if len(all_queries) < num_needed:
                     self.log(f"[WARNING] In the JSON file, there are only {len(all_queries)} queries available, but {num_needed} are needed.")
                     return all_queries
-                
+
                 return random.sample(all_queries, num_needed)
-            
+
         except FileNotFoundError:
             self.log(f"[ERROR] File {filepath} not found!")
             self.add_to_history("N/A", f"[ERROR] File {filepath} not found")
@@ -299,13 +312,13 @@ class AutoRewarderAPI:
         options.add_argument("--disable-blink-features=AutomationControlled") # Hide automation
         options.add_argument("--no-default-browser-check")  # Don't check if Edge is default
         options.add_experimental_option("excludeSwitches", ["enable-automation"]) # Remove "Browser is being controlled by automated test software" infobar
-        
+
         if headless:
             # Run in headless mode (invisible)
             options.add_argument("--headless=new")
             options.add_argument("--window-size=1920,1080")
             options.add_argument("--disable-gpu")  # Disable GPU for headless mode
-        
+
         # Automatic driver dowload and setup
         _driver = webdriver.Edge(options=options)
         return _driver
@@ -319,7 +332,7 @@ class AutoRewarderAPI:
                 time.sleep(random.uniform(4, 8))  # Random delay to mimic human behavior
 
                 # Longer break every 5 searches to mimic human behavior and avoid detection
-                if i % 5 == 0 and i != 0: 
+                if i % 5 == 0 and i != 0:
                     self.log("Taking a short break to mimic human behavior...")
                     time.sleep(random.uniform(15, 25))
 
@@ -342,11 +355,11 @@ class AutoRewarderAPI:
                     let currentScroll = 0;
                     let maxScroll = document.body.scrollHeight / 2;
                     let step = 40;
-                    
+
                     let scrollInterval = setInterval(() => {
                         window.scrollBy(0, step);
                         currentScroll += step;
-                        
+
                         if (currentScroll >= maxScroll) {
                             clearInterval(scrollInterval);
                         }
@@ -361,7 +374,7 @@ class AutoRewarderAPI:
 
                 # Add to history.json
                 self.add_to_history(query, "Success")
-                
+
             except NoSuchElementException:
                 self.log(f"[ERROR] Search box not found on attempt #{i+1}")
                 self.add_to_history(query, "[ERROR] Search box not found")
@@ -388,10 +401,10 @@ class AutoRewarderAPI:
     # Main function to run the bot
     def main(self, count):
         self.log("Starting AutoRewarder (Edge Edition)...")
-        
+
         # 1. Get queries to search from JSON file
         queries_to_search = self.load_queries_from_json(JSON_FILE_PATH, num_needed=count)
-        
+
         if not queries_to_search:
             self.log("No queries available for search. Exiting...")
             self.add_to_history("N/A", "[ERROR] No queries available for search")
@@ -407,7 +420,7 @@ class AutoRewarderAPI:
                 self._driver.quit()
             except Exception as e:
                 self.log(f"[WARNING] Error closing driver: {e}")
-            
+
             time.sleep(0.5)  # pause for clean shutdown
 
             self.log("Done!")
@@ -428,4 +441,4 @@ if __name__ == "__main__":
         #frameless=True
     )
     api.set_window(window)  # pass window reference to AutoRewarderAPI for logging
-    webview.start(icon=os.path.join(ASSETS_DIR, "icon.ico")) 
+    webview.start(icon=os.path.join(ASSETS_DIR, "icon.ico"))

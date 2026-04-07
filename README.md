@@ -37,7 +37,7 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 ## System Requirements
 
-- **OS**: Windows 10 or later
+- **OS**: Windows 10 or later (can also work on Linux but it is not downloadable as an executable)
 - **Browser**: Microsoft Edge (driver managed by Selenium Manager)
 - **.NET Framework**: 4.8 or higher (automatically checked by installer)
 - **RAM**: Minimum 512 MB (1 GB recommended)
