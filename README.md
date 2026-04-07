@@ -1,10 +1,5 @@
 # AutoRewarder
 
-<p align="center">
-  <img src="https://img.shields.io/badge/version-v2.0-blue" alt="Version">
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-</p>
-
 A desktop automation app for Microsoft Rewards that performs Bing searches with human-like behavior.
 Built with Python, pywebview, and selenium.
 The UI is rendered with HTML/CSS/JS in a native window, while the automation logic is handled in Python.
