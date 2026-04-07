@@ -168,6 +168,7 @@ history.json   # Search history (date, time, query, status)
 - [ ] Script-only version (CLI tool without GUI)
 - [x] Windows installer with dependency checking (Inno Setup)
 - [ ] Action Chains Selenium
+- [ ] Daily Sets (including the new "claim" per day)
 - [ ] Keyboard shortcuts
 - [ ] UI themes (dark/light mode)
 
