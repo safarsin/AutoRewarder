@@ -72,7 +72,7 @@ class AutoRewarderAPI:
     
     def run_update_check(self):
         try:
-            needs_update, latest_version = check_for_updates()
+            needs_update, latest_version = check_for_updates(logger=self.log)
         except Exception as e:
             self.log(f"[ERROR] Error checking for updates: {e}")
             return
