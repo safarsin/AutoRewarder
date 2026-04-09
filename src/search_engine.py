@@ -64,20 +64,29 @@ class SearchEngine:
                 # Wait for result to load
                 time.sleep(random.uniform(2, 4))
 
+                # Generate random scroll divisor with probability
+                # 70% of the time: scroll small portion (2-10 = 10% to 50%)
+                # 30% of the time: scroll to end or near end (1-1.5 = 67% to 100%)
+                # Based on studies showing users typically scroll 10-30% of a page
+                if random.random() < 0.7:
+                    random_scroll_divisor = random.uniform(2, 10)
+                else:
+                    random_scroll_divisor = random.uniform(1, 1.5)
+
                 # JS script for smooth scroll down to mimic human behavior
-                smooth_scroll_script = """
+                smooth_scroll_script = f"""
                     let currentScroll = 0;
-                    let maxScroll = document.body.scrollHeight / 2;
+                    let maxScroll = document.body.scrollHeight / {random_scroll_divisor};
                     let step = 40;
 
-                    let scrollInterval = setInterval(() => {
+                    let scrollInterval = setInterval(() => {{
                         window.scrollBy(0, step);
                         currentScroll += step;
 
-                        if (currentScroll >= maxScroll) {
+                        if (currentScroll >= maxScroll) {{
                             clearInterval(scrollInterval);
-                        }
-                    }, 50);
+                        }}
+                    }}, 50);
                 """
 
                 # Execute the smooth scroll script
