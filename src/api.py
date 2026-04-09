@@ -15,7 +15,7 @@ from .settings_manager import SettingsManager
 class AutoRewarderAPI:
     def __init__(self):
         self.driver_manager = DriverManager()
-        self.history = HistoryManager()
+        self.history = HistoryManager(logger=self.log)
         self.search_engine = SearchEngine(logger=self.log, history=self.history)
 
         self.settings_manager = SettingsManager()
