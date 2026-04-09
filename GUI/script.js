@@ -64,10 +64,10 @@ function start_bot() {
 function clear_log(str) {
   return String(str)
     .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+    // .replace(/</g, '&lt;')
+    // .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    // .replace(/'/g, '&#39;');
 }
 
 // Called from Python to update the logs in the terminal
