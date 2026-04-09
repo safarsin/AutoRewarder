@@ -1,0 +1,187 @@
+import os
+import time
+import json
+import threading
+import webview
+
+from .config import *
+from .driver_manager import DriverManager
+from .history import HistoryManager
+from .search_engine import SearchEngine
+from .utils import human_typing
+from .settings_manager import SettingsManager
+
+class AutoRewarderAPI:
+    def __init__(self):
+        self.driver_manager = DriverManager()
+        self.history = HistoryManager()
+        self.search_engine = SearchEngine(logger=self.log, history=self.history)
+
+        self.settings_manager = SettingsManager()
+
+        self._webview_window = None
+        self._driver_loader_thread_started = False
+        self._driver = None
+
+        # Load settings from file or create with default values if it doesn't exist
+        settings = self.get_settings()
+        # Default mode is visible browser or it will run in hidden mode (headless)
+        self.hide_browser = settings.get("hide_browser", False)
+        self.driver_manager.hide_browser = bool(self.hide_browser)
+
+        self.is_driver_loading = False
+
+    def set_window(self, window):
+        # store reference to webview window so Python can call JS (evaluate_js)
+        self._webview_window = window
+
+        """ 
+        Loading the driver in a bg thread to avoid UI freezing
+        This is especially important during the first start or when Edge updates are released
+        (every 1-2 weeks), because downloading a new driver can take some time.
+        """
+        if not self._driver_loader_thread_started:
+            self._driver_loader_thread_started = True
+            threading.Thread(target=self.load_driver_in_background, daemon=True).start()
+
+    # Open a new window to show search history
+    def open_history_window(self):
+        webview.create_window(
+            title="Query History",
+            url=os.path.join(GUI_DIR, "history.html"),
+            js_api=self,
+            width=700,
+            height=500,
+            resizable=True,
+            background_color='#0d1117',
+            text_select=True
+        )
+
+    # Load the WebDriver in a bg thread
+    def load_driver_in_background(self):
+        self.is_driver_loading = True
+
+        try:
+            # Trigger Selenium Manager to download/prepare the driver
+            warmup_driver = self.driver_manager.setup_driver(headless=True)
+            warmup_driver.quit()
+        except Exception as e:
+            self.log(f"[ERROR] Error loading WebDriver: {e}")
+        finally:
+            self.is_driver_loading = False
+
+            if hasattr(self, "_webview_window") and self._webview_window:
+                self._webview_window.evaluate_js("stop_loader()")
+
+    # Fun for JS to check status of the driver
+    def check_driver_status(self):
+        return self.is_driver_loading
+
+    # Get settings from settings.json or create it with default values if it doesn't exist
+    def get_settings(self):
+        return self.settings_manager.get_settings()
+    
+    # Load search history from JSON file
+    def get_history(self):
+        return self.history.get_history()
+
+    # First setup function to let user log in to their Microsoft account and prepare the Edge profile for the bot
+    def first_setup(self):
+        self.log("Starting First Setup... Please log in to your Microsoft account.")
+
+        setup_driver = self.driver_manager.setup_driver(headless=False)  # Open browser in normal mode for login
+        # Used to avoid false "completed" state when finally executes after a failure.
+        setup_succeeded = False
+
+        try:
+            self.log("Opening Bing page...")
+            self.log(f"""Log in directly on the Bing page.
+            IMPORTANT: Do NOT sync the Edge profile!
+            Just log in and close the browser when done.""")
+            time.sleep(4)
+            setup_driver.get("https://www.bing.com")
+            self.log("Waiting for you to log in...\nClose the browser window when done!")
+
+            while len(setup_driver.window_handles) > 0:
+                time.sleep(1)
+
+            setup_succeeded = True
+
+        except Exception as e:
+            error_msg = str(e).lower()
+
+            if "target window already closed" in error_msg or "disconnected" in error_msg or "not reachable" in error_msg:
+                setup_succeeded = True
+            else:
+                # If unexpected error, log it and add to history
+                self.log(f"[ERROR] Error during setup: {e}")
+                self.history.add_to_history("First Setup Failed", "[ERROR] " + str(e)[:50])
+
+        finally:
+            try:
+                setup_driver.quit()
+            except Exception:
+                pass
+
+            if setup_succeeded:
+                self.log("First Setup completed! You can now start the bot.")
+
+                self.settings_manager.mark_up_as_done()
+
+                self.history.add_to_history("First Setup Completed", "Success")
+
+                if self._webview_window:
+                    self._webview_window.evaluate_js("enable_start_button()")
+                    self._webview_window.evaluate_js("hide_setup_button()")
+            else:
+                if self._webview_window:
+                    # Allow retry after a failed setup attempt.
+                    self._webview_window.evaluate_js("enable_setup_button()")
+
+    # Function for toggle browser hidden mode and save the setting
+    def set_hide_browser(self, is_hide):
+        self.hide_browser = is_hide
+        self.driver_manager.hide_browser = bool(is_hide)
+
+        self.settings_manager.set_hide_browser(is_hide)
+
+        self.log(f"Browser hidden mode: {'ON' if is_hide else 'OFF'}")
+
+    # Send message to UI log area
+    def log(self, message):
+        if self._webview_window:
+            try:
+                safe_message = json.dumps(message)
+                self._webview_window.evaluate_js(f"update_log({safe_message})")
+            except Exception as e:
+                print(f"Log error: {e}")
+
+    # Main function to run the bot
+    def main(self, count):
+        self.log("Starting AutoRewarder (Edge Edition)...")
+
+        # 1. Get queries to search from JSON file
+        queries_to_search = self.search_engine.load_queries_from_json(JSON_FILE_PATH, num_needed=count)
+
+        if not queries_to_search:
+            self.log("No queries available for search. Exiting...")
+            self.history.add_to_history("N/A", "[ERROR] No queries available for search")
+            return
+
+        # 2. Setup browser
+        self._driver = self.driver_manager.setup_driver()
+        try:
+            # 3. Perform searches
+            self.search_engine.perform_searches(self._driver, queries_to_search)
+        finally:
+            try:
+                self._driver.quit()
+            except Exception as e:
+                self.log(f"[WARNING] Error closing driver: {e}")
+
+            time.sleep(0.5)  # pause for clean shutdown
+
+            self.log("Done!")
+            # Re-enable button after finish
+            if self._webview_window:
+                self._webview_window.evaluate_js("enable_start_button()")
