@@ -190,3 +190,9 @@ You are responsible for your own usage.
 ## Contact
 
 Open an issue for bugs, ideas, or questions.
+
+## Support
+
+If you found this tool helpful and would like to support my work, you can buy me a coffee here:
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/safarsin)
