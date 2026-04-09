@@ -117,6 +117,16 @@ AutoRewarder/
 │   ├── icon.ico          # App icon
 │   ├── queries.json      # Queries list (3428 unique queries)
 │   └── screenshots/      # Screenshots and GIFs for documentation
+├── src/
+│   ├── __init__.py       # Python package initialization
+│   ├── api.py            # Centralizes all main operations (bridge API exposed to JS)        
+│   ├── config.py         # Configuration constants/platform and file paths
+│   ├── driver_manager.py # WebDriver setup and management
+│   ├── history.py        # Manages search history storage and retrieval
+│   ├── search_engine.py  # Handles search logic and interactions
+│   ├── settings_manager.py # Manages user settings storage and retrieval
+│   └── utils.py          # Utility functions(human-typing, update checks)
+│ 
 ├── AutoRewarder.py       # Python backend and webview window
 ├── AutoRewarder.spec     # PyInstaller build spec
 ├── AutoRewarder.iss      # Inno Setup installer script
