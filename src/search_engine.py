@@ -4,7 +4,6 @@ import time
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException, WebDriverException
 
-from .config import JSON_FILE_PATH
 from .utils import human_typing
 
 class SearchEngine:

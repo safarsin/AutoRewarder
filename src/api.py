@@ -86,11 +86,15 @@ class AutoRewarderAPI:
         url = f"https://github.com/{REPO}/releases/latest"
         msg = (
             f"Update available: {latest_version} (current {CURRENT_VERSION}).\n"
-            f"Link added to the log area. Please download the latest version for better performance and to avoid potential issues due to Microsoft updates."
+            f"Link added to the log area. "
+            f"Please download the latest version for better performance and "
+            f"to avoid potential issues due to Microsoft updates."
         )
 
         # A clickable link in the log area (pywebview)
-        self.log(f"New version {latest_version} available: <a href='#' onclick='window.pywebview.api.open_link(\"{url}\")'>Click here to download</a>")
+        link_html = f"<a href='#' onclick='window.pywebview.api.open_link(\"{url}\")'>Click here to download</a>"
+        
+        self.log(f"New version {latest_version} available: {link_html}")
 
         try:
             self._webview_window.evaluate_js(f"alert({json.dumps(msg)})")
