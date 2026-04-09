@@ -37,18 +37,47 @@ class SearchEngine:
             self.add_to_history("N/A", f"[ERROR] File {filepath} not found")
             return []
         
+    def get_coffee_break_interval(self):
+        # 80% of the time, take a break after 4-9 searches
+        if random.random() < 0.8:
+            return random.randint(4, 9)
+        # 20% of the time, take a break after 10-15 searches
+        else:
+            return random.randint(10, 15)
+        
     # Perform searches with human-like behavior and log results
     def perform_searches(self, driver, queries):
+
+        next_coffee_break = self.get_coffee_break_interval()
+        searches_since_break = 0
+
+        self.log(f"Loaded {len(queries)} queries. Starting searches...")
+        self.log(f"Next coffee break after {next_coffee_break} searches.")
+
         for i, query in enumerate(queries):
             try:
                 # Open Bing homepage
                 driver.get("https://www.bing.com")
                 time.sleep(random.uniform(4, 8))  # Random delay to mimic human behavior
 
-                # Longer break every 5 searches to mimic human behavior and avoid detection
-                if i % 5 == 0 and i != 0:
-                    self.log("Taking a short break to mimic human behavior...")
-                    time.sleep(random.uniform(15, 25))
+                searches_since_break += 1
+
+                # Longer break every few searches to mimic human behavior
+                if searches_since_break >= next_coffee_break:
+
+                    if next_coffee_break > 9:
+                        pause_duration = random.uniform(45, 90)
+                        self.log(f"Taking a big coffee break...")
+                    else:
+                        pause_duration = random.uniform(15, 30)
+                        self.log(f"Taking a quick coffee break...")
+                    
+                    self.log(f"Sleeping for {pause_duration:.2f} seconds to mimic a coffee break.")
+                    time.sleep(pause_duration)
+
+                    next_coffee_break = self.get_coffee_break_interval()
+                    searches_since_break = 0
+                    self.log(f"Next coffee break after {next_coffee_break} searches.")
 
                 # Find the search box, clear it
                 search_box = driver.find_element("name", "q")
