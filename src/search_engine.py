@@ -77,16 +77,24 @@ class SearchEngine:
                 smooth_scroll_script = f"""
                     let currentScroll = 0;
                     let maxScroll = document.body.scrollHeight / {random_scroll_divisor};
-                    let step = 40;
 
-                    let scrollInterval = setInterval(() => {{
-                        window.scrollBy(0, step);
-                        currentScroll += step;
+                    function humanScroll() {{
+                        // Random step between 30 and 70 pixels (Math.random() * (max - min + 1)) + min)
+                        let randomStep = Math.floor(Math.random() * (70 - 10 + 1)) + 10;
 
-                        if (currentScroll >= maxScroll) {{
-                            clearInterval(scrollInterval);
+                        // Random delay between 30 and 120 milliseconds (Math.random() * (max - min + 1)) + min)
+                        let randomDelay = Math.floor(Math.random() * (120 - 30 + 1)) + 30;
+
+                        window.scrollBy(0, randomStep);
+                        currentScroll += randomStep;
+
+                        if (currentScroll < maxScroll) {{
+                            setTimeout(humanScroll, randomDelay);
                         }}
-                    }}, 50);
+                    }}
+
+                    // Start the human-like scrolling
+                    setTimeout(humanScroll, 50);
                 """
 
                 # Execute the smooth scroll script
