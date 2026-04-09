@@ -1,6 +1,9 @@
 import os
 import platform
 
+CURRENT_VERSION = "v2.0"
+REPO = "safarsin/AutoRewarder"
+
 PLATFORM_NAME = platform.system()
 
 # Configs
@@ -20,7 +23,7 @@ elif PLATFORM_NAME == "Windows":
         "Local",
         "AutoRewarder"
     )
-    
+
 # Quit on invalid platform
 else:
     raise OSError(f"Unsupported platform: {PLATFORM_NAME}")

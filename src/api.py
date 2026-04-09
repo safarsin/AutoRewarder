@@ -2,13 +2,14 @@ import os
 import time
 import json
 import threading
+import webbrowser
 import webview
 
 from .config import *
 from .driver_manager import DriverManager
 from .history import HistoryManager
 from .search_engine import SearchEngine
-from .utils import human_typing
+from .utils import check_for_updates
 from .settings_manager import SettingsManager
 
 class AutoRewarderAPI:
@@ -21,6 +22,7 @@ class AutoRewarderAPI:
 
         self._webview_window = None
         self._driver_loader_thread_started = False
+        self._update_check_started = False
         self._driver = None
 
         # Load settings from file or create with default values if it doesn't exist
@@ -34,6 +36,8 @@ class AutoRewarderAPI:
     def set_window(self, window):
         # store reference to webview window so Python can call JS (evaluate_js)
         self._webview_window = window
+
+        self.start_update_check()
 
         """ 
         Loading the driver in a bg thread to avoid UI freezing
@@ -56,6 +60,46 @@ class AutoRewarderAPI:
             background_color='#0d1117',
             text_select=True
         )
+    
+    def start_update_check(self):
+        if self._update_check_started:
+            return
+        
+        self._update_check_started = True
+
+        # Check for updates in a bg thread to avoid blocking the UI
+        threading.Thread(target=self.run_update_check, daemon=True).start()
+    
+    def run_update_check(self):
+        try:
+            needs_update, latest_version = check_for_updates()
+        except Exception as e:
+            self.log(f"[ERROR] Error checking for updates: {e}")
+            return
+        
+        if not needs_update or not latest_version:
+            return
+        
+        if not self._webview_window:
+            return
+        
+        url = f"https://github.com/{REPO}/releases/latest"
+        msg = (
+            f"Update available: {latest_version} (current {CURRENT_VERSION}).\n"
+            f"Link added to the log area. Please download the latest version for better performance and to avoid potential issues due to Microsoft updates."
+        )
+
+        # A clickable link in the log area (pywebview)
+        self.log(f"New version {latest_version} available: <a href='#' onclick='window.pywebview.api.open_link(\"{url}\")'>Click here to download</a>")
+
+        try:
+            self._webview_window.evaluate_js(f"alert({json.dumps(msg)})")
+        except Exception as e:
+            self.log(f"[ERROR] Error displaying update alert: {e}")
+            return
+    
+    def open_link(self, url):
+        webbrowser.open(url)
 
     # Load the WebDriver in a bg thread
     def load_driver_in_background(self):
