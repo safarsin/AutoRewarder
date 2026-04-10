@@ -99,8 +99,8 @@ class SearchEngine:
 
                 tabs_config = [
                     {"name": "All", "priority": 0, "id": None},
-                    {"name": "Images", "priority": 80, "id": "b-scopeListItem-images"},
-                    {"name": "Videos", "priority": 10, "id": "b-scopeListItem-videos"},
+                    {"name": "Images", "priority": 0, "id": "b-scopeListItem-images"},
+                    {"name": "Videos", "priority": 90, "id": "b-scopeListItem-video"},
                     {"name": "News", "priority": 10, "id": "b-scopeListItem-news"}
                 ]
 
