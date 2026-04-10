@@ -1,6 +1,7 @@
 import random
 import time
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
 
 class HumanBehavior:
     def __init__(self, driver, show_cursor=True):
@@ -24,7 +25,7 @@ class HumanBehavior:
             cursor.style.width = '12px';
             cursor.style.height = '12px';
             cursor.style.background = '{color}';
-            cursor.style.position = 'absolute';
+            cursor.style.position = 'fixed';
             cursor.style.borderRadius = '50%';
             cursor.style.zIndex = '9999999';
             cursor.style.pointerEvents = 'none'; // Allow clicks to pass through
@@ -41,6 +42,19 @@ class HumanBehavior:
     def _ease_in_out(self, t):
         """Ease in-out function for smoother mouse movement (smoothstep)"""
         return t * t * (3 - 2 * t)
+
+    def _get_viewport_size(self):
+        """Return viewport size (width, height) for coordinate clamping"""
+        width, height = self.driver.execute_script(
+            "return [window.innerWidth, window.innerHeight];"
+        )
+        return int(width), int(height)
+
+    def _clamp_point(self, x, y, width, height):
+        """Clamp a point to the viewport bounds"""
+        clamped_x = max(0, min(x, width - 1))
+        clamped_y = max(0, min(y, height - 1))
+        return clamped_x, clamped_y
     
     def scroll_page(self):
         """
@@ -87,18 +101,37 @@ class HumanBehavior:
     def move_to_element(self, element, steps=None):
         """Move mouse to the given element in a human-like manner"""
         start_x, start_y = self.last_mouse_position
-        location = element.location_once_scrolled_into_view
-        size = element.size
+        viewport_width, viewport_height = self._get_viewport_size()
+        start_x, start_y = self._clamp_point(
+            start_x, start_y, viewport_width, viewport_height
+        )
+        self.last_mouse_position = [start_x, start_y]
+
+        rect_left, rect_top, rect_width, rect_height = self.driver.execute_script(
+            """
+            const rect = document.documentElement.getBoundingClientRect();
+            return [rect.left, rect.top, rect.width, rect.height];
+            """
+        )
+        rect_width = max(1, int(rect_width))
+        rect_height = max(1, int(rect_height))
+        html = self.driver.find_element(By.TAG_NAME, "html")
 
         # Move to the center of the element with some random offset
-        target_x = location['x'] + random.randint(5, size['width'] - 5)
-        target_y = location['y'] + random.randint(5, size['height'] - 5)
+        max_offset_x = max(1, rect_width - 5)
+        max_offset_y = max(1, rect_height - 5)
+        target_x = rect_left + random.randint(1, max_offset_x)
+        target_y = rect_top + random.randint(1, max_offset_y)
 
         # Sometimes make a "miss"
         miss = random.random() < 0.2
         if miss:
             target_x += random.randint(-30, 30)
             target_y += random.randint(-30, 30)
+
+        target_x, target_y = self._clamp_point(
+            target_x, target_y, viewport_width, viewport_height
+        )
 
         # Control point (for Bezier curve)
         control_x = (start_x + target_x) / 2 + random.randint(-150, 150)
@@ -122,13 +155,19 @@ class HumanBehavior:
             curr_x += random.randint(-2, 2)
             curr_y += random.randint(-2, 2)
 
+            curr_x, curr_y = self._clamp_point(
+                curr_x, curr_y, viewport_width, viewport_height
+            )
+
             delta_x = curr_x - last_x
             delta_y = curr_y - last_y
 
-            # Move the mouse by the delta using ActionChains
+            # Move the mouse to an absolute point within the viewport
             if delta_x != 0 or delta_y != 0:
+                offset_x = max(0, min(curr_x - rect_left, rect_width - 1))
+                offset_y = max(0, min(curr_y - rect_top, rect_height - 1))
                 actions = ActionChains(self.driver)
-                actions.move_by_offset(delta_x, delta_y).perform()
+                actions.move_to_element_with_offset(html, offset_x, offset_y).perform()
             
             # Draw debug cursor at the current position
             self._draw_debug_cursor(curr_x, curr_y)
@@ -158,9 +197,16 @@ class HumanBehavior:
         for _ in range(random.randint(1, 3)):
             delta_x = random.randint(-2, 2)
             delta_y = random.randint(-2, 2)
-            ActionChains(self.driver).move_by_offset(delta_x, delta_y).perform()
             last_x += delta_x
             last_y += delta_y
+            last_x, last_y = self._clamp_point(
+                last_x, last_y, viewport_width, viewport_height
+            )
+            offset_x = max(0, min(last_x - rect_left, rect_width - 1))
+            offset_y = max(0, min(last_y - rect_top, rect_height - 1))
+            ActionChains(self.driver).move_to_element_with_offset(
+                html, offset_x, offset_y
+            ).perform()
             self._draw_debug_cursor(last_x, last_y)
             time.sleep(random.uniform(0.01, 0.03))
 

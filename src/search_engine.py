@@ -98,14 +98,28 @@ class SearchEngine:
                 time.sleep(random.uniform(2, 4))
 
                 tabs_config = [
-                    {"name": "All", "priority": 70, "href": None},
-                    {"name": "Images", "priority": 10, "href": "/images/search"},
-                    {"name": "Videos", "priority": 10, "href": "/videos/search"},
-                    {"name": "News", "priority": 10, "href": "/news/search"}
+                    {"name": "All", "priority": 0, "id": None},
+                    {"name": "Images", "priority": 80, "id": "b-scopeListItem-images"},
+                    {"name": "Videos", "priority": 10, "id": "b-scopeListItem-videos"},
+                    {"name": "News", "priority": 10, "id": "b-scopeListItem-news"}
                 ]
 
                 weights = [tab["priority"] for tab in tabs_config]
                 chosen_tab = random.choices(tabs_config, weights=weights, k=1)[0]
+
+                if chosen_tab["name"] != "All":
+                    self.log(f"Chosen behavior: Switch to {chosen_tab['name']}")
+                    try:
+                        # Find the tab element using its id
+                        xpath = f"//li[@id='{chosen_tab['id']}']//a"
+                        tab_element = driver.find_element(By.XPATH, xpath)
+
+                        # Move mouse and click the tab
+                        human.click_element(tab_element)
+                        time.sleep(random.uniform(3, 6))
+
+                    except NoSuchElementException:
+                        self.log(f"[WARNING] Tab {chosen_tab['name']} not found. Staying on 'All'.")
 
                 # Scroll the page to mimic human behavior
                 human.scroll_page()  
