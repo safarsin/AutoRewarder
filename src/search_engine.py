@@ -97,6 +97,16 @@ class SearchEngine:
                 # Wait for result to load
                 time.sleep(random.uniform(2, 4))
 
+                tabs_config = [
+                    {"name": "All", "priority": 70, "href": None},
+                    {"name": "Images", "priority": 10, "href": "/images/search"},
+                    {"name": "Videos", "priority": 10, "href": "/videos/search"},
+                    {"name": "News", "priority": 10, "href": "/news/search"}
+                ]
+
+                weights = [tab["priority"] for tab in tabs_config]
+                chosen_tab = random.choices(tabs_config, weights=weights, k=1)[0]
+
                 # Scroll the page to mimic human behavior
                 human.scroll_page()  
 
