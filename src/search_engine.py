@@ -5,6 +5,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException, WebDriverException
 
 from .utils import human_typing
+from .human_behavior import HumanBehavior
 
 class SearchEngine:
     def __init__(self, logger=None, history=None):
@@ -47,6 +48,8 @@ class SearchEngine:
         
     # Perform searches with human-like behavior and log results
     def perform_searches(self, driver, queries):
+
+        human = HumanBehavior(driver)
 
         next_coffee_break = self.get_coffee_break_count()
         searches_since_break = 0
@@ -93,44 +96,8 @@ class SearchEngine:
                 # Wait for result to load
                 time.sleep(random.uniform(2, 4))
 
-                # Generate random scroll divisor with probability
-                # 70% of the time: scroll small portion (2-10 = 10% to 50%)
-                # 30% of the time: scroll to end or near end (1-1.5 = 67% to 100%)
-                # Based on studies showing users typically scroll 10-30% of a page
-                if random.random() < 0.7:
-                    random_scroll_divisor = random.uniform(2, 10)
-                else:
-                    random_scroll_divisor = random.uniform(1, 1.5)
-
-                # JS script for smooth scroll down to mimic human behavior
-                smooth_scroll_script = f"""
-                    let currentScroll = 0;
-                    let maxScroll = document.body.scrollHeight / {random_scroll_divisor};
-
-                    function humanScroll() {{
-                        // Random step between 30 and 70 pixels (Math.random() * (max - min + 1)) + min)
-                        let randomStep = Math.floor(Math.random() * (70 - 10 + 1)) + 10;
-
-                        // Random delay between 30 and 120 milliseconds (Math.random() * (max - min + 1)) + min)
-                        let randomDelay = Math.floor(Math.random() * (120 - 30 + 1)) + 30;
-
-                        window.scrollBy(0, randomStep);
-                        currentScroll += randomStep;
-
-                        if (currentScroll < maxScroll) {{
-                            setTimeout(humanScroll, randomDelay);
-                        }}
-                    }}
-
-                    // Start the human-like scrolling
-                    setTimeout(humanScroll, 50);
-                """
-
-                # Execute the smooth scroll script
-                driver.execute_script(smooth_scroll_script)
-
-                # Wait a bit after scrolling
-                time.sleep(random.uniform(5, 10))
+                # Scroll the page to mimic human behavior
+                human.scroll_page()  
 
                 # Add to history.json
                 self.add_to_history(query, "Success")
