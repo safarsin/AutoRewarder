@@ -11,15 +11,30 @@ def human_typing(element, text):
         time.sleep(random.uniform(0.05, 0.18))
 
 # Check if update is required
-def check_for_updates():
+def check_for_updates(logger=None):
     try:
+        headers = {
+            "User-Agent": "AutoRewarder-App"
+            }
+
         response = requests.get(
             f"https://api.github.com/repos/{REPO}/releases/latest",
+            headers=headers,
             timeout=5
         )
         if response.status_code == 200:
-            latest = response.json()['tag_name']
-            return latest != CURRENT_VERSION, latest
-    except Exception:
-        pass
+            latest = response.json().get("tag_name")
+            if latest:
+                return latest != CURRENT_VERSION, latest
+        elif response.status_code == 403 or response.status_code == 429:
+            if logger:
+                logger("[WARNING] GitHub API rate limit exceeded. Can't check for updates.")
+
+    except requests.exceptions.RequestException as e:
+        if logger:
+            logger(f"[WARNING] Network error while checking for updates: {e}")
+    except Exception as e:
+        if logger:
+            logger(f"[ERROR] Unexpected error while checking for updates: {e}")
+
     return False, None

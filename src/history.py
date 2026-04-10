@@ -5,9 +5,14 @@ from datetime import datetime
 from .config import HISTORY_FILE_PATH, SETTINGS_FILE_PATH
 
 class HistoryManager:
-    def __init__(self):
+    def __init__(self, logger=None):
         self.history_file = HISTORY_FILE_PATH
         self.settings_file = SETTINGS_FILE_PATH
+        self._logger = logger
+
+    def log(self, message):
+        if self._logger:
+            self._logger(message)
 
     def get_history(self):
         if not os.path.exists(self.history_file) or os.path.getsize(self.history_file) == 0:

@@ -28,12 +28,13 @@ class DriverManager:
         _driver = webdriver.Edge(options=options)
         return _driver
 
-    """ 
-    Close running Edge processes to avoid conflicts with the Selenium profile
-    Optional, because the new bot uses a separate profile to avoid conflicts, so it should work even if the main Edge browser is open.
-    But can be useful if users have issues with the bot not working due to conflicts with their main Edge browser 
-    """
     def close_running_edge(self):
+        """ 
+        Close running Edge processes to avoid conflicts with the Selenium profile.
+        Optional, because the new bot uses a separate profile to avoid conflicts, so it should work even if the main Edge browser is open.
+        But can be useful if users have issues with the bot not working due to conflicts with their main Edge browser. 
+        """
+
         # Close running Edge processes to avoid conflicts with the Selenium profile
         # os.system("taskkill /f /im msedge.exe >nul 2>&1")
         # os.system("taskkill /f /im msedgedriver.exe >nul 2>&1")
