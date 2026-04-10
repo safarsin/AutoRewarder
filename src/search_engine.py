@@ -3,6 +3,7 @@ import random
 import time
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException, WebDriverException
+from selenium.webdriver.common.by import By
 
 from .utils import human_typing
 from .human_behavior import HumanBehavior
@@ -83,7 +84,7 @@ class SearchEngine:
                     self.log(f"Next coffee break after {next_coffee_break} searches.")
 
                 # Find the search box, clear it
-                search_box = driver.find_element("name", "q")
+                search_box = driver.find_element(By.NAME, "q")
                 search_box.clear()
 
                 # Log the search query in log area
