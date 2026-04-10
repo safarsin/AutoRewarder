@@ -34,16 +34,22 @@ class AutoRewarderAPI:
         self.is_driver_loading = False
 
     def set_window(self, window):
+        """
+        Save the window reference and start background tasks.
+
+        Checks for updates and loads the driver in a separate thread 
+        so the UI doesn't freeze. This is important when Edge updates 
+        and the driver needs time to download.
+
+        Args:
+            window: The pywebview window instance for JS interaction.       
+        """
+
         # store reference to webview window so Python can call JS (evaluate_js)
         self._webview_window = window
 
         self.start_update_check()
 
-        """ 
-        Loading the driver in a bg thread to avoid UI freezing
-        This is especially important during the first start or when Edge updates are released
-        (every 1-2 weeks), because downloading a new driver can take some time.
-        """
         if not self._driver_loader_thread_started:
             self._driver_loader_thread_started = True
             threading.Thread(target=self.load_driver_in_background, daemon=True).start()
