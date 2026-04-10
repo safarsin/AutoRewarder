@@ -49,7 +49,7 @@ class SearchEngine:
     # Perform searches with human-like behavior and log results
     def perform_searches(self, driver, queries):
 
-        human = HumanBehavior(driver)
+        human = HumanBehavior(driver, show_cursor=True)
 
         next_coffee_break = self.get_coffee_break_count()
         searches_since_break = 0

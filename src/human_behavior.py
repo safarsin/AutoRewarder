@@ -39,7 +39,7 @@ class HumanBehavior:
         """
         self.driver.execute_script(script, x, y)
 
-    def _ease_in_out(t):
+    def _ease_in_out(self, t):
         """Ease in-out function for smoother mouse movement (smoothstep)"""
         return t * t * (3 - 2 * t)
     
@@ -87,7 +87,7 @@ class HumanBehavior:
     
     def move_to_element(self, element, steps=None):
         """Move mouse to the given element in a human-like manner"""
-        start_x, start_y = self.last_mouse_pos
+        start_x, start_y = self.last_mouse_position
         location = element.location_once_scrolled_into_view
         size = element.size
 
@@ -166,7 +166,7 @@ class HumanBehavior:
             time.sleep(random.uniform(0.01, 0.03))
 
         time.sleep(random.uniform(0.1, 0.4))
-        self.last_mouse_pos = [last_x, last_y]
+        self.last_mouse_position = [last_x, last_y]
 
     def click_element(self, element):
         """Full cycle: move to element, highlight in green (click), then click"""
@@ -174,9 +174,9 @@ class HumanBehavior:
         time.sleep(random.uniform(0.1, 0.3))
         
         # Change the cursor color to green at the moment of clicking
-        self._draw_debug_cursor(self.last_mouse_pos[0], self.last_mouse_pos[1], color="green")
+        self._draw_debug_cursor(self.last_mouse_position[0], self.last_mouse_position[1], color="green")
         element.click()
         time.sleep(0.1)
         
         # Return the cursor color to red after clicking
-        self._draw_debug_cursor(self.last_mouse_pos[0], self.last_mouse_pos[1], color="red")
+        self._draw_debug_cursor(self.last_mouse_position[0], self.last_mouse_position[1], color="red")
