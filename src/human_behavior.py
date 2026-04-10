@@ -247,7 +247,7 @@ class HumanBehavior:
         # Change the cursor color to green at the moment of clicking
         self._draw_debug_cursor(self.last_mouse_position[0], self.last_mouse_position[1], color="green")
         element.click()
-        time.sleep(0.1)
+        time.sleep(0.2)
         
         # Return the cursor color to red after clicking
         self._draw_debug_cursor(self.last_mouse_position[0], self.last_mouse_position[1], color="red")

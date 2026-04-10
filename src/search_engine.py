@@ -98,9 +98,9 @@ class SearchEngine:
                 time.sleep(random.uniform(2, 4))
 
                 tabs_config = [
-                    {"name": "All", "priority": 0, "id": None},
-                    {"name": "Images", "priority": 0, "id": "b-scopeListItem-images"},
-                    {"name": "Videos", "priority": 90, "id": "b-scopeListItem-video"},
+                    {"name": "All", "priority": 70, "id": None},
+                    {"name": "Images", "priority": 10, "id": "b-scopeListItem-images"},
+                    {"name": "Videos", "priority": 10, "id": "b-scopeListItem-video"},
                     {"name": "News", "priority": 10, "id": "b-scopeListItem-news"}
                 ]
 
@@ -126,7 +126,8 @@ class SearchEngine:
 
                 # Scroll the page to mimic human behavior
                 try:
-                    human.scroll_page()
+                    if chosen_tab["name"] == "All":
+                        human.scroll_page()
                 except WebDriverException as e:
                     short_error = str(e).split("\n")[0][:28]
                     self.log(f"[WARNING] WebDriver error when scrolling: {short_error}. Continuing.")
