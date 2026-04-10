@@ -37,7 +37,7 @@ class SearchEngine:
             self.add_to_history("N/A", f"[ERROR] File {filepath} not found")
             return []
         
-    def get_coffee_break_interval(self):
+    def get_coffee_break_count(self):
         # 80% of the time, take a break after 4-9 searches
         if random.random() < 0.8:
             return random.randint(4, 9)
@@ -48,7 +48,7 @@ class SearchEngine:
     # Perform searches with human-like behavior and log results
     def perform_searches(self, driver, queries):
 
-        next_coffee_break = self.get_coffee_break_interval()
+        next_coffee_break = self.get_coffee_break_count()
         searches_since_break = 0
 
         self.log(f"Loaded {len(queries)} queries. Starting searches...")
@@ -75,7 +75,7 @@ class SearchEngine:
                     self.log(f"Sleeping for {pause_duration:.2f} seconds to mimic a coffee break.")
                     time.sleep(pause_duration)
 
-                    next_coffee_break = self.get_coffee_break_interval()
+                    next_coffee_break = self.get_coffee_break_count()
                     searches_since_break = 0
                     self.log(f"Next coffee break after {next_coffee_break} searches.")
 
