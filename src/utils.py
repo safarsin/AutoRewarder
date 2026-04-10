@@ -26,9 +26,22 @@ def check_for_updates(logger=None):
             latest = response.json().get("tag_name")
             if latest:
                 return latest != CURRENT_VERSION, latest
-        elif response.status_code == 403 or response.status_code == 429:
+        elif response.status_code == 429:
             if logger:
-                logger("[WARNING] GitHub API rate limit exceeded. Can't check for updates.")
+                logger("[WARNING] GitHub API rate limit reached (429).)")
+                logger("Try again later or check manually for updates.")
+        elif response.status_code == 403:
+
+            is_rate_limit = response.headers.get('X-Ratelimit-Remaining') == '0'
+
+            if logger:
+                if is_rate_limit:
+                    logger("[WARNING] GitHub API rate limit exceeded (403). Try again later.")
+                else:
+                    logger("[WARNING] GitHub access forbidden (403). Check your VPN or connection.")
+        else:
+            if logger:
+                logger(f"[WARNING] GitHub update check failed. Status: {response.status_code}")
 
     except requests.exceptions.RequestException as e:
         if logger:
