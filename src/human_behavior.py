@@ -1,5 +1,6 @@
 import random
 import time
+from selenium.common.exceptions import MoveTargetOutOfBoundsException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 
@@ -107,6 +108,20 @@ class HumanBehavior:
         )
         self.last_mouse_position = [start_x, start_y]
 
+        # Bring target into view first to reduce out-of-bounds pointer moves.
+        self.driver.execute_script(
+            "arguments[0].scrollIntoView({block: 'center', inline: 'center'});",
+            element
+        )
+
+        elem_left, elem_top, elem_width, elem_height = self.driver.execute_script(
+            """
+            const rect = arguments[0].getBoundingClientRect();
+            return [rect.left, rect.top, rect.width, rect.height];
+            """,
+            element
+        )
+
         rect_left, rect_top, rect_width, rect_height = self.driver.execute_script(
             """
             const rect = document.documentElement.getBoundingClientRect();
@@ -116,12 +131,16 @@ class HumanBehavior:
         rect_width = max(1, int(rect_width))
         rect_height = max(1, int(rect_height))
         html = self.driver.find_element(By.TAG_NAME, "html")
+        html_center_x = rect_left + rect_width / 2
+        html_center_y = rect_top + rect_height / 2
 
         # Move to the center of the element with some random offset
-        max_offset_x = max(1, rect_width - 5)
-        max_offset_y = max(1, rect_height - 5)
-        target_x = rect_left + random.randint(1, max_offset_x)
-        target_y = rect_top + random.randint(1, max_offset_y)
+        elem_width = max(1, int(elem_width))
+        elem_height = max(1, int(elem_height))
+        max_offset_x = max(0, elem_width - 1)
+        max_offset_y = max(0, elem_height - 1)
+        target_x = int(elem_left) + random.randint(0, max_offset_x)
+        target_y = int(elem_top) + random.randint(0, max_offset_y)
 
         # Sometimes make a "miss"
         miss = random.random() < 0.2
@@ -164,10 +183,14 @@ class HumanBehavior:
 
             # Move the mouse to an absolute point within the viewport
             if delta_x != 0 or delta_y != 0:
-                offset_x = max(0, min(curr_x - rect_left, rect_width - 1))
-                offset_y = max(0, min(curr_y - rect_top, rect_height - 1))
+                offset_x = int(curr_x - html_center_x)
+                offset_y = int(curr_y - html_center_y)
                 actions = ActionChains(self.driver)
-                actions.move_to_element_with_offset(html, offset_x, offset_y).perform()
+                try:
+                    actions.move_to_element_with_offset(html, offset_x, offset_y).perform()
+                except MoveTargetOutOfBoundsException:
+                    # Fallback to a safe center move if driver rejects current offset.
+                    ActionChains(self.driver).move_to_element(element).perform()
             
             # Draw debug cursor at the current position
             self._draw_debug_cursor(curr_x, curr_y)
@@ -202,11 +225,14 @@ class HumanBehavior:
             last_x, last_y = self._clamp_point(
                 last_x, last_y, viewport_width, viewport_height
             )
-            offset_x = max(0, min(last_x - rect_left, rect_width - 1))
-            offset_y = max(0, min(last_y - rect_top, rect_height - 1))
-            ActionChains(self.driver).move_to_element_with_offset(
-                html, offset_x, offset_y
-            ).perform()
+            offset_x = int(last_x - html_center_x)
+            offset_y = int(last_y - html_center_y)
+            try:
+                ActionChains(self.driver).move_to_element_with_offset(
+                    html, offset_x, offset_y
+                ).perform()
+            except MoveTargetOutOfBoundsException:
+                ActionChains(self.driver).move_to_element(element).perform()
             self._draw_debug_cursor(last_x, last_y)
             time.sleep(random.uniform(0.01, 0.03))
 

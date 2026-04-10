@@ -120,9 +120,19 @@ class SearchEngine:
 
                     except NoSuchElementException:
                         self.log(f"[WARNING] Tab {chosen_tab['name']} not found. Staying on 'All'.")
+                    except WebDriverException as e:
+                        short_error = str(e).split("\n")[0][:28]
+                        self.log(f"[WARNING] WebDriver error when switching to {chosen_tab['name']}: {short_error}. Staying on 'All'.")
 
                 # Scroll the page to mimic human behavior
-                human.scroll_page()  
+                try:
+                    human.scroll_page()
+                except WebDriverException as e:
+                    short_error = str(e).split("\n")[0][:28]
+                    self.log(f"[WARNING] WebDriver error when scrolling: {short_error}. Continuing.")
+                
+                # Pause after scrolling
+                time.sleep(random.uniform(2, 4))
 
                 # Add to history.json
                 self.add_to_history(query, "Success")
