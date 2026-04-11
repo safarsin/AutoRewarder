@@ -57,34 +57,116 @@ class DailySet:
             
             main_tab = driver.current_window_handle
             
-            # Use a more specific selector to target only the Daily Set tasks
+            # Locate Daily Set cards by their container, but prefer clicking the real
+            # clickable anchor inside the card to avoid 0x0 / non-interactable containers.
             selector = "mee-rewards-daily-set-item-content .rewards-card-container" 
+            clickable_selector = "a.ds-card-sec, a[role='link'][href]"
             
             tasks = driver.find_elements(By.CSS_SELECTOR, selector)
             if not tasks:
                 self.log("[WARNING] No Daily Set tasks found on the page.")
                 return False
 
+            # One-time scroll to the Daily Set area before moving the mouse.
+            # (No further scrolling during mouse movement: we pass scroll_into_view=False.)
+            try:
+                driver.execute_script(
+                    "document.documentElement.style.scrollBehavior='auto';"
+                    "document.body.style.scrollBehavior='auto';"
+                )
+            except Exception:
+                pass
+
+            try:
+                driver.execute_script(
+                    "arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});",
+                    tasks[0]
+                )
+                time.sleep(random.uniform(1, 2))
+            except Exception:
+                pass
+
+            def _pick_click_target(card):
+                # Rewards is a dynamic SPA; containers can temporarily become 0x0 during re-renders.
+                # Prefer the inner link element when available.
+                try:
+                    candidates = card.find_elements(By.CSS_SELECTOR, clickable_selector)
+                except Exception:
+                    candidates = []
+
+                for el in candidates:
+                    try:
+                        w, h = driver.execute_script(
+                            """
+                            const r = arguments[0].getBoundingClientRect();
+                            return [r.width, r.height];
+                            """,
+                            el,
+                        )
+                        if float(w) > 6 and float(h) > 6:
+                            return el
+                    except Exception:
+                        continue
+                return card
+
             for i in range(len(tasks)):
                 current_tasks = driver.find_elements(By.CSS_SELECTOR, selector)
                 if i >= len(current_tasks): break
                 
                 target_task = current_tasks[i]
-                
-                # Click the task to open it
-                human.click_element(target_task)
-                time.sleep(random.uniform(2, 4))
-                
-                # Scroll the task page and close it
-                for tab in driver.window_handles:
-                    if tab != main_tab:
+
+                click_target = _pick_click_target(target_task)
+
+                try:
+                    # Skip elements that are temporarily 0x0 (Rewards SPA re-renders a lot).
+                    try:
+                        w, h = driver.execute_script(
+                            """
+                            const r = arguments[0].getBoundingClientRect();
+                            return [r.width, r.height];
+                            """,
+                            click_target,
+                        )
+                        if float(w) <= 6 or float(h) <= 6:
+                            continue
+                    except Exception:
+                        pass
+
+                    before_tabs = set(driver.window_handles)
+
+                    # Click the task to open it
+                    human.click_element(click_target, scroll_into_view=False)
+                    time.sleep(random.uniform(2, 4))
+
+                    # Scroll the task page and close newly opened tabs
+                    # Detect newly opened tabs by comparing window handles before/after click.
+                    new_tabs = [h for h in driver.window_handles if h != main_tab and h not in before_tabs]
+                    for tab in new_tabs:
                         driver.switch_to.window(tab)
                         time.sleep(random.uniform(2, 4))
                         human.scroll_page()
                         driver.close()
-                
-                driver.switch_to.window(main_tab)
-                time.sleep(random.uniform(1, 2))
+
+                    driver.switch_to.window(main_tab)
+                    time.sleep(random.uniform(1, 2))
+
+                except Exception as e:
+                    short_error = str(e).split("\n")[0][:160]
+                    self.log(f"[WARNING] Daily Set task #{i+1} failed: {short_error}")
+
+                    # Close any extra tabs and return.
+                    try:
+                        for tab in list(driver.window_handles):
+                            if tab != main_tab:
+                                driver.switch_to.window(tab)
+                                driver.close()
+                    except Exception:
+                        pass
+                    try:
+                        driver.switch_to.window(main_tab)
+                    except Exception:
+                        pass
+                    time.sleep(random.uniform(0.5, 1.0))
             
             return True
         

@@ -241,7 +241,7 @@ class AutoRewarderAPI:
                     self.daily_set.mark_as_completed()
                     self.log("Daily Set tasks completed and marked as done for today.")
                 else:
-                    self.log("Daily Set already completed today. Skipping.")
+                    self.log("Daily Set failed. Not marked as done for today.")
         finally:
             try:
                 self._driver.quit()
