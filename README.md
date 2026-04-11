@@ -1,11 +1,11 @@
 # AutoRewarder
 
-A desktop automation app for Microsoft Rewards that performs Bing searches with human-like behavior.
-Built with Python, pywebview, and selenium.
-The UI is rendered with HTML/CSS/JS in a native window, while the automation logic is handled in Python.
-Packaged with PyInstaller and distributed as a modern Windows installer (Inno Setup) with automatic dependency checking.
+An advanced, undetectable desktop automation tool for Microsoft Rewards. 
+AutoRewarder performs Bing searches and collects Daily Sets using mathematically driven, human-like behavior (W3C Actions, Bezier curves, and smart scrolling) to safely navigate anti-fraud systems.
 
-> **For a complete user guide, see [USER_GUIDE.md](USER_GUIDE.md)**
+Built with a robust **Python/Selenium** backend and a sleek HTML/CSS/JS frontend wrapped in a native window via **pywebview**. Packaged as a standalone Windows executable (via Inno Setup) for a seamless, plug-and-play experience.
+
+> **Ready to start? Check out the complete [USER GUIDE](USER_GUIDE.md)**
 
 ## Installation
 
