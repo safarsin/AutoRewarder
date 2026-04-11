@@ -164,7 +164,7 @@ For best results:
 
 ### Need Help?
 
-For detailed technical troubleshooting, see the [Troubleshooting](README.md#troubleshooting) section in the main README.
+For technical troubleshooting steps, see the [Troubleshooting](#troubleshooting) section below.
 
 If your issue isn't listed, please open an issue on GitHub or [contact me](mailto:sinosafarov1919@gmail.com).
 ---
