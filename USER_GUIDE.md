@@ -25,7 +25,7 @@ Welcome! This guide will help you get started with AutoRewarder and explain all 
 
 ### Step 1: Download
 1. Go to the [Releases page](https://github.com/safarsin/AutoRewarder/releases) on GitHub
-2. Find the latest release (v2.0 or newer)
+2. Find the latest release (v3.0 or newer)
 3. Download `AutoRewarder-Setup.exe`
 
 ### Step 2: Install
@@ -82,8 +82,13 @@ First Setup creates a special profile for Microsoft Edge that AutoRewarder will 
 - AutoRewarder opens Microsoft Edge (you can see it if hide-browser is off)
 - It performs random searches from a built-in list of 3,428 real search queries from google-trends dataset
 - Each search has human-like delays and behavior
+- It may occasionally switch to Images/Videos/News tabs
+- It may take short "coffee breaks" during longer sessions
+- After searches, it may run Daily Set tasks (once per day)
 - The process continues until all searches are complete
 - You'll see updates in the log window
+
+If a new version is available, AutoRewarder can show an update notification and a download link.
 
 ### After Completion
 
@@ -143,7 +148,7 @@ You don't need to access this directly — use the History button in the app ins
 ### ❌ Don'ts
 
 - Don't manually interact with Clone Edge (you still can use your main profile) while AutoRewarder is running
-- Don't use Bing while AutoRewarder is performing searches (it may be detected as unusual activity)
+- Don't use Bing in the same Edge profile while AutoRewarder is running (it can interfere with automation)
 - Don't force-close the app while a session is running
 - Don't modify files in `AppData\Local\AutoRewarder` manually
 - Don't run multiple AutoRewarder instances simultaneously
@@ -174,8 +179,7 @@ A: AutoRewarder uses Edge to perform searches. Selenium WebDriver (the automatio
 
 **Q: Will this ban my Microsoft Rewards account?**  
 A: Microsoft Rewards' Terms of Service prohibit automation. Use at your own risk.
-But AutoRewarder is designed to mimic human behavior with randomized delays and real search queries to reduce the risk of detection. However, there is always a possibility of account suspension if detected such as searching with Bing while AutoRewarder is running or running multiple sessions at the same time.
-Personaly I have been using it for almost 7 months without any issues.
+Using this app may lead to account restrictions or suspension. AutoRewarder includes randomized delays and varied interactions, but nothing can guarantee safety.
 
 **Q: How many searches can I do per day?**  
 A: You can run as many sessions as you want (1-99 searches each). However, Microsoft may have daily limits on rewards earned which depend on your account's activity and region.
@@ -192,6 +196,6 @@ A: Currently only Windows is supported. You need Windows 10 or later.
 ---
 
 **Last Updated**: April 2026  
-**Version**: 2.0
+**Version**: 3.0
 
 Enjoy using AutoRewarder! 🎉

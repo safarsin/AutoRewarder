@@ -10,14 +10,22 @@ Packaged with PyInstaller and distributed as a modern Windows installer (Inno Se
 ## Installation
 
 **Easy Way (Recommended):**
-Download `AutoRewarder-Setup.exe` from [releases](https://github.com/safarsin/AutoRewarder/releases/tag/v2.0) and run it. The installer will verify all dependencies and install the app for you.
+Download `AutoRewarder-Setup.exe` from the [latest release](https://github.com/safarsin/AutoRewarder/releases/latest) and run it. The installer will verify all dependencies and install the app for you.
 
 **Manual Way (Source):**
 Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 <br>
 
-> **v2.1 is under development!** > **[Check the Issue #8](https://github.com/safarsin/AutoRewarder/issues/8)**
+## What's New in v3.0
+
+- Refactor: split the original monolith into `src/` modules
+- Update checks: auto-notification when a new version is available
+- Better randomized scrolling: unique scrolling speed/length per session
+- Advanced "coffee" breaks during long sessions
+- Navigation flow: occasionally switches result tabs (Images/Videos/News)
+- New mouse interaction: more natural pointer movement/clicks
+- Daily Set collector: completes Rewards Daily Set tasks once per day
 
 ## Screenshots
 
@@ -53,6 +61,7 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 - First Setup flow with dedicated Edge profile for isolation
 - Optional hide-browser mode (headless automation toggle)
 - Live terminal-like logs with real-time updates
+- Update available notifications (GitHub Releases)
 - Local history view with date, time, query, and execution status
 - One-click start automation (1-99 searches per session)
 - Safe recovery for corrupted settings/history files
@@ -61,15 +70,18 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 - Background WebDriver warmup at startup for faster execution
 - Human-like search behavior (typing delays, random pauses, smooth scrolling)
 - Uses real-world queries from assets/queries.json (3428 unique entries from google-trends dataset)
-- Randomized delays to avoid detection
+- Randomized delays to reduce repetitive patterns
+- Optional tab switching between result categories (Images/Videos/News)
+- Natural mouse movement/clicking (W3C Actions)
+- Daily Set task collection (runs once per day)
 - Separate browser thread isolation
 
 ## Quick Start (For Users)
 
 You do not need Python to use release builds.
 
-1. Download `AutoRewarder.exe` from releases
-2. Extract and run
+1. Download `AutoRewarder-Setup.exe` from the latest release
+2. Install and run the app
 3. Complete First Setup
 4. Start automation
 
@@ -121,8 +133,10 @@ AutoRewarder/
 │   ├── __init__.py       # Python package initialization
 │   ├── api.py            # Centralizes all main operations (bridge API exposed to JS)        
 │   ├── config.py         # Configuration constants/platform and file paths
+│   ├── daily_set.py      # Rewards Daily Set collection logic
 │   ├── driver_manager.py # WebDriver setup and management
 │   ├── history.py        # Manages search history storage and retrieval
+│   ├── human_behavior.py # Human-like mouse movement/clicks/scrolling
 │   ├── search_engine.py  # Handles search logic and interactions
 │   ├── settings_manager.py # Manages user settings storage and retrieval
 │   └── utils.py          # Utility functions(human-typing, update checks)
@@ -148,6 +162,7 @@ Created files and folders:
 EdgeProfile/   # Separate Edge profile for WebDriver
 settings.json  # User settings (first_setup_done, hide_browser)
 history.json   # Search history (date, time, query, status)
+status.json    # Daily Set completion status (per-day)
 ```
 
 
@@ -178,7 +193,8 @@ history.json   # Search history (date, time, query, status)
 - [ ] Script-only version (CLI tool without GUI)
 - [x] Windows installer with dependency checking (Inno Setup)
 - [ ] Action Chains Selenium
-- [ ] Daily Sets (including the new "claim" per day)
+- [x] Daily Set collector
+- [ ] Daily Set "Claim" actions
 - [ ] Keyboard shortcuts
 - [ ] UI themes (dark/light mode)
 
