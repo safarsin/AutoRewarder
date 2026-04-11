@@ -120,9 +120,16 @@ class SearchEngine:
 
                     except NoSuchElementException:
                         self.log(f"[WARNING] Tab {chosen_tab['name']} not found. Staying on 'All'.")
+
+                        # Fallback to "All" if the chosen tab is not found
+                        chosen_tab["name"] = "All"
+
                     except WebDriverException as e:
                         short_error = str(e).split("\n")[0][:28]
-                        self.log(f"[WARNING] WebDriver error when switching to {chosen_tab['name']}: {short_error}. Staying on 'All'.")
+                        self.log(f"[WARNING] WebDriver error when switching to {chosen_tab['name']}: {short_error}.")
+                        self.log(f"Staying on 'All'.")
+
+                        chosen_tab["name"] = "All"
 
                 # Scroll the page to mimic human behavior
                 try:
