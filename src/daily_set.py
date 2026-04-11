@@ -113,6 +113,8 @@ class DailySet:
                         continue
                 return card
 
+            had_task_failures = False
+
             for i in range(len(tasks)):
                 current_tasks = driver.find_elements(By.CSS_SELECTOR, selector)
                 if i >= len(current_tasks): break
@@ -155,6 +157,7 @@ class DailySet:
                     time.sleep(random.uniform(1, 2))
 
                 except Exception as e:
+                    had_task_failures = True
                     short_error = str(e).split("\n")[0][:160]
                     self.log(f"[WARNING] Daily Set task #{i+1} failed: {short_error}")
 
@@ -171,6 +174,9 @@ class DailySet:
                     except Exception:
                         pass
                     time.sleep(random.uniform(0.5, 1.0))
+
+            if had_task_failures:
+                return False
             
             return True
         
