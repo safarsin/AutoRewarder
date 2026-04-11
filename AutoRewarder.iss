@@ -1,6 +1,7 @@
 [Setup]
 AppName=AutoRewarder
-AppVersion=2.0
+AppId=AutoRewarder
+AppVersion=3.0
 AppPublisher=Sino Safarov
 AppPublisherURL=https://github.com/safarsin
 DefaultDirName={pf}\AutoRewarder
