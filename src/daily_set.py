@@ -86,7 +86,6 @@ class DailySet:
                 driver.switch_to.window(main_tab)
                 time.sleep(random.uniform(1, 2))
             
-            self.log("Daily Set collection finished successfully.")
             return True
         
         except Exception as e:

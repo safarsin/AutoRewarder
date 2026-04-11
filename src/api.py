@@ -11,14 +11,17 @@ from .history import HistoryManager
 from .search_engine import SearchEngine
 from .utils import check_for_updates
 from .settings_manager import SettingsManager
+from .daily_set import DailySet
+from .human_behavior import HumanBehavior
 
 class AutoRewarderAPI:
     def __init__(self):
         self.driver_manager = DriverManager()
         self.history = HistoryManager(logger=self.log)
         self.search_engine = SearchEngine(logger=self.log, history=self.history)
-
+        self.daily_set = DailySet(logger=self.log)
         self.settings_manager = SettingsManager()
+        self.human = HumanBehavior()
 
         self._webview_window = None
         self._driver_loader_thread_started = False
@@ -227,6 +230,18 @@ class AutoRewarderAPI:
         try:
             # 3. Perform searches
             self.search_engine.perform_searches(self._driver, queries_to_search)
+
+            # 4. Perform Daily Set tasks
+            if self.daily_set.should_perform_daily_set():
+                self.log("Daily Set not completed today. Starting Daily Set tasks...")
+
+                success = self.daily_set.perform_daily_set(self._driver, self.human)
+
+                if success:
+                    self.daily_set.mark_as_completed()
+                    self.log("Daily Set tasks completed and marked as done for today.")
+                else:
+                    self.log("Daily Set already completed today. Skipping.")
         finally:
             try:
                 self._driver.quit()
