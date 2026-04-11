@@ -157,32 +157,45 @@ You don't need to access this directly — use the History button in the app ins
 
 For best results:
 1. Run 30 searches per session
-3. Vary the number of searches each time
+2. Vary the number of searches each time
+3. Run sessions at different times of the day
+4. Use hide-browser mode if you want to do other work while it runs
 
 ---
 
 
 ### Need Help?
 
-For detailed technical troubleshooting, see the [Troubleshooting](README.md#troubleshooting) section in the main README.
+For any issues, check the [Troubleshooting](#troubleshooting) section below.
 
 If your issue isn't listed, please open an issue on GitHub or [contact me](mailto:sinosafarov1919@gmail.com).
+
 ---
 
 ## Troubleshooting
 
-### `DevToolsActivePort file doesn't exist` / `session not created`
+**Edge WebDriver not found or outdated:**
+- Ensure Microsoft Edge is installed
+- Try restarting the application (Selenium Manager will auto-download driver)
+- Check that Edge version is up to date
+- Delete `%USERPROFILE%\AppData\Local\AutoRewarder\EdgeProfile` and retry
 
-This usually means Microsoft Edge didn't start cleanly (often after a background update) and Selenium can't attach.
+**`session not created: DevToolsActivePort file doesn't exist` / Edge failed to start:**
+- Close AutoRewarder and any Edge windows
+- Open Windows Task Manager and kill all `msedge.exe` processes (and `msedgedriver.exe` if present)
+- Open Edge normally and complete any pending updates at `edge://settings/help`
+- Re-run AutoRewarder
+- If it still fails, delete `%USERPROFILE%\AppData\Local\AutoRewarder\EdgeProfile` and run First Setup again
 
-1. Close AutoRewarder and any Edge windows
-2. Open Windows Task Manager and end all `msedge.exe` processes (and `msedgedriver.exe` if present)
-3. Open Edge normally and finish updates at `edge://settings/help`
-4. Start AutoRewarder again
+**Application crashes on startup:**
+- Delete `EdgeProfile/` folder in `%USERPROFILE%\AppData\Local\AutoRewarder`
+- Run First Setup again
+- Verify dependencies: `pip install -r requirements.txt` if running from source
+- Check Windows Event Viewer for error details
 
-If it still fails:
-- Delete `%USERPROFILE%\AppData\Local\AutoRewarder\EdgeProfile`
-- Run **First Setup** again
+**Searches not completing:**
+- Verify internet connection
+- Check that Edge is not blocked by antivirus/firewall
 
 ## FAQ
 

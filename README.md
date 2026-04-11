@@ -167,28 +167,7 @@ status.json    # Daily Set completion status (per-day)
 
 ## Troubleshooting
 
-**Edge WebDriver not found or outdated:**
-- Ensure Microsoft Edge is installed
-- Try restarting the application (Selenium Manager will auto-download driver)
-- Check that Edge version is up to date
-- Delete `%USERPROFILE%\AppData\Local\AutoRewarder\EdgeProfile` and retry
-
-**`session not created: DevToolsActivePort file doesn't exist` / Edge failed to start:**
-- Close AutoRewarder and any Edge windows
-- Open Windows Task Manager and kill all `msedge.exe` processes (and `msedgedriver.exe` if present)
-- Open Edge normally and complete any pending updates at `edge://settings/help`
-- Re-run AutoRewarder
-- If it still fails, delete `%USERPROFILE%\AppData\Local\AutoRewarder\EdgeProfile` and run First Setup again
-
-**Application crashes on startup:**
-- Delete `EdgeProfile/` folder in `%USERPROFILE%\AppData\Local\AutoRewarder`
-- Run First Setup again
-- Verify dependencies: `pip install -r requirements.txt` if running from source
-- Check Windows Event Viewer for error details
-
-**Searches not completing:**
-- Verify internet connection
-- Check that Edge is not blocked by antivirus/firewall
+For common issues and solutions, see the [Troubleshooting](USER_GUIDE.md#troubleshooting) section in the USER GUIDE.
 
 ## Roadmap
 
