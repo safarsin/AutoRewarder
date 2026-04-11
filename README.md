@@ -192,14 +192,19 @@ status.json    # Daily Set completion status (per-day)
 
 ## Roadmap
 
+- [x] Windows installer with dependency checking (Inno Setup)
+- [x] Action Chains Selenium/W3C Actions for more natural mouse movement and clicks
+- [x] Daily Set collector
+- [x] Refactor: split monolith to src modules
+- [x] Update checks (GitHub Releases API)
+- [x] Better randomized scrolling (unique speed/length per session)
+- [x] Advanced "coffee" breaks during long sessions
+- [x] Navigation flow: sometimes switch result tabs (Images/Videos/News)
 - [ ] Browser choice (Chrome, Firefox support in addition to Edge)
 - [ ] Advanced scheduling (automated daily runs at specific times)
 - [ ] Statistics dashboard (points tracking, session summaries)
 - [ ] Multi-account support (manage multiple Rewards accounts)
 - [ ] Script-only version (CLI tool without GUI)
-- [x] Windows installer with dependency checking (Inno Setup)
-- [ ] Action Chains Selenium
-- [x] Daily Set collector
 - [ ] Daily Set "Claim" actions
 - [ ] Keyboard shortcuts
 - [ ] UI themes (dark/light mode)
