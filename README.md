@@ -17,7 +17,7 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 <br>
 
-> **v2.1 is under development!** > **[Check the Issue #8](https://github.com/safarsin/AutoRewarder/issues/8)**
+> **v3.0 is under development!** > **[Check the Issue #8](https://github.com/safarsin/AutoRewarder/issues/8)**
 
 ## Screenshots
 
