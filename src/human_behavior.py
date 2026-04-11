@@ -99,7 +99,7 @@ class HumanBehavior:
         # Wait a bit after scrolling
         time.sleep(random.uniform(5, 10))
     
-    def move_to_element(self, element, steps=None):
+    def move_to_element(self, element, steps=None, retries_left=1):
         """Move mouse to the given element in a human-like manner"""
         start_x, start_y = self.last_mouse_position
         viewport_width, viewport_height = self._get_viewport_size()
@@ -142,8 +142,8 @@ class HumanBehavior:
         target_x = int(elem_left) + random.randint(0, max_offset_x)
         target_y = int(elem_top) + random.randint(0, max_offset_y)
 
-        # Sometimes make a "miss"
-        miss = random.random() < 0.2
+        # Sometimes make a "miss" (only if have retries left)
+        miss = (random.random() < 0.2) and (retries_left > 0)
         if miss:
             target_x += random.randint(-30, 30)
             target_y += random.randint(-30, 30)
@@ -213,7 +213,7 @@ class HumanBehavior:
         # If we missed the target, do a quick correction move
         if miss:
             time.sleep(random.uniform(0.05, 0.2))
-            self.move_to_element(element, steps=random.randint(5, 10))
+            self.move_to_element(element, steps=random.randint(5, 10), retries_left=retries_left-1)
             return
 
         # Final micro-correction before clicking
