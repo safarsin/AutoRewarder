@@ -28,7 +28,7 @@ def check_for_updates(logger=None):
                 return latest != CURRENT_VERSION, latest
         elif response.status_code == 429:
             if logger:
-                logger("[WARNING] GitHub API rate limit reached (429).)")
+                logger("[WARNING] GitHub API rate limit reached (429).")
                 logger("Try again later or check manually for updates.")
         elif response.status_code == 403:
 
