@@ -183,8 +183,8 @@ class HumanBehavior:
 
             # Move the mouse to an absolute point within the viewport
             if delta_x != 0 or delta_y != 0:
-                offset_x = int(curr_x - html_center_x)
-                offset_y = int(curr_y - html_center_y)
+                offset_x = int(curr_x - rect_left)
+                offset_y = int(curr_y - rect_top)
                 actions = ActionChains(self.driver)
                 try:
                     actions.move_to_element_with_offset(html, offset_x, offset_y).perform()
@@ -225,8 +225,8 @@ class HumanBehavior:
             last_x, last_y = self._clamp_point(
                 last_x, last_y, viewport_width, viewport_height
             )
-            offset_x = int(last_x - html_center_x)
-            offset_y = int(last_y - html_center_y)
+            offset_x = int(last_x - rect_left)
+            offset_y = int(last_y - rect_top)
             try:
                 ActionChains(self.driver).move_to_element_with_offset(
                     html, offset_x, offset_y
