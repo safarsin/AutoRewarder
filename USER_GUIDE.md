@@ -148,7 +148,7 @@ You don't need to access this directly — use the History button in the app ins
 ### ❌ Don'ts
 
 - Don't manually interact with Clone Edge (you still can use your main profile) while AutoRewarder is running
-- Don't use Bing in the same Edge profile while AutoRewarder is running (it can interfere with automation)
+- Don't use Bing while AutoRewarder is performing searches (it may be detected as unusual activity)
 - Don't force-close the app while a session is running
 - Don't modify files in `AppData\Local\AutoRewarder` manually
 - Don't run multiple AutoRewarder instances simultaneously
@@ -179,7 +179,8 @@ A: AutoRewarder uses Edge to perform searches. Selenium WebDriver (the automatio
 
 **Q: Will this ban my Microsoft Rewards account?**  
 A: Microsoft Rewards' Terms of Service prohibit automation. Use at your own risk.
-Using this app may lead to account restrictions or suspension. AutoRewarder includes randomized delays and varied interactions, but nothing can guarantee safety.
+But AutoRewarder is designed to mimic human behavior with randomized delays and real search queries to reduce the risk of detection. However, there is always a possibility of account suspension if detected such as searching with Bing while AutoRewarder is running or running multiple sessions at the same time.
+Personaly I have been using it for almost 7 months without any issues.
 
 **Q: How many searches can I do per day?**  
 A: You can run as many sessions as you want (1-99 searches each). However, Microsoft may have daily limits on rewards earned which depend on your account's activity and region.
