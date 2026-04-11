@@ -24,7 +24,7 @@ class DailySet:
             return True
         
         try:
-            with open(self.status_file, "r") as file:
+            with open(self.status_file, "r", encoding="utf-8") as file:
                 data = json.load(file)
                 return data.get("last_daily_set_date") != today
         except Exception:
@@ -38,14 +38,18 @@ class DailySet:
         data = {}
         if os.path.exists(self.status_file):
             try:
-                with open(self.status_file, "r") as file:
+                with open(self.status_file, "r", encoding="utf-8") as file:
                     data = json.load(file)
             except Exception:
                 self.log(f"[ERROR] Failed to read status file: {self.status_file}")
         
         data["last_daily_set_date"] = today
-        with open(self.status_file, "w") as file:
+
+        # Write atomically to reduce the chance of leaving a partially-written JSON file.
+        temp_file = self.status_file + ".tmp"
+        with open(temp_file, "w", encoding="utf-8") as file:
             json.dump(data, file)
+        os.replace(temp_file, self.status_file)
     
     def perform_daily_set(self, driver, human):
         """The main method to perform the Daily Set"""
