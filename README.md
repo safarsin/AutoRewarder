@@ -14,19 +14,8 @@ Download `AutoRewarder-Setup.exe` from the [latest release](https://github.com/s
 **Manual Way (Source):**
 Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
-<br>
 
-## What's New in v3.0
-
-- Refactor: split the original monolith into `src/` modules
-- Update checks: auto-notification when a new version is available
-- Better randomized scrolling: unique scrolling speed/length per session
-- Advanced "coffee" breaks during long sessions
-- Navigation flow: occasionally switches result tabs (Images/Videos/News)
-- New mouse interaction: more natural pointer movement/clicks
-- Daily Set collector: completes Rewards Daily Set tasks once per day
-
-## Screenshots
+## Screenshots & Demo
 
 | Perform Searches | Driver Preparation |
 | :---: | :---: |
