@@ -154,7 +154,7 @@ class DailySet:
                     short_error = str(e).split("\n")[0][:160]
                     self.log(f"[WARNING] Daily Set task #{i+1} failed: {short_error}")
 
-                    # Close any extra tabs and return.
+                    # Close any extra tabs, switch back to the main tab, and continue.
                     try:
                         for tab in list(driver.window_handles):
                             if tab != main_tab:
