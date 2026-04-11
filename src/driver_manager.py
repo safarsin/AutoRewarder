@@ -10,12 +10,13 @@ class DriverManager:
         if headless is None:
             headless = self.hide_browser
 
-        #Setup Microsoft Edge (driver will be downloaded automatically!)
+        #Setup Microsoft Edge (driver will be downloaded automatically)
         options = Options()
         options.add_argument(f"--user-data-dir={EDGE_PROFILE_PATH}")
         options.add_argument("--profile-directory=Default") # Use the default profile or change to a specific one if needed
         options.add_argument("--disable-blink-features=AutomationControlled") # Hide automation
         options.add_argument("--no-default-browser-check")  # Don't check if Edge is default
+        options.add_argument("--window-size=1920,1080")
         options.add_experimental_option("excludeSwitches", ["enable-automation"]) # Remove "Browser is being controlled by automated test software" infobar
 
         if headless:

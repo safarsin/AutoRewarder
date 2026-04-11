@@ -3,8 +3,10 @@ import random
 import time
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException, WebDriverException
+from selenium.webdriver.common.by import By
 
 from .utils import human_typing
+from .human_behavior import HumanBehavior
 
 class SearchEngine:
     def __init__(self, logger=None, history=None):
@@ -37,7 +39,7 @@ class SearchEngine:
             self.add_to_history("N/A", f"[ERROR] File {filepath} not found")
             return []
         
-    def get_coffee_break_interval(self):
+    def get_coffee_break_count(self):
         # 80% of the time, take a break after 4-9 searches
         if random.random() < 0.8:
             return random.randint(4, 9)
@@ -48,7 +50,9 @@ class SearchEngine:
     # Perform searches with human-like behavior and log results
     def perform_searches(self, driver, queries):
 
-        next_coffee_break = self.get_coffee_break_interval()
+        human = HumanBehavior(driver, show_cursor=True)
+
+        next_coffee_break = self.get_coffee_break_count()
         searches_since_break = 0
 
         self.log(f"Loaded {len(queries)} queries. Starting searches...")
@@ -75,12 +79,12 @@ class SearchEngine:
                     self.log(f"Sleeping for {pause_duration:.2f} seconds to mimic a coffee break.")
                     time.sleep(pause_duration)
 
-                    next_coffee_break = self.get_coffee_break_interval()
+                    next_coffee_break = self.get_coffee_break_count()
                     searches_since_break = 0
                     self.log(f"Next coffee break after {next_coffee_break} searches.")
 
                 # Find the search box, clear it
-                search_box = driver.find_element("name", "q")
+                search_box = driver.find_element(By.NAME, "q")
                 search_box.clear()
 
                 # Log the search query in log area
@@ -93,44 +97,50 @@ class SearchEngine:
                 # Wait for result to load
                 time.sleep(random.uniform(2, 4))
 
-                # Generate random scroll divisor with probability
-                # 70% of the time: scroll small portion (2-10 = 10% to 50%)
-                # 30% of the time: scroll to end or near end (1-1.5 = 67% to 100%)
-                # Based on studies showing users typically scroll 10-30% of a page
-                if random.random() < 0.7:
-                    random_scroll_divisor = random.uniform(2, 10)
-                else:
-                    random_scroll_divisor = random.uniform(1, 1.5)
+                tabs_config = [
+                    {"name": "All", "priority": 70, "id": None},
+                    {"name": "Images", "priority": 10, "id": "b-scopeListItem-images"},
+                    {"name": "Videos", "priority": 10, "id": "b-scopeListItem-video"},
+                    {"name": "News", "priority": 10, "id": "b-scopeListItem-news"}
+                ]
 
-                # JS script for smooth scroll down to mimic human behavior
-                smooth_scroll_script = f"""
-                    let currentScroll = 0;
-                    let maxScroll = document.body.scrollHeight / {random_scroll_divisor};
+                weights = [tab["priority"] for tab in tabs_config]
+                chosen_tab = random.choices(tabs_config, weights=weights, k=1)[0]
 
-                    function humanScroll() {{
-                        // Random step between 30 and 70 pixels (Math.random() * (max - min + 1)) + min)
-                        let randomStep = Math.floor(Math.random() * (70 - 10 + 1)) + 10;
+                if chosen_tab["name"] != "All":
+                    self.log(f"Chosen behavior: Switch to {chosen_tab['name']}")
+                    try:
+                        # Find the tab element using its id
+                        xpath = f"//li[@id='{chosen_tab['id']}']//a"
+                        tab_element = driver.find_element(By.XPATH, xpath)
 
-                        // Random delay between 30 and 120 milliseconds (Math.random() * (max - min + 1)) + min)
-                        let randomDelay = Math.floor(Math.random() * (120 - 30 + 1)) + 30;
+                        # Move mouse and click the tab
+                        human.click_element(tab_element)
+                        time.sleep(random.uniform(3, 6))
 
-                        window.scrollBy(0, randomStep);
-                        currentScroll += randomStep;
+                    except NoSuchElementException:
+                        self.log(f"[WARNING] Tab {chosen_tab['name']} not found. Staying on 'All'.")
 
-                        if (currentScroll < maxScroll) {{
-                            setTimeout(humanScroll, randomDelay);
-                        }}
-                    }}
+                        # Fallback to "All" if the chosen tab is not found
+                        chosen_tab["name"] = "All"
 
-                    // Start the human-like scrolling
-                    setTimeout(humanScroll, 50);
-                """
+                    except WebDriverException as e:
+                        short_error = str(e).split("\n")[0][:28]
+                        self.log(f"[WARNING] WebDriver error when switching to {chosen_tab['name']}: {short_error}.")
+                        self.log(f"Staying on 'All'.")
 
-                # Execute the smooth scroll script
-                driver.execute_script(smooth_scroll_script)
+                        chosen_tab["name"] = "All"
 
-                # Wait a bit after scrolling
-                time.sleep(random.uniform(5, 10))
+                # Scroll the page to mimic human behavior
+                try:
+                    if chosen_tab["name"] == "All":
+                        human.scroll_page()
+                except WebDriverException as e:
+                    short_error = str(e).split("\n")[0][:28]
+                    self.log(f"[WARNING] WebDriver error when scrolling: {short_error}. Continuing.")
+                
+                # Pause after scrolling
+                time.sleep(random.uniform(2, 4))
 
                 # Add to history.json
                 self.add_to_history(query, "Success")

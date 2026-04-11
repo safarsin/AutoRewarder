@@ -1,7 +1,7 @@
 import os
 import platform
 
-CURRENT_VERSION = "v2.1"
+CURRENT_VERSION = "v3.0"
 REPO = "safarsin/AutoRewarder"
 
 PLATFORM_NAME = platform.system()
