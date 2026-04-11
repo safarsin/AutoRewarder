@@ -39,4 +39,5 @@ if not os.path.exists(APP_DIR):
 EDGE_PROFILE_PATH = os.path.join(APP_DIR, "EdgeProfile")
 HISTORY_FILE_PATH = os.path.join(APP_DIR, "history.json")
 SETTINGS_FILE_PATH = os.path.join(APP_DIR, "settings.json")
+STATUS_FILE_PATH = os.path.join(APP_DIR, "status.json")
 JSON_FILE_PATH = os.path.join(ASSETS_DIR, "queries.json")
