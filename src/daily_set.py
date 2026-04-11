@@ -51,3 +51,44 @@ class DailySet:
         """The main method to perform the Daily Set and 'Claim' actions"""
         self.log("Performing Daily Set and 'Claim'...")
         
+        try:
+            driver.get("https://rewards.bing.com")
+            time.sleep(random.uniform(4, 6))
+            
+            main_tab = driver.current_window_handle
+            
+            # Use a more specific selector to target only the Daily Set tasks
+            selector = "mee-rewards-daily-set-item-content .rewards-card-container" 
+            
+            tasks = driver.find_elements(By.CSS_SELECTOR, selector)
+            if not tasks:
+                self.log("[WARNING] No Daily Set tasks found on the page.")
+                return False
+
+            for i in range(len(tasks)):
+                current_tasks = driver.find_elements(By.CSS_SELECTOR, selector)
+                if i >= len(current_tasks): break
+                
+                target_task = current_tasks[i]
+                
+                # Click the task to open it
+                human.click_element(target_task)
+                time.sleep(random.uniform(2, 4))
+                
+                # Scroll the task page and close it
+                for tab in driver.window_handles:
+                    if tab != main_tab:
+                        driver.switch_to.window(tab)
+                        time.sleep(random.uniform(2, 4))
+                        human.scroll_page()
+                        driver.close()
+                
+                driver.switch_to.window(main_tab)
+                time.sleep(random.uniform(1, 2))
+            
+            self.log("Daily Set collection finished successfully.")
+            return True
+        
+        except Exception as e:
+            self.log(f"[ERROR] Failed to collect Daily Set: {e}")
+            return False        
