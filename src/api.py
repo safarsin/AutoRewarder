@@ -21,7 +21,6 @@ class AutoRewarderAPI:
         self.search_engine = SearchEngine(logger=self.log, history=self.history)
         self.daily_set = DailySet(logger=self.log)
         self.settings_manager = SettingsManager()
-        self.human = HumanBehavior()
 
         self._webview_window = None
         self._driver_loader_thread_started = False
@@ -235,7 +234,8 @@ class AutoRewarderAPI:
             if self.daily_set.should_perform_daily_set():
                 self.log("Daily Set not completed today. Starting Daily Set tasks...")
 
-                success = self.daily_set.perform_daily_set(self._driver, self.human)
+                human = HumanBehavior(self._driver, show_cursor=True)
+                success = self.daily_set.perform_daily_set(self._driver, human)
 
                 if success:
                     self.daily_set.mark_as_completed()
