@@ -174,6 +174,13 @@ status.json    # Daily Set completion status (per-day)
 - Check that Edge version is up to date
 - Delete `%USERPROFILE%\AppData\Local\AutoRewarder\EdgeProfile` and retry
 
+**`session not created: DevToolsActivePort file doesn't exist` / Edge failed to start:**
+- Close AutoRewarder and any Edge windows
+- Open Windows Task Manager and kill all `msedge.exe` processes (and `msedgedriver.exe` if present)
+- Open Edge normally and complete any pending updates at `edge://settings/help`
+- Re-run AutoRewarder
+- If it still fails, delete `%USERPROFILE%\AppData\Local\AutoRewarder\EdgeProfile` and run First Setup again
+
 **Application crashes on startup:**
 - Delete `EdgeProfile/` folder in `%USERPROFILE%\AppData\Local\AutoRewarder`
 - Run First Setup again
