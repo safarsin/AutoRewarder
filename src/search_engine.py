@@ -98,7 +98,7 @@ class SearchEngine:
                 time.sleep(random.uniform(2, 4))
 
                 tabs_config = [
-                    {"name": "All", "priority": 70, "id": None},
+                    {"name": "All", "priority": 0, "id": None},
                     {"name": "Images", "priority": 10, "id": "b-scopeListItem-images"},
                     {"name": "Videos", "priority": 10, "id": "b-scopeListItem-video"},
                     {"name": "News", "priority": 10, "id": "b-scopeListItem-news"}

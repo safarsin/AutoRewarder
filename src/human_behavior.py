@@ -165,7 +165,7 @@ class HumanBehavior:
         target_y = int(elem_top) + random.randint(0, max_offset_y)
 
         # Sometimes make a "miss" (only if have retries left)
-        miss = (random.random() < 0.2) and (retries_left > 0)
+        miss = (random.random() < 0.05) and (retries_left > 0)
         if miss:
             target_x += random.randint(-30, 30)
             target_y += random.randint(-30, 30)

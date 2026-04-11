@@ -48,8 +48,8 @@ class DailySet:
             json.dump(data, file)
     
     def perform_daily_set(self, driver, human):
-        """The main method to perform the Daily Set and 'Claim' actions"""
-        self.log("Performing Daily Set and 'Claim'...")
+        """The main method to perform the Daily Set"""
+        self.log("Performing Daily Set")
         
         try:
             driver.get("https://rewards.bing.com")
