@@ -34,6 +34,8 @@ Name: "startmenu"; Description: "Create Start Menu shortcut"; GroupDescription: 
 [Run]
 Filename: "{app}\AutoRewarder.exe"; Description: "Launch AutoRewarder"; Flags: nowait postinstall skipifsilent
 Filename: "https://github.com/safarsin/AutoRewarder/blob/main/USER_GUIDE.md"; Description: "Read User Guide on GitHub"; Flags: shellexec nowait postinstall
+Filename: "https://github.com/safarsin/AutoRewarder"; Description: "Open GitHub repository (leave a star if you find this app useful)"; Flags: shellexec nowait postinstall skipifsilent unchecked
+Filename: "https://buymeacoffee.com/safarsin"; Description: "Support development (Buy me a coffee)"; Flags: shellexec nowait postinstall skipifsilent unchecked
 
 [UninstallDelete]
 Type: dirifempty; Name: "{userappdata}\AutoRewarder"
