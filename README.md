@@ -14,6 +14,10 @@ Built with a robust Python/Selenium backend and a sleek HTML/CSS/JS frontend wra
 **Easy Way (Recommended):**
 Download `AutoRewarder-Setup.exe` from the [latest release](https://github.com/safarsin/AutoRewarder/releases/latest) and run it. The installer will verify all dependencies and install the app for you.
 
+**Portable Way:**
+Download `AutoRewarder.zip` from the [latest release](https://github.com/safarsin/AutoRewarder/releases/latest) and extract it to any folder (e.g., a USB drive). Run the executable. All your settings and profiles will be saved locally inside the `config` folder.
+> **Note:** Because the portable version is a single-file build, it may take a few seconds longer to start up compared to the installed version while it unpacks core components. Once open, it works at full speed.
+
 **Manual Way (Source):**
 Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
