@@ -1,7 +1,7 @@
 # AutoRewarder
 
 ![Stars](https://img.shields.io/github/stars/safarsin/AutoRewarder?style=for-the-badge)
-![Downloads](https://img.shields.io/github/downloads/safarsin/AutoRewarder/total?style=for-the-badge&color=007acc)
+![Downloads](https://img.shields.io/github/downloads/safarsin/AutoRewarder/total?style=for-the-badge&color=007ac)
 
 An advanced desktop automation tool for Microsoft Rewards. AutoRewarder performs Bing searches and collects Daily Sets using mathematically driven, human-like input simulation (W3C Actions, Bezier curves, and smart scrolling).
 
