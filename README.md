@@ -1,5 +1,8 @@
 # AutoRewarder
 
+![Stars](https://img.shields.io/github/stars/safarsin/AutoRewarder?style=for-the-badge)
+![Downloads](https://img.shields.io/github/downloads/safarsin/AutoRewarder/total?style=for-the-badge&color=007acc)
+
 An advanced desktop automation tool for Microsoft Rewards. AutoRewarder performs Bing searches and collects Daily Sets using mathematically driven, human-like input simulation (W3C Actions, Bezier curves, and smart scrolling).
 
 Built with a robust Python/Selenium backend and a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview. Packaged as a executable Windows app (via Inno Setup) for a seamless, plug-and-play experience.
