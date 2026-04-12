@@ -2,9 +2,7 @@
 
 Welcome! This guide will help you get started with AutoRewarder and explain all its features. No programming knowledge required.
 
-<img src="assets/screenshots/warm_up.gif">
-
-<img src="assets/screenshots/preform.gif">
+> **For screenshots and demo, see the [Screenshots & Demo](README.md#screenshots--demo) section in the README.**
 
 ---
 

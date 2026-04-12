@@ -21,6 +21,12 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 | :---: | :---: |
 |<img src="assets/screenshots/preform.gif">|<img src="assets/screenshots/warm_up.gif">|
 
+|Daily Sets| Tab Switching |
+| :---: | :---: |
+|<img src="assets/screenshots/daily_set.gif">|<img src="assets/screenshots/tab_perform.gif">|
+
+> <sub>*Demo is sped up for viewing purposes. Actual execution includes randomized delays and pauses to mimic human behavior.*</sub>
+
 | Main Window | History Window |
 | :---: | :---: |
 | <img src="assets/screenshots/main_window.png"> | <img src="assets/screenshots/history_window.png"> |
