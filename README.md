@@ -27,14 +27,11 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 > <sub>*Demo is sped up for viewing purposes. Actual execution includes randomized delays and pauses to mimic human behavior.*</sub>
 
-| Main Window | History Window |
+| Main Window | History & Updates |
 | :---: | :---: |
-| <img src="assets/screenshots/main_window.png"> | <img src="assets/screenshots/history_window.png"> |
-| <img src="assets/screenshots/main_window1.png"> | <img src="assets/screenshots/history_window1.png"> |
+| <img src="assets/screenshots/main_window.png"> | <img src="assets/screenshots/history_window1.png"> |
+| <img src="assets/screenshots/main_window1.png"> | <img src="assets/screenshots/update_check.png"> |
 
-| Update Check |
-| :---: |
-|<img src="assets/screenshots/update_check.png">|
 
 ## Tech Stack
 
