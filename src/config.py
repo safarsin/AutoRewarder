@@ -1,5 +1,6 @@
 import os
 import platform
+import sys
 
 CURRENT_VERSION = "v3.0"
 REPO = "safarsin/AutoRewarder"
@@ -32,6 +33,12 @@ else:
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GUI_DIR = os.path.join(BASE_DIR, "GUI")
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
+
+# Portable config takes precedence
+if getattr(sys, "frozen", False):
+    portable_app_dir = os.path.join(os.path.dirname(sys.executable), "config")
+    if os.path.isdir(portable_app_dir):
+        APP_DIR = portable_app_dir
 
 if not os.path.exists(APP_DIR):
     os.makedirs(APP_DIR)
