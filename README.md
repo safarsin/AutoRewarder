@@ -32,6 +32,10 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 | <img src="assets/screenshots/main_window.png"> | <img src="assets/screenshots/history_window.png"> |
 | <img src="assets/screenshots/main_window1.png"> | <img src="assets/screenshots/history_window1.png"> |
 
+| Update Check |
+| :---: |
+|<img src="assets/screenshots/update_check.png">|
+
 ## Tech Stack
 
 | Layer | Technology |
