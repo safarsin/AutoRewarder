@@ -21,7 +21,7 @@ class HistoryManager:
         self.settings_file = SETTINGS_FILE_PATH
         self._logger = logger
 
-    def log(self, message):
+    def _log(self, message):
         if self._logger:
             self._logger(message)
 
@@ -45,7 +45,7 @@ class HistoryManager:
 
                 return history
         except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
-            self.log("[ERROR] History file was unreadable or damaged. Starting with a fresh one.")
+            self._log("[ERROR] History file was unreadable or damaged. Starting with a fresh one.")
 
             # Keep the damaged history file as backup and start with a clean one.
             backup_path = self.history_file + ".backup"
