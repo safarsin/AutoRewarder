@@ -29,7 +29,7 @@ class SearchEngine:
         if self._logger:
             self._logger(message)
 
-    def add_to_history(self, query_text, status):
+    def _add_to_history(self, query_text, status):
         if self._history:
             self._history.add_to_history(query_text, status)
 
@@ -48,7 +48,7 @@ class SearchEngine:
 
         except FileNotFoundError:
             self._log(f"[ERROR] File {filepath} not found!")
-            self.add_to_history("N/A", f"[ERROR] File {filepath} not found")
+            self._add_to_history("N/A", f"[ERROR] File {filepath} not found")
             return []
         
     def get_coffee_break_count(self):
@@ -155,17 +155,17 @@ class SearchEngine:
                 time.sleep(random.uniform(2, 4))
 
                 # Add to history.json
-                self.add_to_history(query, "Success")
+                self._add_to_history(query, "Success")
 
             except NoSuchElementException:
                 self._log(f"[ERROR] Search box not found on attempt #{i+1}")
-                self.add_to_history(query, "[ERROR] Search box not found")
+                self._add_to_history(query, "[ERROR] Search box not found")
 
             except WebDriverException as e:
                 short_error = str(e).split("\n")[0][:28]
                 self._log(f"[ERROR] WebDriver error on attempt #{i+1}: {short_error}")
-                self.add_to_history(query, f"[ERROR] WebDriver Error: {short_error}")
+                self._add_to_history(query, f"[ERROR] WebDriver Error: {short_error}")
 
             except Exception as e:
                 self._log(f"[ERROR] Unknown error on attempt #{i+1}: {e}")
-                self.add_to_history(query, f"[ERROR] Unknown Error: {str(e)[:50]}")
+                self._add_to_history(query, f"[ERROR] Unknown Error: {str(e)[:50]}")
