@@ -26,15 +26,41 @@ class SearchEngine:
         self._history = history
 
     def _log(self, message):
+        """
+        Log a message using the provided logger, if available.
+
+        Args:
+            message (str): The message to log.
+        """
+
         if self._logger:
             self._logger(message)
 
     def _add_to_history(self, query_text, status):
+        """
+        Add a search query and its status to the history manager.
+
+        Args:
+            query_text (str): The search query.
+            status (str): The status of the search.
+        """
+        
         if self._history:
             self._history.add_to_history(query_text, status)
 
-    # Load queries from JSON file and return a random sample
     def load_queries_from_json(self, filepath, num_needed):
+        """
+        Load search queries from a JSON file and return a random sample.
+
+        Args:
+            filepath (str): The path to the JSON file containing search queries.
+            num_needed (int): The number of random queries to return.
+        
+        Returns:
+            list: A list of randomly selected search queries.
+            If the file is not found, an error is logged and an empty list is returned.
+        """
+
         try:
             with open(filepath, "r", encoding="utf-8") as file:
                 data = json.load(file)
@@ -52,6 +78,13 @@ class SearchEngine:
             return []
         
     def get_coffee_break_count(self):
+        """
+        Determine how many searches to perform before taking a coffee break, with a bias towards shorter breaks.
+
+        Returns:
+            int: The number of searches to perform before taking a break.
+        """
+
         # 80% of the time, take a break after 4-9 searches
         if random.random() < 0.8:
             return random.randint(4, 9)
@@ -59,8 +92,14 @@ class SearchEngine:
         else:
             return random.randint(10, 15)
         
-    # Perform searches with human-like behavior and log results
     def perform_searches(self, driver, queries):
+        """
+        Perform searches on Bing using Selenium WebDriver with human-like behavior.
+
+        Args:
+            driver (WebDriver): An instance of Selenium WebDriver to control the browser.
+            queries (list): A list of search queries to perform.
+        """
 
         human = HumanBehavior(driver, show_cursor=True)
 

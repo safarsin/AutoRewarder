@@ -23,6 +23,13 @@ class HistoryManager:
         self._logger = logger
 
     def _log(self, message):
+        """
+        Log a message using the provided logger, if available.
+
+        Args:
+            message (str): The message to log.
+        """
+
         if self._logger:
             self._logger(message)
 
@@ -34,7 +41,7 @@ class HistoryManager:
             list: A list of search records. 
             Each record is a dictionary containing date, time, query, and status.
         """
-
+        
         if not os.path.exists(self.history_file) or os.path.getsize(self.history_file) == 0:
             return []
 
@@ -88,7 +95,7 @@ class HistoryManager:
             query_text (str): The text of the search query.
             status (str): The status of the search (e.g., "success", "failure"(error)).
         """
-        
+
         now = datetime.now()
         current_date = now.strftime("%m-%d-%Y")
         current_time = now.strftime("%H:%M:%S")
