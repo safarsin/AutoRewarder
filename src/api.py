@@ -281,6 +281,7 @@ class AutoRewarderAPI:
         Args:
             message: The message string to log.
         """
+        
         if self._webview_window:
             try:
                 safe_message = json.dumps(message)
@@ -295,6 +296,7 @@ class AutoRewarderAPI:
         Args:
             count: The number of queries to search.
         """
+
         self.log("Starting AutoRewarder (Edge Edition)...")
 
         # 1. Get queries to search from JSON file
