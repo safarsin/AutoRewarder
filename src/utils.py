@@ -23,6 +23,9 @@ def check_for_updates(logger=None):
 
     Args:
         logger (callable, optional): A function to log messages. Defaults to None.
+
+    Returns:
+        tuple: (is_update_available (bool), latest_version (str or None))
     """
     try:
         headers = {
