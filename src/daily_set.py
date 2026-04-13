@@ -82,7 +82,7 @@ class DailySet:
 
         Args:
             driver: The Selenium WebDriver instance to use for automation.
-            human: An instance of the HumanEmulator class to perform human-like interactions.
+            human: An instance of the HumanBehavior class to perform human-like interactions.
         
         Returns:
             bool: True if the Daily Set was completed successfully, False otherwise.

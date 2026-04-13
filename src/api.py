@@ -169,7 +169,7 @@ class AutoRewarderAPI:
     def check_driver_status(self):
         """
         Check if the WebDriver is still loading.
-        Runs fron JS.
+        Runs from JS.
 
         Returns:
             bool: True if the WebDriver is still loading, False otherwise.
@@ -281,7 +281,7 @@ class AutoRewarderAPI:
         Args:
             message: The message string to log.
         """
-        
+
         if self._webview_window:
             try:
                 safe_message = json.dumps(message)
