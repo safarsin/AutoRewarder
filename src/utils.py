@@ -4,14 +4,26 @@ import requests
 
 from .config import CURRENT_VERSION, REPO
 
-# Human-like typing with random delays between keystrokes
 def human_typing(element, text):
+    """
+    Simulate human-like typing by sending keys to a web element with random delays.
+
+    Args:
+        element: The web element to send keys to.
+        text: The text to type into the element.
+    """
+
     for char in text:
         element.send_keys(char)
         time.sleep(random.uniform(0.05, 0.18))
 
-# Check if update is required
 def check_for_updates(logger=None):
+    """
+    Check GitHub API for the latest release and compare it to the current version.
+
+    Args:
+        logger (callable, optional): A function to log messages. Defaults to None.
+    """
     try:
         headers = {
             "User-Agent": "AutoRewarder-App"
