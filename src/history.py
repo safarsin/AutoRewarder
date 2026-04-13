@@ -17,6 +17,7 @@ class HistoryManager:
         Args:
             logger (callable, optional): A logging function to log messages. Defaults to None.
         """
+
         self.history_file = HISTORY_FILE_PATH
         self.settings_file = SETTINGS_FILE_PATH
         self._logger = logger
@@ -33,6 +34,7 @@ class HistoryManager:
             list: A list of search records. 
             Each record is a dictionary containing date, time, query, and status.
         """
+
         if not os.path.exists(self.history_file) or os.path.getsize(self.history_file) == 0:
             return []
 
@@ -69,6 +71,7 @@ class HistoryManager:
             history_list (list): A list of search records to be saved. 
             Each record is a dictionary containing date, time, query, and status.
         """
+
         temp_file = self.history_file + ".tmp"
 
         with open(temp_file, "w", encoding="utf-8") as file:
@@ -85,6 +88,7 @@ class HistoryManager:
             query_text (str): The text of the search query.
             status (str): The status of the search (e.g., "success", "failure"(error)).
         """
+        
         now = datetime.now()
         current_date = now.strftime("%m-%d-%Y")
         current_time = now.strftime("%H:%M:%S")

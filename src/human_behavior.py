@@ -5,7 +5,19 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 
 class HumanBehavior:
+    """
+    Simulates human-like behavior when interacting with a web page.
+    """
+
     def __init__(self, driver, show_cursor=True):
+        """
+        Initialize the HumanBehavior with a Selenium WebDriver instance and cursor visibility.
+
+        Args:
+            driver (webdriver): The Selenium WebDriver instance to interact with the web page.
+            show_cursor (bool): Whether to show a debug cursor on the page to visualize mouse movements. Default is True.
+        """
+
         self.driver = driver
         self.show_cursor = show_cursor
         # Stored in viewport coordinates (not document coordinates).
@@ -15,7 +27,19 @@ class HumanBehavior:
         ]
     
     def _draw_debug_cursor(self, x, y, color="red"):
-        """Draw a debug cursor on the page"""
+        """
+        Draw a debug cursor on the page
+
+        Args:
+            x (int): The x-coordinate of the cursor in viewport coordinates.
+            y (int): The y-coordinate of the cursor in viewport coordinates.
+            color (str): The color of the cursor (default is "red").
+        
+        Note: This is a debug feature to visualize mouse movements. 
+        It creates a small circle that follows the mouse position.
+        It does not affect the actual mouse events and is purely for visual debugging purposes.
+        """
+
         if not self.show_cursor:
             return
 
@@ -43,11 +67,25 @@ class HumanBehavior:
         self.driver.execute_script(script, x, y)
 
     def _ease_in_out(self, t):
-        """Ease in-out function for smoother mouse movement (smoothstep)"""
+        """
+        Ease in-out function for smoother mouse movement (smoothstep)
+        
+        Args:
+            t (float): A value between 0 and 1 representing the progress of the movement.
+
+        Returns:
+            float: The eased value corresponding to the input progress.
+        """
         return t * t * (3 - 2 * t)
 
     def _get_viewport_size(self):
-        """Return viewport size (width, height) for coordinate clamping"""
+        """
+        Return viewport size (width, height) for coordinate clamping
+
+        Returns:
+            tuple: (viewport_width, viewport_height)
+        """
+
         # Viewport = visible browser area, not the full document size.
         width, height = self.driver.execute_script(
             "return [window.innerWidth, window.innerHeight];"
@@ -55,7 +93,19 @@ class HumanBehavior:
         return int(width), int(height)
 
     def _clamp_point(self, x, y, width, height):
-        """Clamp a point to the viewport bounds"""
+        """
+        Clamp a point to the viewport bounds
+
+        Args:
+            x (int): The x-coordinate of the point.
+            y (int): The y-coordinate of the point.
+            width (int): The width of the viewport.
+            height (int): The height of the viewport.
+
+        Returns:
+            tuple: (clamped_x, clamped_y)
+        """
+
         # Prevent MoveTargetOutOfBounds errors.
         clamped_x = max(0, min(x, width - 1))
         clamped_y = max(0, min(y, height - 1))
@@ -68,6 +118,7 @@ class HumanBehavior:
         30% of the time: scroll to end or near end (1-1.5 = 67% to 100%)
         Based on studies showing users typically scroll 10-30% of a page
         """
+
         if random.random() < 0.7:
             random_scroll_divisor = random.uniform(2, 10)
         else:
@@ -104,7 +155,16 @@ class HumanBehavior:
         time.sleep(random.uniform(5, 10))
     
     def move_to_element(self, element, steps=None, retries_left=1, scroll_into_view=True):
-        """Move mouse to the given element in a human-like manner"""
+        """
+        Move mouse to the given element in a human-like manner
+
+        Args:
+            element (WebElement): The target element to move the mouse to.
+            steps (int): The number of steps for the movement. If None, it will be calculated based on distance.
+            retries_left (int): The number of retries left for "missed" movements. Default is 1.
+            scroll_into_view (bool): Whether to scroll the element into view if it's outside the viewport. Default is True.
+        """
+
         start_x, start_y = self.last_mouse_position
         viewport_width, viewport_height = self._get_viewport_size()
         start_x, start_y = self._clamp_point(
@@ -267,7 +327,14 @@ class HumanBehavior:
         self.last_mouse_position = [last_x, last_y]
 
     def click_element(self, element, scroll_into_view=True):
-        """Full cycle: move to element, highlight in green (click), then click"""
+        """
+        Full cycle: move to element, highlight in green (click), then click
+
+        Args:
+            element (WebElement): The target element to click.
+            scroll_into_view (bool): Whether to scroll the element into view if it's outside the viewport. Default is True.
+        """
+        
         self.move_to_element(element, scroll_into_view=scroll_into_view)
         time.sleep(random.uniform(0.1, 0.3))
         
