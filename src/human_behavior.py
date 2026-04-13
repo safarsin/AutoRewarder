@@ -113,9 +113,12 @@ class HumanBehavior:
     
     def scroll_page(self):
         """
-        Generate random scroll divisor with probability
-        70% of the time: scroll small portion (2-10 = 10% to 50%)
-        30% of the time: scroll to end or near end (1-1.5 = 67% to 100%)
+        Scrolls the page smoothly downwards to mimic human reading behavior.
+
+        Scroll depth logic based on typical user behavior:
+        - 70% chance: scrolls a small portion (10% to 50% of the page).
+        - 30% chance: scrolls to the end or near the end (67% to 100% of the page).
+        
         Based on studies showing users typically scroll 10-30% of a page
         """
 
@@ -334,7 +337,7 @@ class HumanBehavior:
             element (WebElement): The target element to click.
             scroll_into_view (bool): Whether to scroll the element into view if it's outside the viewport. Default is True.
         """
-        
+
         self.move_to_element(element, scroll_into_view=scroll_into_view)
         time.sleep(random.uniform(0.1, 0.3))
         
