@@ -4,10 +4,25 @@ import os
 from .config import APP_DIR, SETTINGS_FILE_PATH
 
 class SettingsManager:
+    """
+    Manages the application settings.
+    """
+
     def __init__(self):
+        """
+        Initialize the SettingsManager with the path to the settings file.
+        """
+
         self.path = SETTINGS_FILE_PATH
 
     def get_settings(self):
+        """
+        Retrieve the application settings from the JSON file.
+
+        Returns:
+            dict: A dictionary containing the application settings.
+        """
+
         default_settings = {
             "first_setup_done": False,
             "hide_browser": False,
@@ -40,15 +55,33 @@ class SettingsManager:
             return default_settings
 
     def save_settings(self, settings):
+        """
+        Save the application settings to a JSON file.
+
+        Args:
+            settings (dict): A dictionary containing the application settings.
+        """
+
         with open(self.path, "w", encoding="utf-8") as file:
             json.dump(settings, file, indent=4)
 
     def set_hide_browser(self, is_hide):
+        """
+        Set the "hide_browser"(headless mode) setting to control whether the browser should be hidden.
+
+        Args:
+            is_hide (bool): True to hide the browser, False to show it.
+        """
+
         settings = self.get_settings()
         settings["hide_browser"] = bool(is_hide)
         self.save_settings(settings)
 
     def mark_up_as_done(self):
+        """
+        Mark the first setup as done.
+        """
+
         settings = self.get_settings()
         settings["first_setup_done"] = True
         self.save_settings(settings)
