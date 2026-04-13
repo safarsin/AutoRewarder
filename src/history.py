@@ -5,16 +5,43 @@ from datetime import datetime
 from .config import HISTORY_FILE_PATH, SETTINGS_FILE_PATH
 
 class HistoryManager:
+    """
+    Manages the history of search queries. 
+    Date, time, query text, and status of each search are stored in a JSON file.
+    """
+
     def __init__(self, logger=None):
+        """
+        Initialize the HistoryManager with file paths and an optional logger.
+        
+        Args:
+            logger (callable, optional): A logging function to log messages. Defaults to None.
+        """
+
         self.history_file = HISTORY_FILE_PATH
         self.settings_file = SETTINGS_FILE_PATH
         self._logger = logger
 
-    def log(self, message):
+    def _log(self, message):
+        """
+        Log a message using the provided logger, if available.
+
+        Args:
+            message (str): The message to log.
+        """
+
         if self._logger:
             self._logger(message)
 
     def get_history(self):
+        """
+        Retrieve the search history from the JSON file.
+
+        Returns:
+            list: A list of search records. 
+            Each record is a dictionary containing date, time, query, and status.
+        """
+        
         if not os.path.exists(self.history_file) or os.path.getsize(self.history_file) == 0:
             return []
 
@@ -27,7 +54,7 @@ class HistoryManager:
 
                 return history
         except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
-            self.log("[ERROR] History file was unreadable or damaged. Starting with a fresh one.")
+            self._log("[ERROR] History file was unreadable or damaged. Starting with a fresh one.")
 
             # Keep the damaged history file as backup and start with a clean one.
             backup_path = self.history_file + ".backup"
@@ -42,8 +69,16 @@ class HistoryManager:
 
             return []
 
-    # Save search history to temp file first and then replace the original file to avoid data corruption
+
     def save_history(self, history_list):
+        """
+        Save the search history to a JSON file. Uses a temporary file to avoid data loss.
+
+        Args:
+            history_list (list): A list of search records to be saved. 
+            Each record is a dictionary containing date, time, query, and status.
+        """
+
         temp_file = self.history_file + ".tmp"
 
         with open(temp_file, "w", encoding="utf-8") as file:
@@ -52,8 +87,15 @@ class HistoryManager:
         # Replace the original file with the updated one
         os.replace(temp_file, self.history_file)
 
-    # Add a search query to history JSON file
     def add_to_history(self, query_text, status):
+        """
+        Add a search query to the history JSON file with the current date, time, query text, and status.
+
+        Args:
+            query_text (str): The text of the search query.
+            status (str): The status of the search (e.g., "success", "failure"(error)).
+        """
+
         now = datetime.now()
         current_date = now.strftime("%m-%d-%Y")
         current_time = now.strftime("%H:%M:%S")

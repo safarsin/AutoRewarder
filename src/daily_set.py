@@ -8,16 +8,39 @@ from selenium.webdriver.common.by import By
 from .config import STATUS_FILE_PATH
 
 class DailySet:
+    """
+    A class to manage the Daily Set tasks in Microsoft Rewards.
+    """
+
     def __init__(self, logger=None):
+        """
+        Initialize the DailySet manager.
+
+        Args:
+            logger (callable, optional): A function to log messages. Defaults to None.
+        """
+
         self.status_file = STATUS_FILE_PATH
         self.logger = logger
 
-    def log(self, message):
+    def _log(self, message):
+        """
+        Log a message using the provided logger, if available.
+
+        Args:
+            message (str): The message to log.
+        """
         if self.logger:
             self.logger(message)
 
     def should_perform_daily_set(self):
-        """Check if the daily set has already been completed today"""
+        """
+        Check if the daily set has already been completed today
+
+        Returns:
+            bool: True if the daily set should be performed, False if it has already been completed
+        """
+
         today = str(date.today())
 
         if not os.path.exists(self.status_file):
@@ -28,11 +51,13 @@ class DailySet:
                 data = json.load(file)
                 return data.get("last_daily_set_date") != today
         except Exception:
-            self.log(f"[ERROR] Failed to read status file: {self.status_file}")
+            self._log(f"[ERROR] Failed to read status file: {self.status_file}")
             return True
     
     def mark_as_completed(self):
-        """Mark the daily set as completed for today"""
+        """
+        Mark the daily set as completed for today.
+        """
         today = str(date.today())
 
         data = {}
@@ -41,7 +66,7 @@ class DailySet:
                 with open(self.status_file, "r", encoding="utf-8") as file:
                     data = json.load(file)
             except Exception:
-                self.log(f"[ERROR] Failed to read status file: {self.status_file}")
+                self._log(f"[ERROR] Failed to read status file: {self.status_file}")
         
         data["last_daily_set_date"] = today
 
@@ -52,8 +77,18 @@ class DailySet:
         os.replace(temp_file, self.status_file)
     
     def perform_daily_set(self, driver, human):
-        """The main method to perform the Daily Set"""
-        self.log("Performing Daily Set")
+        """
+        The main method to perform the Daily Set
+
+        Args:
+            driver: The Selenium WebDriver instance to use for automation.
+            human: An instance of the HumanBehavior class to perform human-like interactions.
+        
+        Returns:
+            bool: True if the Daily Set was completed successfully, False otherwise.
+        """
+
+        self._log("Performing Daily Set")
         
         try:
             driver.get("https://rewards.bing.com")
@@ -68,7 +103,7 @@ class DailySet:
             
             tasks = driver.find_elements(By.CSS_SELECTOR, selector)
             if not tasks:
-                self.log("[WARNING] No Daily Set tasks found on the page.")
+                self._log("[WARNING] No Daily Set tasks found on the page.")
                 return False
 
             # One-time scroll to the Daily Set area before moving the mouse.
@@ -91,6 +126,10 @@ class DailySet:
                 pass
 
             def _pick_click_target(card):
+                """
+                Pick the most appropriate click target for a given card.
+                """
+
                 # Rewards is a dynamic SPA; containers can temporarily become 0x0 during re-renders.
                 # Prefer the inner link element when available.
                 try:
@@ -159,7 +198,7 @@ class DailySet:
                 except Exception as e:
                     had_task_failures = True
                     short_error = str(e).split("\n")[0][:160]
-                    self.log(f"[WARNING] Daily Set task #{i+1} failed: {short_error}")
+                    self._log(f"[WARNING] Daily Set task #{i+1} failed: {short_error}")
 
                     # Close any extra tabs, switch back to the main tab, and continue.
                     try:
@@ -181,5 +220,5 @@ class DailySet:
             return True
         
         except Exception as e:
-            self.log(f"[ERROR] Failed to collect Daily Set: {e}")
+            self._log(f"[ERROR] Failed to collect Daily Set: {e}")
             return False        

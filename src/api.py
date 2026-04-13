@@ -15,7 +15,25 @@ from .daily_set import DailySet
 from .human_behavior import HumanBehavior
 
 class AutoRewarderAPI:
+    """
+    Core API class for AutoRewarder.
+
+    This class manages the main functionality of the AutoRewarder application, including:
+    - Interacting with the webview GUI
+    - Managing the Selenium WebDriver
+    - Handling search queries and history
+    - Performing the Daily Set tasks
+    - Checking for updates
+    - Managing user settings
+    
+    It serves as the bridge between the frontend (GUI) and the backend logic.
+    """
+
     def __init__(self):
+        """
+        Initialize the AutoRewarderAPI with necessary managers and state variables.
+        """
+
         self.driver_manager = DriverManager()
         self.history = HistoryManager(logger=self.log)
         self.search_engine = SearchEngine(logger=self.log, history=self.history)
@@ -56,8 +74,10 @@ class AutoRewarderAPI:
             self._driver_loader_thread_started = True
             threading.Thread(target=self.load_driver_in_background, daemon=True).start()
 
-    # Open a new window to show search history
     def open_history_window(self):
+        """
+        Open a new window to display the search history.
+        """
         webview.create_window(
             title="Query History",
             url=os.path.join(GUI_DIR, "history.html"),
@@ -70,15 +90,22 @@ class AutoRewarderAPI:
         )
     
     def start_update_check(self):
+        """
+        Start the update check in a background thread to avoid blocking the UI.
+        """
+
         if self._update_check_started:
             return
         
         self._update_check_started = True
 
-        # Check for updates in a bg thread to avoid blocking the UI
         threading.Thread(target=self.run_update_check, daemon=True).start()
     
     def run_update_check(self):
+        """
+        Check for updates and notify the user if a new version is available.
+        """
+
         try:
             needs_update, latest_version = check_for_updates(logger=self.log)
         except Exception as e:
@@ -111,10 +138,20 @@ class AutoRewarderAPI:
             return
     
     def open_link(self, url):
+        """
+        Open a URL in the default web browser.
+
+        Args:
+            url: The URL to open.
+        """
+
         webbrowser.open(url)
 
-    # Load the WebDriver in a bg thread
     def load_driver_in_background(self):
+        """
+        Load the Selenium WebDriver in a background thread to avoid freezing the UI.
+        """
+
         self.is_driver_loading = True
 
         try:
@@ -129,20 +166,47 @@ class AutoRewarderAPI:
             if hasattr(self, "_webview_window") and self._webview_window:
                 self._webview_window.evaluate_js("stop_loader()")
 
-    # Fun for JS to check status of the driver
     def check_driver_status(self):
+        """
+        Check if the WebDriver is still loading.
+        Runs from JS.
+
+        Returns:
+            bool: True if the WebDriver is still loading, False otherwise.
+        """
+
         return self.is_driver_loading
 
-    # Get settings from settings.json or create it with default values if it doesn't exist
     def get_settings(self):
+        """
+        Retrieve user settings from the settings manager.
+        Or create the settings file with default values if it doesn't exist.
+
+        Returns:
+            dict: A dictionary containing user settings.
+        """
+
         return self.settings_manager.get_settings()
     
-    # Load search history from JSON file
     def get_history(self):
+        """
+        Retrieve the search history from the history manager.
+
+        Returns:
+            list: A list of search history entries.
+        """
+
         return self.history.get_history()
 
     # First setup function to let user log in to their Microsoft account and prepare the Edge profile for the bot
     def first_setup(self):
+        """
+        Perform the first-time setup for the bot.
+        This function opens a browser window for the user to log in to their Microsoft account.
+        After the user logs in and closes the browser, the setup is marked as completed.
+        After successful setup, the start button is enabled and the setup button is hidden in the UI.
+        """
+
         self.log("Starting First Setup... Please log in to your Microsoft account.")
 
         setup_driver = self.driver_manager.setup_driver(headless=False)  # Open browser in normal mode for login
@@ -194,8 +258,14 @@ class AutoRewarderAPI:
                     # Allow retry after a failed setup attempt.
                     self._webview_window.evaluate_js("enable_setup_button()")
 
-    # Function for toggle browser hidden mode and save the setting
     def set_hide_browser(self, is_hide):
+        """
+        Toggle the browser hidden(headless) mode and save the setting.
+
+        Args:
+            is_hide: A boolean indicating whether to hide the browser (True) or show it (False).
+        """
+
         self.hide_browser = is_hide
         self.driver_manager.hide_browser = bool(is_hide)
 
@@ -205,6 +275,13 @@ class AutoRewarderAPI:
 
     # Send message to UI log area
     def log(self, message):
+        """
+        Log a message to the UI log area.
+
+        Args:
+            message: The message string to log.
+        """
+
         if self._webview_window:
             try:
                 safe_message = json.dumps(message)
@@ -212,8 +289,14 @@ class AutoRewarderAPI:
             except Exception as e:
                 print(f"Log error: {e}")
 
-    # Main function to run the bot
     def main(self, count):
+        """
+        Main function to run the bot.
+
+        Args:
+            count: The number of queries to search.
+        """
+
         self.log("Starting AutoRewarder (Edge Edition)...")
 
         # 1. Get queries to search from JSON file

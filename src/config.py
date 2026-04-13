@@ -1,3 +1,11 @@
+"""
+Configuration module for AutoRewarder.
+
+This module defines constants and paths used throughout the AutoRewarder application, 
+such as version information, repository details, platform-specific directories, 
+and file paths for storing user data and settings.
+"""
+
 import os
 import platform
 import sys
@@ -9,7 +17,6 @@ PLATFORM_NAME = platform.system()
 
 # Configs
 # Create a separate folder for the bot's profile to avoid conflicts with your main browser
-
 APP_DIR = ""
 
 # Get Linux app directory

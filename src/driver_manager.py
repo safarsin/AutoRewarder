@@ -3,10 +3,31 @@ from selenium.webdriver.edge.options import Options
 from .config import EDGE_PROFILE_PATH
 
 class DriverManager:
+    """ 
+    Manages the Selenium WebDriver for MS Edge, 
+    including setup and configuration. 
+    """
+
     def __init__(self, hide_browser=False):
+        """
+        Initialize the DriverManager with default settings.
+
+        Args:
+            hide_browser (bool): Whether to run the browser in headless mode (invisible). Default is False (visible).
+        """
         self.hide_browser = hide_browser
 
     def setup_driver(self, headless=None):
+        """
+        Set up the Selenium WebDriver for MS Edge with the specified options.
+
+        Args:
+            headless (bool): Whether to run the browser in headless mode (invisible). 
+            If None, it will use the default setting from the instance.
+        
+        Returns:
+            webdriver.Edge: The configured Microsoft Edge WebDriver instance.
+        """
         if headless is None:
             headless = self.hide_browser
 

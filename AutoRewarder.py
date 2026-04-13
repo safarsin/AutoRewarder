@@ -1,3 +1,14 @@
+"""
+Main entry point for the AutoRewarder application.
+
+This script initializes the core AutoRewarderAPI and launches the desktop 
+graphical user interface (GUI) using pywebview. 
+
+Usage:
+    Run this file directly to start the application:
+    python AutoRewarder.py
+"""
+
 import os
 import webview
 

@@ -9,37 +9,82 @@ from .utils import human_typing
 from .human_behavior import HumanBehavior
 
 class SearchEngine:
+    """
+    A class to handle search operations with human-like behavior.
+    """
+
     def __init__(self, logger=None, history=None):
+        """
+        Initialize the SearchEngine with an optional logger and history manager.
+
+        Args:
+            logger (callable, optional): A logging function to log messages. Defaults to None.
+            history (HistoryManager, optional): An instance of HistoryManager to manage search history. Defaults to None.
+        """
+
         self._logger = logger
         self._history = history
 
-    def log(self, message):
+    def _log(self, message):
+        """
+        Log a message using the provided logger, if available.
+
+        Args:
+            message (str): The message to log.
+        """
+
         if self._logger:
             self._logger(message)
 
-    def add_to_history(self, query_text, status):
+    def _add_to_history(self, query_text, status):
+        """
+        Add a search query and its status to the history manager.
+
+        Args:
+            query_text (str): The search query.
+            status (str): The status of the search.
+        """
+        
         if self._history:
             self._history.add_to_history(query_text, status)
 
-    # Load queries from JSON file and return a random sample
     def load_queries_from_json(self, filepath, num_needed):
+        """
+        Load search queries from a JSON file and return a random sample.
+
+        Args:
+            filepath (str): The path to the JSON file containing search queries.
+            num_needed (int): The number of random queries to return.
+        
+        Returns:
+            list: A list of randomly selected search queries.
+            If the file is not found, an error is logged and an empty list is returned.
+        """
+
         try:
             with open(filepath, "r", encoding="utf-8") as file:
                 data = json.load(file)
                 all_queries = data.get("queries", [])
 
                 if len(all_queries) < num_needed:
-                    self.log(f"[WARNING] In the JSON file, there are only {len(all_queries)} queries available, but {num_needed} are needed.")
+                    self._log(f"[WARNING] In the JSON file, there are only {len(all_queries)} queries available, but {num_needed} are needed.")
                     return all_queries
 
                 return random.sample(all_queries, num_needed)
 
         except FileNotFoundError:
-            self.log(f"[ERROR] File {filepath} not found!")
-            self.add_to_history("N/A", f"[ERROR] File {filepath} not found")
+            self._log(f"[ERROR] File {filepath} not found!")
+            self._add_to_history("N/A", f"[ERROR] File {filepath} not found")
             return []
         
     def get_coffee_break_count(self):
+        """
+        Determine how many searches to perform before taking a coffee break, with a bias towards shorter breaks.
+
+        Returns:
+            int: The number of searches to perform before taking a break.
+        """
+
         # 80% of the time, take a break after 4-9 searches
         if random.random() < 0.8:
             return random.randint(4, 9)
@@ -47,16 +92,22 @@ class SearchEngine:
         else:
             return random.randint(10, 15)
         
-    # Perform searches with human-like behavior and log results
     def perform_searches(self, driver, queries):
+        """
+        Perform searches on Bing using Selenium WebDriver with human-like behavior.
+
+        Args:
+            driver (WebDriver): An instance of Selenium WebDriver to control the browser.
+            queries (list): A list of search queries to perform.
+        """
 
         human = HumanBehavior(driver, show_cursor=True)
 
         next_coffee_break = self.get_coffee_break_count()
         searches_since_break = 0
 
-        self.log(f"Loaded {len(queries)} queries. Starting searches...")
-        self.log(f"Next coffee break after {next_coffee_break} searches.")
+        self._log(f"Loaded {len(queries)} queries. Starting searches...")
+        self._log(f"Next coffee break after {next_coffee_break} searches.")
 
         for i, query in enumerate(queries):
             try:
@@ -71,24 +122,24 @@ class SearchEngine:
 
                     if next_coffee_break > 9:
                         pause_duration = random.uniform(45, 90)
-                        self.log(f"Taking a big coffee break...")
+                        self._log(f"Taking a big coffee break...")
                     else:
                         pause_duration = random.uniform(15, 30)
-                        self.log(f"Taking a quick coffee break...")
+                        self._log(f"Taking a quick coffee break...")
                     
-                    self.log(f"Sleeping for {pause_duration:.2f} seconds to mimic a coffee break.")
+                    self._log(f"Sleeping for {pause_duration:.2f} seconds to mimic a coffee break.")
                     time.sleep(pause_duration)
 
                     next_coffee_break = self.get_coffee_break_count()
                     searches_since_break = 0
-                    self.log(f"Next coffee break after {next_coffee_break} searches.")
+                    self._log(f"Next coffee break after {next_coffee_break} searches.")
 
                 # Find the search box, clear it
                 search_box = driver.find_element(By.NAME, "q")
                 search_box.clear()
 
                 # Log the search query in log area
-                self.log(f"Search #{i + 1}: {query}")
+                self._log(f"Search #{i + 1}: {query}")
 
                 # Type the query with human-like delays
                 human_typing(search_box, query)
@@ -108,7 +159,7 @@ class SearchEngine:
                 chosen_tab = random.choices(tabs_config, weights=weights, k=1)[0]
 
                 if chosen_tab["name"] != "All":
-                    self.log(f"Chosen behavior: Switch to {chosen_tab['name']}")
+                    self._log(f"Chosen behavior: Switch to {chosen_tab['name']}")
                     try:
                         # Find the tab element using its id
                         xpath = f"//li[@id='{chosen_tab['id']}']//a"
@@ -119,15 +170,15 @@ class SearchEngine:
                         time.sleep(random.uniform(3, 6))
 
                     except NoSuchElementException:
-                        self.log(f"[WARNING] Tab {chosen_tab['name']} not found. Staying on 'All'.")
+                        self._log(f"[WARNING] Tab {chosen_tab['name']} not found. Staying on 'All'.")
 
                         # Fallback to "All" if the chosen tab is not found
                         chosen_tab["name"] = "All"
 
                     except WebDriverException as e:
                         short_error = str(e).split("\n")[0][:28]
-                        self.log(f"[WARNING] WebDriver error when switching to {chosen_tab['name']}: {short_error}.")
-                        self.log(f"Staying on 'All'.")
+                        self._log(f"[WARNING] WebDriver error when switching to {chosen_tab['name']}: {short_error}.")
+                        self._log(f"Staying on 'All'.")
 
                         chosen_tab["name"] = "All"
 
@@ -137,23 +188,23 @@ class SearchEngine:
                         human.scroll_page()
                 except WebDriverException as e:
                     short_error = str(e).split("\n")[0][:28]
-                    self.log(f"[WARNING] WebDriver error when scrolling: {short_error}. Continuing.")
+                    self._log(f"[WARNING] WebDriver error when scrolling: {short_error}. Continuing.")
                 
                 # Pause after scrolling
                 time.sleep(random.uniform(2, 4))
 
                 # Add to history.json
-                self.add_to_history(query, "Success")
+                self._add_to_history(query, "Success")
 
             except NoSuchElementException:
-                self.log(f"[ERROR] Search box not found on attempt #{i+1}")
-                self.add_to_history(query, "[ERROR] Search box not found")
+                self._log(f"[ERROR] Search box not found on attempt #{i+1}")
+                self._add_to_history(query, "[ERROR] Search box not found")
 
             except WebDriverException as e:
                 short_error = str(e).split("\n")[0][:28]
-                self.log(f"[ERROR] WebDriver error on attempt #{i+1}: {short_error}")
-                self.add_to_history(query, f"[ERROR] WebDriver Error: {short_error}")
+                self._log(f"[ERROR] WebDriver error on attempt #{i+1}: {short_error}")
+                self._add_to_history(query, f"[ERROR] WebDriver Error: {short_error}")
 
             except Exception as e:
-                self.log(f"[ERROR] Unknown error on attempt #{i+1}: {e}")
-                self.add_to_history(query, f"[ERROR] Unknown Error: {str(e)[:50]}")
+                self._log(f"[ERROR] Unknown error on attempt #{i+1}: {e}")
+                self._add_to_history(query, f"[ERROR] Unknown Error: {str(e)[:50]}")

@@ -218,8 +218,7 @@ A: First Setup creates a separate browser profile that doesn't interfere with yo
 A: You can force-close it (Ctrl+Alt+Delete → Task Manager → AutoRewarder → End Task). Your history/settings will be preserved.
 
 **Q: Can I run this on Mac or Linux?**  
-A: Currently only Windows is supported. You need Windows 10 or later.
-
+A: Currently, the pre-built installer and standalone executable are only available for Windows. The application can run on Linux, but it requires manual setup from the source code. A portable/executable version for Linux is not available at this time. Mac OS is not supported.
 ---
 
 **Last Updated**: April 2026  
