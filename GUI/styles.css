@@ -308,22 +308,27 @@ transition: color 0.2s;
 }
 
 .settings-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 5px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: color 0.2s ease, transform 0.2s ease;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.settings-btn:hover {
-    color: var(--accent);
+.settings-btn:hover,
+.settings-btn:focus,
+.settings-btn:active {
+  background: transparent;
+}
+
+.icon-settings {
+  color: var(--text-muted);
+  transition: color 0.2s ease, transform 0.4s ease;
 }
 
 .settings-btn:hover .icon-settings {
-    transform: rotate(100deg);
-    transition: transform 0.4s ease;
+  color: var(--accent);
+  transform: rotate(100deg);
 }
