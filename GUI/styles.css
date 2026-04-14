@@ -307,6 +307,7 @@ transition: color 0.2s;
   background: var(--text-muted); 
 }
 
+/* Settings button styles */
 .settings-btn {
   background: transparent;
   border: none;
@@ -331,4 +332,32 @@ transition: color 0.2s;
 .settings-btn:hover .icon-settings {
   color: var(--accent);
   transform: rotate(100deg);
+}
+
+/* Settings panel styles */
+.settings-panel {
+  position: fixed; 
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 100vh;
+  background-color: var(--bg-main);
+  border-left: 1px solid var(--border); 
+  box-shadow: -5px 0 15px rgba(0,0,0,0.5);
+  z-index: 9999;
+  
+  transform: translateX(100%); 
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+}
+
+.settings-panel.open {
+  transform: translateX(0);
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border);
 }

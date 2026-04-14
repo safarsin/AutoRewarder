@@ -22,7 +22,7 @@
         AutoRewarder <span class="version">v3.0</span>
       </div>
 
-      <button class="settings-btn">
+      <button id="settingsBtn" class="settings-btn">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" 
           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-settings">
           <circle cx="12" cy="12" r="3"></circle>
@@ -37,6 +37,23 @@
           </path>
         </svg>
       </button>
+
+      <div id="settingsPanel" class="settings-panel">
+        <div class="settings-header">
+          <h3 style="color: #fff; margin: 0; font-size: 16px;">Settings</h3>
+          <button id="closeSettingsBtn" 
+            style="background: none; border: none; color: #8b949e; cursor: pointer; font-size: 16px;">
+            &times;
+          </button>
+        </div>
+
+        <div class="settings-content" style="padding: 20px; color: #8b949e;">
+          <p>settingsjan</p>
+          <label for="autoStartCheckbox" style="display: block; margin-bottom: 5px;">Auto start-up</label>
+          <input type="checkbox" id="autoStartCheckbox" style="transform: scale(1.5);">
+        </div>
+
+      </div>
       
     </div>
 

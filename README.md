@@ -147,7 +147,8 @@ AutoRewarder/
 ├── AutoRewarder.spec     # PyInstaller build spec
 ├── AutoRewarder.iss      # Inno Setup installer script
 ├── LICENSE              
-├── README.md            
+├── README.md 
+├── USER_GUIDE.md          
 └── requirements.txt      
 ```
 
