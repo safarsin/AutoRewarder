@@ -32,20 +32,26 @@ body {
   box-shadow: 0 8px 24px rgba(0,0,0,0.5);
 }
 
-h2 {
+.header-container {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.header {
   margin: 0 0 20px 0;
   font-size: 20px;
   font-weight: 600;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 10px;
   color: #ffffff;
 }
 
 .version {
   font-size: 12px; 
-  color: var(--text-muted); 
-  margin-left: auto;
+  color: var(--text-muted);
+  margin-top: auto; 
 }
 
 .controls {

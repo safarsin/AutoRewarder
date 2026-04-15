@@ -6,20 +6,79 @@
 
   <link rel="stylesheet" href="normalize.css">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="settings.css">
 
 </head>
 <body>
 
   <div class="container">
-    <h2>
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-        <line x1="8" y1="21" x2="16" y2="21"></line>
-        <line x1="12" y1="17" x2="12" y2="21"></line>
-      </svg>
-      AutoRewarder <span class="version">v3.0</span>
-    </h2>
+    
+    <div class="header-container">
+      <div class="header">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+        AutoRewarder <span class="version">v3.0</span>
+      </div>
+
+      <button id="settingsBtn" class="settings-btn" aria-label="Settings">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" 
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-settings">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 
+            0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 
+            1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 
+            0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 
+            2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 
+            2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 
+            2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 
+            1.65 0 0 0-1.51 1z">
+          </path>
+        </svg>
+      </button>
+
+      <div id="settingsPanel" class="settings-panel">
+        <div class="settings-header">
+          <h3>Settings</h3>
+          <button id="closeSettingsBtn" aria-label="Close settings">
+            &times;
+          </button>
+        </div>
+
+        <div class="settings-content">
+
+          <div class="settings">
+            <label class="settings-label">
+              <span class="title">Automatic start-up</span>
+              <input type="checkbox" id="autoStartUp" class="big-checkbox">
+            </label>
+          </div>
+
+          <div class="settings disabled" id="advSchedulingWrapper">
+            <label class="settings-label">
+              <span class="title">Advanced scheduling</span>
+              <input type="checkbox" id="advancedScheduling" class="big-checkbox" disabled>
+            </label>
+          </div>
+
+          <div class="settings nested-setting hidden" id="runDurationWrapper">
+            <label class="settings-label">
+              <span class="title sub-title">Run duration (hours)</span>
+              <input type="number" id="runDuration" class="time-input" min="1" max="24" value="4">
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-footer">
+          <button id="saveSettingsBtn" class="save-btn">Save settings</button>
+        </div>
+
+      </div>
       
+    </div>
+
     <div class="controls">
       <div class="input-group">
         <label for="count_input">Queries:</label>
@@ -64,6 +123,7 @@
   </div>
 
   <script src="script.js"></script>
+  <script src="settings.js"></script>
 
 </body>
 </html>

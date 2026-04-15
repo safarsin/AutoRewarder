@@ -126,6 +126,8 @@ AutoRewarder/
 │   ├── history.html      # History view UI
 │   ├── script.js         # Frontend logic and bridge calls
 │   ├── styles.css        # App styling
+|   ├── settings.js        # Settings page logic and bridge calls
+|   ├── settings.css      # Settings page styling
 │   └── normalize.css     # CSS reset
 ├── assets/
 │   ├── icon.ico          # App icon
@@ -142,12 +144,12 @@ AutoRewarder/
 │   ├── search_engine.py  # Handles search logic and interactions
 │   ├── settings_manager.py # Manages user settings storage and retrieval
 │   └── utils.py          # Utility functions(human-typing, update checks)
-│ 
 ├── AutoRewarder.py       # Python backend and webview window
 ├── AutoRewarder.spec     # PyInstaller build spec
 ├── AutoRewarder.iss      # Inno Setup installer script
 ├── LICENSE              
-├── README.md            
+├── README.md 
+├── USER_GUIDE.md          
 └── requirements.txt      
 ```
 
