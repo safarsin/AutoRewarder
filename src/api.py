@@ -14,6 +14,7 @@ from .settings_manager import SettingsManager
 from .daily_set import DailySet
 from .human_behavior import HumanBehavior
 
+
 class AutoRewarderAPI:
     """
     Core API class for AutoRewarder.
@@ -25,7 +26,7 @@ class AutoRewarderAPI:
     - Performing the Daily Set tasks
     - Checking for updates
     - Managing user settings
-    
+
     It serves as the bridge between the frontend (GUI) and the backend logic.
     """
 
@@ -57,12 +58,12 @@ class AutoRewarderAPI:
         """
         Save the window reference and start background tasks.
 
-        Checks for updates and loads the driver in a separate thread 
-        so the UI doesn't freeze. This is important when Edge updates 
+        Checks for updates and loads the driver in a separate thread
+        so the UI doesn't freeze. This is important when Edge updates
         and the driver needs time to download.
 
         Args:
-            window: The pywebview window instance for JS interaction.       
+            window: The pywebview window instance for JS interaction.
         """
 
         # store reference to webview window so Python can call JS (evaluate_js)
@@ -85,10 +86,10 @@ class AutoRewarderAPI:
             width=700,
             height=500,
             resizable=True,
-            background_color='#0d1117',
-            text_select=True
+            background_color="#0d1117",
+            text_select=True,
         )
-    
+
     def start_update_check(self):
         """
         Start the update check in a background thread to avoid blocking the UI.
@@ -96,11 +97,11 @@ class AutoRewarderAPI:
 
         if self._update_check_started:
             return
-        
+
         self._update_check_started = True
 
         threading.Thread(target=self.run_update_check, daemon=True).start()
-    
+
     def run_update_check(self):
         """
         Check for updates and notify the user if a new version is available.
@@ -111,13 +112,13 @@ class AutoRewarderAPI:
         except Exception as e:
             self.log(f"[ERROR] Error checking for updates: {e}")
             return
-        
+
         if not needs_update or not latest_version:
             return
-        
+
         if not self._webview_window:
             return
-        
+
         url = f"https://github.com/{REPO}/releases/latest"
         msg = (
             f"Update available: {latest_version} (current {CURRENT_VERSION}).\n"
@@ -128,7 +129,7 @@ class AutoRewarderAPI:
 
         # A clickable link in the log area (pywebview)
         link_html = f"<a href='#' onclick='window.pywebview.api.open_link(\"{url}\")'>Click here to download</a>"
-        
+
         self.log(f"New version {latest_version} available: {link_html}")
 
         try:
@@ -136,7 +137,7 @@ class AutoRewarderAPI:
         except Exception as e:
             self.log(f"[ERROR] Error displaying update alert: {e}")
             return
-    
+
     def open_link(self, url):
         """
         Open a URL in the default web browser.
@@ -187,7 +188,7 @@ class AutoRewarderAPI:
         """
 
         return self.settings_manager.get_settings()
-    
+
     def get_history(self):
         """
         Retrieve the search history from the history manager.
@@ -209,7 +210,9 @@ class AutoRewarderAPI:
 
         self.log("Starting First Setup... Please log in to your Microsoft account.")
 
-        setup_driver = self.driver_manager.setup_driver(headless=False)  # Open browser in normal mode for login
+        setup_driver = self.driver_manager.setup_driver(
+            headless=False
+        )  # Open browser in normal mode for login
         # Used to avoid false "completed" state when finally executes after a failure.
         setup_succeeded = False
 
@@ -220,7 +223,9 @@ class AutoRewarderAPI:
             Just log in and close the browser when done.""")
             time.sleep(4)
             setup_driver.get("https://www.bing.com")
-            self.log("Waiting for you to log in...\nClose the browser window when done!")
+            self.log(
+                "Waiting for you to log in...\nClose the browser window when done!"
+            )
 
             while len(setup_driver.window_handles) > 0:
                 time.sleep(1)
@@ -230,12 +235,18 @@ class AutoRewarderAPI:
         except Exception as e:
             error_msg = str(e).lower()
 
-            if "target window already closed" in error_msg or "disconnected" in error_msg or "not reachable" in error_msg:
+            if (
+                "target window already closed" in error_msg
+                or "disconnected" in error_msg
+                or "not reachable" in error_msg
+            ):
                 setup_succeeded = True
             else:
                 # If unexpected error, log it and add to history
                 self.log(f"[ERROR] Error during setup: {e}")
-                self.history.add_to_history("First Setup Failed", "[ERROR] " + str(e)[:50])
+                self.history.add_to_history(
+                    "First Setup Failed", "[ERROR] " + str(e)[:50]
+                )
 
         finally:
             try:
@@ -300,11 +311,15 @@ class AutoRewarderAPI:
         self.log("Starting AutoRewarder (Edge Edition)...")
 
         # 1. Get queries to search from JSON file
-        queries_to_search = self.search_engine.load_queries_from_json(JSON_FILE_PATH, num_needed=count)
+        queries_to_search = self.search_engine.load_queries_from_json(
+            JSON_FILE_PATH, num_needed=count
+        )
 
         if not queries_to_search:
             self.log("No queries available for search. Exiting...")
-            self.history.add_to_history("N/A", "[ERROR] No queries available for search")
+            self.history.add_to_history(
+                "N/A", "[ERROR] No queries available for search"
+            )
             return
 
         # 2. Setup browser

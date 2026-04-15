@@ -7,6 +7,7 @@ from selenium.webdriver.common.by import By
 
 from .config import STATUS_FILE_PATH
 
+
 class DailySet:
     """
     A class to manage the Daily Set tasks in Microsoft Rewards.
@@ -45,7 +46,7 @@ class DailySet:
 
         if not os.path.exists(self.status_file):
             return True
-        
+
         try:
             with open(self.status_file, "r", encoding="utf-8") as file:
                 data = json.load(file)
@@ -53,7 +54,7 @@ class DailySet:
         except Exception:
             self._log(f"[ERROR] Failed to read status file: {self.status_file}")
             return True
-    
+
     def mark_as_completed(self):
         """
         Mark the daily set as completed for today.
@@ -67,7 +68,7 @@ class DailySet:
                     data = json.load(file)
             except Exception:
                 self._log(f"[ERROR] Failed to read status file: {self.status_file}")
-        
+
         data["last_daily_set_date"] = today
 
         # Write atomically to reduce the chance of leaving a partially-written JSON file.
@@ -75,7 +76,7 @@ class DailySet:
         with open(temp_file, "w", encoding="utf-8") as file:
             json.dump(data, file)
         os.replace(temp_file, self.status_file)
-    
+
     def perform_daily_set(self, driver, human):
         """
         The main method to perform the Daily Set
@@ -83,24 +84,24 @@ class DailySet:
         Args:
             driver: The Selenium WebDriver instance to use for automation.
             human: An instance of the HumanBehavior class to perform human-like interactions.
-        
+
         Returns:
             bool: True if the Daily Set was completed successfully, False otherwise.
         """
 
         self._log("Performing Daily Set")
-        
+
         try:
             driver.get("https://rewards.bing.com")
             time.sleep(random.uniform(4, 6))
-            
+
             main_tab = driver.current_window_handle
-            
+
             # Locate Daily Set cards by their container, but prefer clicking the real
             # clickable anchor inside the card to avoid 0x0 / non-interactable containers.
-            selector = "mee-rewards-daily-set-item-content .rewards-card-container" 
+            selector = "mee-rewards-daily-set-item-content .rewards-card-container"
             clickable_selector = "a.ds-card-sec, a[role='link'][href]"
-            
+
             tasks = driver.find_elements(By.CSS_SELECTOR, selector)
             if not tasks:
                 self._log("[WARNING] No Daily Set tasks found on the page.")
@@ -119,7 +120,7 @@ class DailySet:
             try:
                 driver.execute_script(
                     "arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});",
-                    tasks[0]
+                    tasks[0],
                 )
                 time.sleep(random.uniform(1, 2))
             except Exception:
@@ -156,8 +157,9 @@ class DailySet:
 
             for i in range(len(tasks)):
                 current_tasks = driver.find_elements(By.CSS_SELECTOR, selector)
-                if i >= len(current_tasks): break
-                
+                if i >= len(current_tasks):
+                    break
+
                 target_task = current_tasks[i]
 
                 click_target = _pick_click_target(target_task)
@@ -185,7 +187,11 @@ class DailySet:
 
                     # Scroll the task page and close newly opened tabs
                     # Detect newly opened tabs by comparing window handles before/after click.
-                    new_tabs = [h for h in driver.window_handles if h != main_tab and h not in before_tabs]
+                    new_tabs = [
+                        h
+                        for h in driver.window_handles
+                        if h != main_tab and h not in before_tabs
+                    ]
                     for tab in new_tabs:
                         driver.switch_to.window(tab)
                         time.sleep(random.uniform(2, 4))
@@ -216,9 +222,9 @@ class DailySet:
 
             if had_task_failures:
                 return False
-            
+
             return True
-        
+
         except Exception as e:
             self._log(f"[ERROR] Failed to collect Daily Set: {e}")
-            return False        
+            return False

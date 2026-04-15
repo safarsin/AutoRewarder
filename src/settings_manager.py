@@ -3,6 +3,7 @@ import os
 
 from .config import APP_DIR, SETTINGS_FILE_PATH
 
+
 class SettingsManager:
     """
     Manages the application settings.

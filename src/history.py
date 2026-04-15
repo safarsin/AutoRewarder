@@ -4,16 +4,17 @@ from datetime import datetime
 
 from .config import HISTORY_FILE_PATH, SETTINGS_FILE_PATH
 
+
 class HistoryManager:
     """
-    Manages the history of search queries. 
+    Manages the history of search queries.
     Date, time, query text, and status of each search are stored in a JSON file.
     """
 
     def __init__(self, logger=None):
         """
         Initialize the HistoryManager with file paths and an optional logger.
-        
+
         Args:
             logger (callable, optional): A logging function to log messages. Defaults to None.
         """
@@ -38,11 +39,14 @@ class HistoryManager:
         Retrieve the search history from the JSON file.
 
         Returns:
-            list: A list of search records. 
+            list: A list of search records.
             Each record is a dictionary containing date, time, query, and status.
         """
-        
-        if not os.path.exists(self.history_file) or os.path.getsize(self.history_file) == 0:
+
+        if (
+            not os.path.exists(self.history_file)
+            or os.path.getsize(self.history_file) == 0
+        ):
             return []
 
         try:
@@ -54,7 +58,9 @@ class HistoryManager:
 
                 return history
         except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
-            self._log("[ERROR] History file was unreadable or damaged. Starting with a fresh one.")
+            self._log(
+                "[ERROR] History file was unreadable or damaged. Starting with a fresh one."
+            )
 
             # Keep the damaged history file as backup and start with a clean one.
             backup_path = self.history_file + ".backup"
@@ -69,13 +75,12 @@ class HistoryManager:
 
             return []
 
-
     def save_history(self, history_list):
         """
         Save the search history to a JSON file. Uses a temporary file to avoid data loss.
 
         Args:
-            history_list (list): A list of search records to be saved. 
+            history_list (list): A list of search records to be saved.
             Each record is a dictionary containing date, time, query, and status.
         """
 
@@ -105,7 +110,7 @@ class HistoryManager:
             "date": current_date,
             "time": current_time,
             "query": query_text,
-            "status": status
+            "status": status,
         }
 
         history_list = self.get_history()

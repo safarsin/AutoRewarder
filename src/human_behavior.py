@@ -4,6 +4,7 @@ from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 
+
 class HumanBehavior:
     """
     Simulates human-like behavior when interacting with a web page.
@@ -21,11 +22,8 @@ class HumanBehavior:
         self.driver = driver
         self.show_cursor = show_cursor
         # Stored in viewport coordinates (not document coordinates).
-        self.last_mouse_position = [
-            random.randint(100, 500),
-            random.randint(100, 500)
-        ]
-    
+        self.last_mouse_position = [random.randint(100, 500), random.randint(100, 500)]
+
     def _draw_debug_cursor(self, x, y, color="red"):
         """
         Draw a debug cursor on the page
@@ -34,8 +32,8 @@ class HumanBehavior:
             x (int): The x-coordinate of the cursor in viewport coordinates.
             y (int): The y-coordinate of the cursor in viewport coordinates.
             color (str): The color of the cursor (default is "red").
-        
-        Note: This is a debug feature to visualize mouse movements. 
+
+        Note: This is a debug feature to visualize mouse movements.
         It creates a small circle that follows the mouse position.
         It does not affect the actual mouse events and is purely for visual debugging purposes.
         """
@@ -69,7 +67,7 @@ class HumanBehavior:
     def _ease_in_out(self, t):
         """
         Ease in-out function for smoother mouse movement (smoothstep)
-        
+
         Args:
             t (float): A value between 0 and 1 representing the progress of the movement.
 
@@ -110,7 +108,7 @@ class HumanBehavior:
         clamped_x = max(0, min(x, width - 1))
         clamped_y = max(0, min(y, height - 1))
         return clamped_x, clamped_y
-    
+
     def scroll_page(self):
         """
         Scrolls the page smoothly downwards to mimic human reading behavior.
@@ -118,7 +116,7 @@ class HumanBehavior:
         Scroll depth logic based on typical user behavior:
         - 70% chance: scrolls a small portion (10% to 50% of the page).
         - 30% chance: scrolls to the end or near the end (67% to 100% of the page).
-        
+
         Based on studies showing users typically scroll 10-30% of a page
         """
 
@@ -156,8 +154,10 @@ class HumanBehavior:
 
         # Wait a bit after scrolling
         time.sleep(random.uniform(5, 10))
-    
-    def move_to_element(self, element, steps=None, retries_left=1, scroll_into_view=True):
+
+    def move_to_element(
+        self, element, steps=None, retries_left=1, scroll_into_view=True
+    ):
         """
         Move mouse to the given element in a human-like manner
 
@@ -180,8 +180,9 @@ class HumanBehavior:
         # is outside the viewport.
         if scroll_into_view:
             try:
-                needs_scroll = bool(self.driver.execute_script(
-                    """
+                needs_scroll = bool(
+                    self.driver.execute_script(
+                        """
                     const el = arguments[0];
                     if (!el) return true;
                     const rect = el.getBoundingClientRect();
@@ -189,8 +190,9 @@ class HumanBehavior:
                     const viewW = window.innerWidth || document.documentElement.clientWidth;
                     return (rect.bottom <= 0) || (rect.top >= viewH) || (rect.right <= 0) || (rect.left >= viewW);
                     """,
-                    element
-                ))
+                        element,
+                    )
+                )
             except Exception:
                 needs_scroll = True
 
@@ -205,7 +207,7 @@ class HumanBehavior:
 
                 self.driver.execute_script(
                     "arguments[0].scrollIntoView({block: 'nearest', inline: 'nearest'});",
-                    element
+                    element,
                 )
                 time.sleep(random.uniform(0.05, 0.2))
 
@@ -214,7 +216,7 @@ class HumanBehavior:
             const rect = arguments[0].getBoundingClientRect();
             return [rect.left, rect.top, rect.width, rect.height];
             """,
-            element
+            element,
         )
 
         # getBoundingClientRect() returns coordinates relative to the viewport.
@@ -242,7 +244,7 @@ class HumanBehavior:
         control_y = (start_y + target_y) / 2 + random.randint(-150, 150)
 
         if steps is None:
-            distance = ((target_x - start_x)**2 + (target_y - start_y)**2) ** 0.5
+            distance = ((target_x - start_x) ** 2 + (target_y - start_y) ** 2) ** 0.5
             steps = int(distance / random.uniform(8, 15))
             steps = max(10, min(40, steps))
 
@@ -252,8 +254,12 @@ class HumanBehavior:
             t = i / steps
             t = self._ease_in_out(t)
 
-            curr_x = int((1 - t)**2 * start_x + 2 * (1 - t) * t * control_x + t**2 * target_x)
-            curr_y = int((1 - t)**2 * start_y + 2 * (1 - t) * t * control_y + t**2 * target_y)
+            curr_x = int(
+                (1 - t) ** 2 * start_x + 2 * (1 - t) * t * control_x + t**2 * target_x
+            )
+            curr_y = int(
+                (1 - t) ** 2 * start_y + 2 * (1 - t) * t * control_y + t**2 * target_y
+            )
 
             # Micro-vibration
             curr_x += random.randint(-2, 2)
@@ -271,13 +277,15 @@ class HumanBehavior:
                 try:
                     actions = ActionChains(self.driver)
                     # W3C Pointer: absolute move to a viewport coordinate.
-                    actions.w3c_actions.pointer_action.move_to_location(int(curr_x), int(curr_y))
+                    actions.w3c_actions.pointer_action.move_to_location(
+                        int(curr_x), int(curr_y)
+                    )
                     actions.perform()
                 except Exception:
                     # If the driver rejects the move for any reason, keep going without
                     # falling back to move_to_element(element) (that can scroll the page).
                     pass
-            
+
             # Draw debug cursor at the current position
             self._draw_debug_cursor(curr_x, curr_y)
 
@@ -303,7 +311,7 @@ class HumanBehavior:
             self.move_to_element(
                 element,
                 steps=random.randint(5, 10),
-                retries_left=retries_left-1,
+                retries_left=retries_left - 1,
                 scroll_into_view=scroll_into_view,
             )
             return
@@ -319,7 +327,9 @@ class HumanBehavior:
             )
             try:
                 actions = ActionChains(self.driver)
-                actions.w3c_actions.pointer_action.move_to_location(int(last_x), int(last_y))
+                actions.w3c_actions.pointer_action.move_to_location(
+                    int(last_x), int(last_y)
+                )
                 actions.perform()
             except Exception:
                 pass
@@ -340,9 +350,11 @@ class HumanBehavior:
 
         self.move_to_element(element, scroll_into_view=scroll_into_view)
         time.sleep(random.uniform(0.1, 0.3))
-        
+
         # Change the cursor color to green at the moment of clicking
-        self._draw_debug_cursor(self.last_mouse_position[0], self.last_mouse_position[1], color="green")
+        self._draw_debug_cursor(
+            self.last_mouse_position[0], self.last_mouse_position[1], color="green"
+        )
 
         # Perform a real pointer click at the current mouse position (viewport coords).
         # This avoids WebElement.click() interactability checks that often fail on
@@ -360,6 +372,8 @@ class HumanBehavior:
             except Exception:
                 element.click()
         time.sleep(0.2)
-        
+
         # Return the cursor color to red after clicking
-        self._draw_debug_cursor(self.last_mouse_position[0], self.last_mouse_position[1], color="red")
+        self._draw_debug_cursor(
+            self.last_mouse_position[0], self.last_mouse_position[1], color="red"
+        )

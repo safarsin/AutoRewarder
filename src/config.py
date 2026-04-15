@@ -1,8 +1,8 @@
 """
 Configuration module for AutoRewarder.
 
-This module defines constants and paths used throughout the AutoRewarder application, 
-such as version information, repository details, platform-specific directories, 
+This module defines constants and paths used throughout the AutoRewarder application,
+such as version information, repository details, platform-specific directories,
 and file paths for storing user data and settings.
 """
 
@@ -26,10 +26,7 @@ if PLATFORM_NAME == "Linux":
 # Get Windows app directory
 elif PLATFORM_NAME == "Windows":
     APP_DIR = os.path.join(
-        os.environ["USERPROFILE"],
-        "AppData",
-        "Local",
-        "AutoRewarder"
+        os.environ["USERPROFILE"], "AppData", "Local", "AutoRewarder"
     )
 
 # Quit on invalid platform

@@ -8,6 +8,7 @@ from selenium.webdriver.common.by import By
 from .utils import human_typing
 from .human_behavior import HumanBehavior
 
+
 class SearchEngine:
     """
     A class to handle search operations with human-like behavior.
@@ -44,7 +45,7 @@ class SearchEngine:
             query_text (str): The search query.
             status (str): The status of the search.
         """
-        
+
         if self._history:
             self._history.add_to_history(query_text, status)
 
@@ -55,7 +56,7 @@ class SearchEngine:
         Args:
             filepath (str): The path to the JSON file containing search queries.
             num_needed (int): The number of random queries to return.
-        
+
         Returns:
             list: A list of randomly selected search queries.
             If the file is not found, an error is logged and an empty list is returned.
@@ -67,7 +68,9 @@ class SearchEngine:
                 all_queries = data.get("queries", [])
 
                 if len(all_queries) < num_needed:
-                    self._log(f"[WARNING] In the JSON file, there are only {len(all_queries)} queries available, but {num_needed} are needed.")
+                    self._log(
+                        f"[WARNING] In the JSON file, there are only {len(all_queries)} queries available, but {num_needed} are needed."
+                    )
                     return all_queries
 
                 return random.sample(all_queries, num_needed)
@@ -76,7 +79,7 @@ class SearchEngine:
             self._log(f"[ERROR] File {filepath} not found!")
             self._add_to_history("N/A", f"[ERROR] File {filepath} not found")
             return []
-        
+
     def get_coffee_break_count(self):
         """
         Determine how many searches to perform before taking a coffee break, with a bias towards shorter breaks.
@@ -91,7 +94,7 @@ class SearchEngine:
         # 20% of the time, take a break after 10-15 searches
         else:
             return random.randint(10, 15)
-        
+
     def perform_searches(self, driver, queries):
         """
         Perform searches on Bing using Selenium WebDriver with human-like behavior.
@@ -126,8 +129,10 @@ class SearchEngine:
                     else:
                         pause_duration = random.uniform(15, 30)
                         self._log(f"Taking a quick coffee break...")
-                    
-                    self._log(f"Sleeping for {pause_duration:.2f} seconds to mimic a coffee break.")
+
+                    self._log(
+                        f"Sleeping for {pause_duration:.2f} seconds to mimic a coffee break."
+                    )
                     time.sleep(pause_duration)
 
                     next_coffee_break = self.get_coffee_break_count()
@@ -143,7 +148,7 @@ class SearchEngine:
 
                 # Type the query with human-like delays
                 human_typing(search_box, query)
-                search_box.send_keys(Keys.RETURN) # Press Enter to search
+                search_box.send_keys(Keys.RETURN)  # Press Enter to search
 
                 # Wait for result to load
                 time.sleep(random.uniform(2, 4))
@@ -152,7 +157,7 @@ class SearchEngine:
                     {"name": "All", "priority": 70, "id": None},
                     {"name": "Images", "priority": 10, "id": "b-scopeListItem-images"},
                     {"name": "Videos", "priority": 10, "id": "b-scopeListItem-video"},
-                    {"name": "News", "priority": 10, "id": "b-scopeListItem-news"}
+                    {"name": "News", "priority": 10, "id": "b-scopeListItem-news"},
                 ]
 
                 weights = [tab["priority"] for tab in tabs_config]
@@ -170,14 +175,18 @@ class SearchEngine:
                         time.sleep(random.uniform(3, 6))
 
                     except NoSuchElementException:
-                        self._log(f"[WARNING] Tab {chosen_tab['name']} not found. Staying on 'All'.")
+                        self._log(
+                            f"[WARNING] Tab {chosen_tab['name']} not found. Staying on 'All'."
+                        )
 
                         # Fallback to "All" if the chosen tab is not found
                         chosen_tab["name"] = "All"
 
                     except WebDriverException as e:
                         short_error = str(e).split("\n")[0][:28]
-                        self._log(f"[WARNING] WebDriver error when switching to {chosen_tab['name']}: {short_error}.")
+                        self._log(
+                            f"[WARNING] WebDriver error when switching to {chosen_tab['name']}: {short_error}."
+                        )
                         self._log(f"Staying on 'All'.")
 
                         chosen_tab["name"] = "All"
@@ -188,8 +197,10 @@ class SearchEngine:
                         human.scroll_page()
                 except WebDriverException as e:
                     short_error = str(e).split("\n")[0][:28]
-                    self._log(f"[WARNING] WebDriver error when scrolling: {short_error}. Continuing.")
-                
+                    self._log(
+                        f"[WARNING] WebDriver error when scrolling: {short_error}. Continuing."
+                    )
+
                 # Pause after scrolling
                 time.sleep(random.uniform(2, 4))
 
