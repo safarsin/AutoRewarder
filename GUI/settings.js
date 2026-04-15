@@ -51,12 +51,31 @@ document.addEventListener('DOMContentLoaded', () => {
   // Save settings button
   if (saveSettingsBtn) {
     saveSettingsBtn.addEventListener('click', function() {
+      const isAdvancedSchedulingEnabled = advancedScheduling.checked;
+      let runDurationValue;
+
+      if (isAdvancedSchedulingEnabled && runDurationInput) {
+        const inputValue = document.getElementById('runDuration').value.trim();
+        const parsedRunDuration = parseInt(inputValue, 10);
+
+        if (isNaN(parsedRunDuration) || parsedRunDuration <= 0) {
+          alert('Please enter a valid positive number for run duration.');
+          return; // Stop saving if the input is invalid
+        } 
+
+        // If the input is valid, assign it to runDurationValue
+        runDurationValue = parsedRunDuration;
+      }
+
       const settingsData = {
         autoStartUp: autoStartUp.checked,
-        advancedScheduling: advancedScheduling.checked,
-        runDuration: parseInt(document.getElementById('runDuration').value, 10)
+        advancedScheduling: isAdvancedSchedulingEnabled,
       };
-        
+
+      if (runDurationValue !== undefined) {
+        settingsData.runDuration = runDurationValue;
+      }
+
       // Here I must call the python to save the settings
       // pywebview.api.save_user_settings(settingsData); or sth similar
         
