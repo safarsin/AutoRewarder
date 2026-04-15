@@ -38,4 +38,5 @@ jobs:
     # Add --ignore-missing-imports if you want to ignore missing type hints in third-party/old libraries
     - name: Run MyPy
       run: |
-        mypy . --ignore-missing-imports
+        pip install types-requests
+        mypy .
