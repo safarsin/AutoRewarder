@@ -55,12 +55,24 @@
               <input type="checkbox" id="autoStartUp" class="big-checkbox">
             </label>
           </div>
-          <div class="settings">
+
+          <div class="settings disabled" id="advSchedualingWrapper">
             <label class="settings-label">
               <span class="title">Advanced scheduling</span>
-              <input type="checkbox" id="advancedScheduling" class="big-checkbox">
+              <input type="checkbox" id="advancedScheduling" class="big-checkbox" disabled>
             </label>
           </div>
+
+          <div class="settings nested-setting hidden" id="runDurationWrapper">
+            <label class="settings-label">
+              <span class="title sub-title">Run duration (hours)</span>
+              <input type="number" id="runDuration" class="time-input" min="1" max="24" value="4">
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-footer">
+          <button id="saveSettingsBtn" class="save-btn">Save settings</button>
         </div>
 
       </div>

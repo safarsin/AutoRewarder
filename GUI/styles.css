@@ -390,3 +390,66 @@ transition: color 0.2s;
   transform: scale(1.5);
   cursor: pointer;
 }
+
+/* Styles for logic settings */
+
+.settings.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.settings.hidden {
+  display: none;
+}
+
+.settings.nested-setting {
+  margin-left: 20px;
+  padding-left: 15px;
+  border-left: 2px solid var(--border);
+  width: calc(100% - 20px); 
+}
+
+.sub-title {
+  font-size: 16px !important;
+  font-weight: normal !important;
+  color: #a0a0a0;
+}
+
+.time-input {
+  width: 60px;
+  padding: 5px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: inherit;
+  font-size: 16px;
+  text-align: center;
+}
+
+.settings-panel {
+  display: flex;
+  flex-direction: column; 
+}
+
+.settings-footer {
+  padding: 20px;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+
+.save-btn {
+  width: 100%;
+  padding: 12px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.save-btn:hover {
+  background-color: #2563eb;
+}
