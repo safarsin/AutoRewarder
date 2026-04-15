@@ -40,17 +40,27 @@
 
       <div id="settingsPanel" class="settings-panel">
         <div class="settings-header">
-          <h3 style="color: #fff; margin: 0; font-size: 16px;">Settings</h3>
+          <h3 style="color: #c9d1d9; margin: 0; font-size: 16px;">Settings</h3>
           <button id="closeSettingsBtn" 
-            style="background: none; border: none; color: #8b949e; cursor: pointer; font-size: 16px;">
+            style="background: none; border: none; color: #8b949e; cursor: pointer; font-size: 25px;">
             &times;
           </button>
         </div>
 
-        <div class="settings-content" style="padding: 20px; color: #8b949e;">
-          <p>settingsjan</p>
-          <label for="autoStartCheckbox" style="display: block; margin-bottom: 5px;">Auto start-up</label>
-          <input type="checkbox" id="autoStartCheckbox" style="transform: scale(1.5);">
+        <div class="settings-content">
+
+          <div class="settings">
+            <label class="settings-label">
+              <span class="title">Automatic start-up</span>
+              <input type="checkbox" id="autoStartUp" class="big-checkbox">
+            </label>
+          </div>
+          <div class="settings">
+            <label class="settings-label">
+              <span class="title">Advanced scheduling</span>
+              <input type="checkbox" id="advancedScheduling" class="big-checkbox">
+            </label>
+          </div>
         </div>
 
       </div>

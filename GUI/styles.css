@@ -340,10 +340,9 @@ transition: color 0.2s;
   top: 0;
   right: 0;
   width: 300px;
-  height: 100vh;
-  background-color: var(--bg-main);
+  height: 440px;
+  background-color: var(--bg-panel);
   border-left: 1px solid var(--border); 
-  box-shadow: -5px 0 15px rgba(0,0,0,0.5);
   z-index: 9999;
   
   transform: translateX(100%); 
@@ -352,12 +351,42 @@ transition: color 0.2s;
 
 .settings-panel.open {
   transform: translateX(0);
+  box-shadow: -5px 0 15px rgba(0,0,0,0.5);
 }
 
 .settings-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 20px;
+  padding: 16px 20px 0px 20px;
+  margin-bottom: 0;
   border-bottom: 1px solid var(--border);
+}
+
+.settings-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.settings-label {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  width: 86%;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.settings-label .title {
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.big-checkbox {
+  transform: scale(1.5);
+  cursor: pointer;
 }
