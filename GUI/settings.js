@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const isAdvancedSchedulingEnabled = advancedScheduling.checked;
       let runDurationValue;
 
-      if (isAdvancedSchedulingEnabled && runDurationInput) {
+      if (isAdvancedSchedulingEnabled) {
         const inputValue = document.getElementById('runDuration').value.trim();
         const parsedRunDuration = parseInt(inputValue, 10);
 
@@ -62,6 +62,11 @@ document.addEventListener('DOMContentLoaded', () => {
           alert('Please enter a valid positive number for run duration.');
           return; // Stop saving if the input is invalid
         } 
+
+        if (parsedRunDuration > 24) {
+          alert('Run duration can\'t exceed 24 hours.');
+          return;
+        }
 
         // If the input is valid, assign it to runDurationValue
         runDurationValue = parsedRunDuration;
