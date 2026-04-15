@@ -218,7 +218,7 @@ class AutoRewarderAPI:
 
         try:
             self.log("Opening Bing page...")
-            self.log(f"""Log in directly on the Bing page.
+            self.log("""Log in directly on the Bing page.
             IMPORTANT: Do NOT sync the Edge profile!
             Just log in and close the browser when done.""")
             time.sleep(4)

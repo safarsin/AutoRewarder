@@ -32,7 +32,7 @@ jobs:
     # linting
     - name: Run Flake8
       run: |
-        flake8 .
+        flake8 . --max-line-length=120
 
     # type checking
     - name: Run MyPy

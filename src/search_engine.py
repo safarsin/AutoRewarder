@@ -125,10 +125,10 @@ class SearchEngine:
 
                     if next_coffee_break > 9:
                         pause_duration = random.uniform(45, 90)
-                        self._log(f"Taking a big coffee break...")
+                        self._log("Taking a big coffee break...")
                     else:
                         pause_duration = random.uniform(15, 30)
-                        self._log(f"Taking a quick coffee break...")
+                        self._log("Taking a quick coffee break...")
 
                     self._log(
                         f"Sleeping for {pause_duration:.2f} seconds to mimic a coffee break."
@@ -187,7 +187,7 @@ class SearchEngine:
                         self._log(
                             f"[WARNING] WebDriver error when switching to {chosen_tab['name']}: {short_error}."
                         )
-                        self._log(f"Staying on 'All'.")
+                        self._log("Staying on 'All'.")
 
                         chosen_tab["name"] = "All"
 

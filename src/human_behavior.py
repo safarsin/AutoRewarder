@@ -2,7 +2,6 @@ import random
 import time
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.by import By
 
 
 class HumanBehavior:
