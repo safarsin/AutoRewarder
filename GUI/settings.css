@@ -146,3 +146,22 @@
 .save-btn:hover {
   background-color: var(--accent-hover);
 }
+
+.settings-header button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 25px;
+  transition: color 0.2s ease;
+}
+
+.settings-header button:hover {
+  color: var(--accent);
+}
+
+.settings-header h3 {
+  color: var(--text-main);
+  margin: 0;
+  font-size: 16px;
+}
