@@ -5,7 +5,7 @@ import threading
 import webbrowser
 import webview
 
-from .config import *
+from .config import GUI_DIR, REPO, CURRENT_VERSION, JSON_FILE_PATH
 from .driver_manager import DriverManager
 from .history import HistoryManager
 from .search_engine import SearchEngine
