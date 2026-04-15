@@ -35,6 +35,7 @@ jobs:
         flake8 . --max-line-length=140
 
     # type checking
+    # Add --ignore-missing-imports if you want to ignore missing type hints in third-party/old libraries
     - name: Run MyPy
       run: |
-        mypy .
+        mypy . 
