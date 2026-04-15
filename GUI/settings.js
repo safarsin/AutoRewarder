@@ -5,15 +5,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeSettingsBtn = document.getElementById('closeSettingsBtn');
   const settingsPanel = document.getElementById('settingsPanel');
 
-  // Open settings panel
-  settingsBtn.addEventListener('click', () => {
-    settingsPanel.classList.toggle('open');
-  });
+  if ( settingsBtn && closeSettingsBtn && settingsPanel ) {
+    
+    // Open settings panel
+    settingsBtn.addEventListener('click', () => {
+      settingsPanel.classList.add('open');
+    });
 
-  // Close settings panel
-  closeSettingsBtn.addEventListener('click', () => {
-    settingsPanel.classList.remove('open');
-  });
+    // Close settings panel
+    closeSettingsBtn.addEventListener('click', () => {
+      settingsPanel.classList.remove('open');
+    });
+
+  }
 
   // Settings elements
   const autoStartUp = document.getElementById('autoStartUp');
