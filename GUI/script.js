@@ -192,5 +192,35 @@ window.addEventListener('pywebviewready', function() {
       toggle.checked = Boolean(settings.hide_browser);
     }
 
+    // Restore settings UI values if available
+    const autoStartElem = document.getElementById('autoStartUp');
+    const advElem = document.getElementById('advancedScheduling');
+
+    if (autoStartElem) {
+      autoStartElem.checked = Boolean(settings.autoStartUp);
+      // Trigger change handler to enable/disable dependent controls
+      autoStartElem.dispatchEvent(new Event('change'));
+    }
+
+    if (advElem) {
+      advElem.checked = Boolean(settings.advancedScheduling);
+      advElem.dispatchEvent(new Event('change'));
+    }
+
+    if (settings.runDuration != null) {
+      const rd = document.getElementById('runDuration');
+      if (rd) rd.value = settings.runDuration;
+    }
+
+    if (settings.totalQueries != null) {
+      const tq = document.getElementById('totalQueries');
+      if (tq) tq.value = settings.totalQueries;
+    }
+
+    if (settings.queriesPerHour != null) {
+      const qph = document.getElementById('queriesPerHour');
+      if (qph) qph.value = settings.queriesPerHour;
+    }
+
   });
 });

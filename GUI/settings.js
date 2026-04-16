@@ -24,6 +24,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const advancedScheduling = document.getElementById('advancedScheduling');
   const advSchedulingWrapper = document.getElementById('advSchedulingWrapper');
   const runDurationWrapper = document.getElementById('runDurationWrapper');
+  const totalQueriesWrapper = document.getElementById('totalQueriesWrapper');
+  const queriesPerHourWrapper = document.getElementById('queriesPerHourWrapper');
   const saveSettingsBtn = document.getElementById('saveSettingsBtn');
 
   // The main checkbox
@@ -37,6 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
         advancedScheduling.disabled = true;
         advancedScheduling.checked = false;
         runDurationWrapper.classList.add('hidden');
+        totalQueriesWrapper.classList.add('hidden');
+        queriesPerHourWrapper.classList.add('hidden');
       }
     });
   }
@@ -46,8 +50,12 @@ document.addEventListener('DOMContentLoaded', () => {
     advancedScheduling.addEventListener('change', function() {
       if (this.checked) {
         runDurationWrapper.classList.remove('hidden');
+        totalQueriesWrapper.classList.remove('hidden');
+        queriesPerHourWrapper.classList.remove('hidden');
       } else {
         runDurationWrapper.classList.add('hidden');
+        totalQueriesWrapper.classList.add('hidden');
+        queriesPerHourWrapper.classList.add('hidden');
       }
     });
   }
@@ -57,6 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
     saveSettingsBtn.addEventListener('click', function() {
       const isAdvancedSchedulingEnabled = advancedScheduling.checked;
       let runDurationValue;
+      let parsedTotalQueries;
+      let parsedQueriesPerHour;
 
       if (isAdvancedSchedulingEnabled) {
         const inputValue = document.getElementById('runDuration').value.trim();
@@ -85,8 +95,40 @@ document.addEventListener('DOMContentLoaded', () => {
         settingsData.runDuration = runDurationValue;
       }
 
-      // Here I must call the python to save the settings
-      // pywebview.api.save_user_settings(settingsData); or sth similar
+      // Read and validate total queries
+      const totalQueriesRaw = document.getElementById('totalQueries').value.trim();
+      parsedTotalQueries = parseInt(totalQueriesRaw, 10);
+
+      if (isNaN(parsedTotalQueries) || parsedTotalQueries <= 0) {
+        alert('Please enter a valid positive number for total queries.');
+        return;
+      }
+
+      // Read and validate queries per hour
+      const queriesPerHourRaw = document.getElementById('queriesPerHour').value.trim();
+      parsedQueriesPerHour = parseInt(queriesPerHourRaw, 10);
+
+      if (isNaN(parsedQueriesPerHour) || parsedQueriesPerHour <= 0) {
+        alert('Please enter a valid positive number for queries per hour.');
+        return;
+      }
+
+      settingsData.totalQueries = parsedTotalQueries;
+      settingsData.queriesPerHour = parsedQueriesPerHour;
+
+      // Call Python to save the settings (if running inside pywebview/UI)
+      try {
+        if (typeof pywebview !== 'undefined' && pywebview.api && pywebview.api.save_settings) {
+          pywebview.api.save_settings(settingsData).catch(err => alert('Save settings failed:', err));
+        } else if (typeof pywebview !== 'undefined' && pywebview.api) {
+          // Fallback: call even if function presence is unknown (pywebview proxies calls)
+          pywebview.api.save_settings(settingsData);
+        } else {
+          alert('pywebview API not available; settings not sent to Python.');
+        }
+      } catch (e) {
+        alert('Error while calling save_settings:', e);
+      }
         
       // Close the settings panel after saving
       settingsPanel.classList.remove('open');
