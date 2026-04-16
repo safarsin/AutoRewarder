@@ -284,6 +284,80 @@ class AutoRewarderAPI:
 
         self.log(f"Browser hidden mode: {'ON' if is_hide else 'OFF'}")
 
+    def save_user_settings(self, settings_data):
+        """
+        Save user settings received from the GUI. This method validates and merges
+        provided keys into the existing settings file and applies runtime effects
+        where appropriate (e.g., hide_browser, autoStartUp etc.).
+
+        Called from JS via `pywebview.api.save_user_settings({...})`.
+
+        Args:
+            settings_data (dict): A dictionary containing user settings to be saved.
+        
+        Returns:
+            dict: A dictionary indicating success or failure of the save operation
+        """
+
+        try:
+            if not isinstance(settings_data, dict):
+                self.log("[ERROR] Invalid settings payload: must be a JSON object/dictionary")
+                raise ValueError("Settings payload must be a JSON object/dictionary")
+
+            current = self.settings_manager.get_settings()
+
+            # Merge and validate known keys (don't overwrite unrelated settings)
+            if "hide_browser" in settings_data:
+                current["hide_browser"] = bool(settings_data["hide_browser"])
+
+            if "autoStartUp" in settings_data:
+                current["autoStartUp"] = bool(settings_data["autoStartUp"])
+
+            if "advancedScheduling" in settings_data:
+                current["advancedScheduling"] = bool(settings_data["advancedScheduling"])
+
+            if "runDuration" in settings_data:
+                try:
+                    rd = int(settings_data["runDuration"])
+                except Exception:
+                    raise ValueError("runDuration must be an integer")
+                rd = max(1, min(24, rd))
+                current["runDuration"] = rd
+
+            if "totalQueries" in settings_data:
+                try:
+                    tq = int(settings_data["totalQueries"])
+                except Exception:
+                    raise ValueError("totalQueries must be an integer")
+                tq = max(1, min(99, tq))
+                current["totalQueries"] = tq
+
+            if "queriesPerHour" in settings_data:
+                try:
+                    qph = int(settings_data["queriesPerHour"])
+                except Exception:
+                    raise ValueError("queriesPerHour must be an integer")
+                qph = max(1, min(99, qph))
+                current["queriesPerHour"] = qph
+
+            # Persist merged settings
+            self.settings_manager.save_settings(current)
+
+            # Apply runtime effects where relevant
+            try:
+                if current.get("hide_browser") is not None:
+                    self.set_hide_browser(bool(current.get("hide_browser")))
+            except Exception:
+                # Don't fail saving if runtime effect cannot be applied
+                self.log("[WARNING] Failed to apply runtime hide_browser setting")
+
+            self.log("Settings saved")
+            return {"success": True}
+
+        except Exception as e:
+            self.log(f"[ERROR] Failed saving settings: {e}")
+            return {"success": False, "error": str(e)}
+
     # Send message to UI log area
     def log(self, message):
         """

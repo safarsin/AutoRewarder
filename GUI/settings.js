@@ -118,16 +118,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Call Python to save the settings (if running inside pywebview/UI)
       try {
-        if (typeof pywebview !== 'undefined' && pywebview.api && pywebview.api.save_settings) {
-          pywebview.api.save_settings(settingsData).catch(err => alert('Save settings failed:', err));
+        if (typeof pywebview !== 'undefined' && pywebview.api && pywebview.api.save_user_settings) {
+          pywebview.api.save_user_settings(settingsData).catch(err => alert('Save settings failed:', err));
         } else if (typeof pywebview !== 'undefined' && pywebview.api) {
           // Fallback: call even if function presence is unknown (pywebview proxies calls)
-          pywebview.api.save_settings(settingsData);
+          pywebview.api.save_user_settings(settingsData);
         } else {
           alert('pywebview API not available; settings not sent to Python.');
         }
       } catch (e) {
-        alert('Error while calling save_settings:', e);
+        alert('Error while calling save_user_settings:', e);
       }
         
       // Close the settings panel after saving
