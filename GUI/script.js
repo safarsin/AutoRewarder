@@ -54,7 +54,8 @@ function start_bot() {
   document.getElementById('dot').classList.add('active');
   document.getElementById('status_text').innerText = "Executing";
   
-
+  // Disable the hide browser toggle during execution
+  document.getElementById("hideBrowserToggle").disabled = true;
   
   // 3. Call the Python function to start the bot
   pywebview.api.main(count);
@@ -89,6 +90,11 @@ function enable_start_button() {
   
   document.getElementById('dot').classList.remove('active');
   document.getElementById('status_text').innerText = "Waiting";
+
+  let hideBrowserToggle = document.getElementById("hideBrowserToggle");
+  if (hideBrowserToggle) {
+    hideBrowserToggle.disabled = false;
+  }
 }
 
 function show_history() {
