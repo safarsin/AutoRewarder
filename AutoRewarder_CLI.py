@@ -23,17 +23,46 @@ from src.settings_manager import SettingsManager
 
 
 def iso_now():
+    """
+    Return current time in ISO format with seconds precision.
+    """
+
     return datetime.now().isoformat(timespec="seconds")
 
 def console_log(message):
+    """
+    Log a message to the console with a timestamp.
+
+    Args:
+        message (str): The message to log.
+    """
+
     print(f"[{iso_now()}] {message}")
 
 def run_single(api, count):
+    """
+    Run a single batch of queries immediately.
+
+    Args:
+        api (AutoRewarderAPI): The API instance to use for running queries.
+        count (int): The number of queries to run.
+    """
+
     console_log(f"Starting single run: {count} queries")
     api.main(int(count))
     console_log("Single run finished")
 
 def run_scheduled(api, total_queries, duration_hours, queries_per_hour):
+    """
+    Run queries over a specified duration with advanced scheduling.
+
+    Args:
+        api (AutoRewarderAPI): The API instance to use for running queries.
+        total_queries (int): The total number of queries to run.
+        duration_hours (float): The duration of the scheduling period in hours.
+        queries_per_hour (int): The number of queries to run per hour.
+    """
+
     total_queries = int(total_queries)
     duration_hours = float(duration_hours)
     api.log(f"Scheduling {total_queries} queries over {duration_hours} hours (qph={queries_per_hour})")
@@ -89,6 +118,13 @@ def run_scheduled(api, total_queries, duration_hours, queries_per_hour):
     console_log("Scheduled run complete")
 
 def create_api_headless():
+    """
+    Create an instance of AutoRewarderAPI with headless mode enabled and console logging.
+
+    Returns:
+        AutoRewarderAPI: An instance of the API configured for headless operation and console logging
+    """
+
     api = AutoRewarderAPI()
 
     # Force headless in runtime and settings
@@ -119,6 +155,10 @@ def create_api_headless():
     return api
 
 def main():
+    """
+    Main function to parse arguments, read settings, and run AutoRewarder in the appropriate mode.
+    """
+
     parser = argparse.ArgumentParser(description="AutoRewarder CLI runner and scheduler")
     parser.add_argument("--once", action="store_true", help="Run a single immediate job")
     parser.add_argument("--count", type=int, help="Number of queries for a single run")
