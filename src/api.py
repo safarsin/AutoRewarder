@@ -296,7 +296,7 @@ class AutoRewarderAPI:
             settings_data (dict): A dictionary containing user settings to be saved.
         
         Returns:
-            dict: A dictionary indicating success or failure of the save operation
+            bool: True if the save operation was successful, False otherwise.
         """
 
         try:
@@ -340,7 +340,7 @@ class AutoRewarderAPI:
                 qph = max(1, min(99, qph))
                 current["queriesPerHour"] = qph
 
-            # Persist merged settings
+            # Save merged settings
             self.settings_manager.save_settings(current)
 
             # Apply runtime effects where relevant
@@ -352,11 +352,12 @@ class AutoRewarderAPI:
                 self.log("[WARNING] Failed to apply runtime hide_browser setting")
 
             self.log("Settings saved")
-            return {"success": True}
+            return True
 
         except Exception as e:
-            self.log(f"[ERROR] Failed saving settings: {e}")
-            return {"success": False, "error": str(e)}
+            short_error = str(e)[:50] 
+            self.log(f"[ERROR] Failed saving settings: {short_error}")
+            return False
 
     # Send message to UI log area
     def log(self, message):
