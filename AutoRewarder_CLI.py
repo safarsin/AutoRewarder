@@ -17,9 +17,11 @@ import math
 import random
 import sys
 from datetime import datetime
+import os
 
 from src.api import AutoRewarderAPI
 from src.settings_manager import SettingsManager
+from src.config import LOG_FILE_PATH, LOG_MAX_SIZE
 
 
 def iso_now():
@@ -31,13 +33,37 @@ def iso_now():
 
 def console_log(message):
     """
-    Log a message to the console with a timestamp.
+    Log a message to the console and append it to a rotating background log file.
 
     Args:
         message (str): The message to log.
     """
 
-    print(f"[{iso_now()}] {message}")
+    log_line = f"[{iso_now()}] {message}"
+
+    # Print to console
+    print(log_line)
+
+    # Append to log file; if file reaches or exceeds MAX(6 MB) size, remove it and start fresh
+    try:
+        # Ensure log directory exists
+        log_dir = os.path.dirname(LOG_FILE_PATH)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+
+        # If file exists and is too large, delete it so we start a fresh log
+        if os.path.exists(LOG_FILE_PATH) and os.path.getsize(LOG_FILE_PATH) >= LOG_MAX_SIZE:
+            try:
+                os.remove(LOG_FILE_PATH)
+            except Exception:
+                # Ignore and continue to attempt writing
+                pass
+
+        with open(LOG_FILE_PATH, "a", encoding="utf-8") as f:
+            f.write(log_line + "\n")
+
+    except Exception as e:
+        print(f"[ERROR] Can't write to log file: {e}")
 
 def run_single(api, count):
     """
