@@ -22,10 +22,10 @@ if __name__ == "__main__":
         title="AutoRewarder",
         url=os.path.join(GUI_DIR, "index.html"),
         js_api=api,
-        width=570,
-        height=490,
+        width=640,
+        height=680,
         resizable=False,
-        # frameless=True
+        background_color="#0b0d12",
     )
     api.set_window(window)  # pass window reference to AutoRewarderAPI for logging
     webview.start(icon=os.path.join(ASSETS_DIR, "icon.ico"))
