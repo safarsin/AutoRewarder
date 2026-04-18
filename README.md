@@ -9,6 +9,8 @@ Built with a robust Python/Selenium backend, it offers two modes of operation: a
 
 > **Ready to start? Check out the complete [USER GUIDE](USER_GUIDE.md)**
 
+---
+
 ## Table of Contents
 
 - [Installation](#installation)
@@ -18,11 +20,14 @@ Built with a robust Python/Selenium backend, it offers two modes of operation: a
 - [Features](#features)
 - [Quick Start (For Users)](#quick-start-for-users)
 - [Development Setup (For Developers)](#development-setup-for-developers)
+- [CLI Usage](#cli-usage)
 - [Build & Distribution](#build--distribution)
 - [Project Structure](#project-structure)
 - [Runtime Data](#runtime-data)
 - [Troubleshooting](#troubleshooting)
 - [Roadmap](#roadmap)
+
+---
 
 ## Installation
 
@@ -36,6 +41,7 @@ Download `AutoRewarder.zip` from the [latest release](https://github.com/safarsi
 **Manual Way (Source):**
 Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
+---
 
 ## Screenshots & Demo
 
@@ -54,6 +60,7 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 | <img src="assets/screenshots/main_window.png"> | <img src="assets/screenshots/history_window1.png"> |
 | <img src="assets/screenshots/main_window1.png"> | <img src="assets/screenshots/update_check.png"> |
 
+---
 
 ## Tech Stack
 
@@ -64,6 +71,8 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 | Bridge | pywebview JS API (pywebview.api) |
 | Build | [PyInstaller](https://pyinstaller.org/), [Inno Setup](https://jrsoftware.org/isinfo.php) |
 
+---
+
 ## System Requirements
 
 - **OS**: Windows 10 or later (can also work on Linux but it is not downloadable as an executable)
@@ -71,6 +80,8 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 - **.NET Framework**: 4.8 or higher (automatically checked by installer)
 - **RAM**: Minimum 512 MB (1 GB recommended)
 - **Disk Space**: ~50 MB
+
+---
 
 ## Features
 
@@ -101,6 +112,8 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 - Advanced documentation (comprehensive docstrings and detailed guides)
 - Strict code formatting and static type checking (Black, Flake8, MyPy) 
 
+---
+
 ## Quick Start (For Users)
 
 You do not need Python to use release builds.
@@ -111,6 +124,8 @@ You do not need Python to use release builds.
 4. Start automation
 
 For detailed guide, see [USER_GUIDE.md](USER_GUIDE.md)
+
+---
 
 ## Development Setup (For Developers)
 
@@ -125,6 +140,42 @@ python -m venv .venv
 pip install -r requirements.txt
 python AutoRewarder.py
 ```
+---
+
+## CLI Usage
+
+For users who prefer the terminal or want to integrate the bot into custom scripts, a headless CLI version is available.
+
+### Available CLI Arguments
+
+These arguments can be combined. If you run the script without any arguments (`python AutoRewarder_CLI.py`), it will automatically read your last saved settings from the GUI.
+
+| Argument | Type | Description | Default / Fallback |
+| :--- | :--- | :--- | :--- |
+| `--once` | Flag | Runs the bot in a single immediate batch. It will perform all queries at once without scheduling. | Uses Advanced Scheduling if it is enabled in your settings. |
+| `--count` | Integer | Number of search queries for a single run. (Only used if `--once` is provided). | Reads `totalQueries` from settings (or defaults to 30). |
+| `--duration` | Float | Run duration in hours for scheduled mode. The bot will distribute queries into small batches over this time. | Reads `runDuration` from settings (default is 3 hours). |
+| `--total-queries` | Integer | Total number of queries to perform during the scheduled `--duration`. | Reads `totalQueries` from settings. |
+| `--queries-per-hour` | Integer | Target number of searches per hour. If provided, the script can calculate total queries automatically. | Reads `queriesPerHour` from settings. |
+
+> **Note:** The `headless` mode is **forced permanently** within this CLI script to ensure silent background execution.
+
+---
+
+### Example CLI scheduling commands:
+
+```bash
+# One-off run (execute immediately and exit)
+python AutoRewarder_CLI.py --once --count 30
+
+# Scheduled distribution: run 30 queries over 3 hours
+python AutoRewarder_CLI.py --duration 3 --total-queries 30
+
+# Use saved GUI settings (no args)
+python AutoRewarder_CLI.py
+```
+
+---
 
 ## Build & Distribution
 
@@ -139,6 +190,8 @@ python AutoRewarder.py
 ```
 Or use the Inno Setup IDE to open `AutoRewarder.iss` and compile it.
 Output: `dist/AutoRewarder-Setup.exe`
+
+---
 
 ## Project Structure
 
@@ -178,6 +231,8 @@ AutoRewarder/
 └── requirements.txt      
 ```
 
+---
+
 ## Runtime Data
 
 The app stores runtime files in:
@@ -194,10 +249,13 @@ history.json   # Search history (date, time, query, status)
 status.json    # Daily Set completion status (per-day)
 ```
 
+---
 
 ## Troubleshooting
 
 For common issues and solutions, see the [Troubleshooting](USER_GUIDE.md#troubleshooting) section in the USER GUIDE.
+
+---
 
 ## Roadmap
 
@@ -220,15 +278,20 @@ For common issues and solutions, see the [Troubleshooting](USER_GUIDE.md#trouble
 - [ ] Keyboard shortcuts
 - [ ] UI themes (dark/light mode)
 
+---
 
 ## Disclaimer
 
 Using automation against third-party services may violate their Terms of Service.
 You are responsible for your own usage.
 
+---
+
 ## Contact
 
 Open an issue for bugs, ideas, or questions.
+
+---
 
 ## Support
 
