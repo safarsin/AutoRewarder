@@ -206,6 +206,13 @@ window.addEventListener('pywebviewready', function() {
       autoStartElem.checked = Boolean(settings.autoStartUp);
       // Trigger change handler to enable/disable dependent controls
       autoStartElem.dispatchEvent(new Event('change'));
+
+      // Check registry state matches saved setting and warn if not
+      pywebview.api.is_autostart_enabled().then(function(enabled) {
+        if (Boolean(enabled) !== Boolean(settings.autoStartUp)) {
+          alert('[WARNING] Auto-start state in registry does not match saved settings!');
+        }
+      });
     }
 
     if (advElem) {

@@ -4,8 +4,10 @@ import json
 import threading
 import webbrowser
 import webview
+import sys
+import platform
 
-from .config import GUI_DIR, REPO, CURRENT_VERSION, JSON_FILE_PATH
+from .config import GUI_DIR, REPO, CURRENT_VERSION, JSON_FILE_PATH, BASE_DIR
 from .driver_manager import DriverManager
 from .history import HistoryManager
 from .search_engine import SearchEngine
@@ -306,6 +308,9 @@ class AutoRewarderAPI:
 
             current = self.settings_manager.get_settings()
 
+            # Keep previous autostart state to decide whether to modify registry
+            prev_autostart = bool(current.get("autoStartUp", False))
+
             # Merge and validate known keys (don't overwrite unrelated settings)
             if "hide_browser" in settings_data:
                 current["hide_browser"] = bool(settings_data["hide_browser"])
@@ -351,12 +356,107 @@ class AutoRewarderAPI:
                 # Don't fail saving if runtime effect cannot be applied
                 self.log("[WARNING] Failed to apply runtime hide_browser setting")
 
+            # Handle autostart (Windows registry) if the flag changed
+            try:
+                new_autostart = bool(current.get("autoStartUp", False))
+                if new_autostart != prev_autostart:
+                    self._set_autostart_registry(new_autostart)
+            except Exception as e:
+                self.log(f"[WARNING] Failed to update autostart: {e}")
+
             self.log("Settings saved")
             return True
 
         except Exception as e:
             short_error = str(e)[:50] 
             self.log(f"[ERROR] Failed saving settings: {short_error}")
+            return False
+
+    def _autostart_command(self):
+        """
+        Return the command string to use for autostart registry entry.
+        """
+
+        # if .exe, just call itself with --headless
+        if getattr(sys, "frozen", False):
+            return f'"{sys.executable}" --headless'
+
+        # if script, call python with the AutoRewarder_CLI.py
+        runner_py = os.path.join(BASE_DIR, "AutoRewarder_CLI.py")
+        return f'"{sys.executable}" "{runner_py}"'
+
+    def _set_autostart_registry(self, enable):
+        """
+        Enable or disable autostart by writing/removing Run key in HKCU registry.
+
+        Uses HKCU so admin rights are not required. Only supported on Windows.
+
+        Args:
+            enable (bool): True to enable autostart, False to disable.
+
+        Returns:
+            bool: True if the registry was successfully updated, False otherwise.
+        """
+
+        try:
+            if platform.system() != "Windows":
+                self.log("Autostart is only supported on Windows in this build.")
+                return False
+
+            try:
+                import winreg
+
+            except Exception:
+                self.log("[WARNING] winreg module not available; cannot modify registry.")
+                return False
+
+            run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_SET_VALUE)
+
+            name = "AutoRewarder"
+
+            if enable:
+                cmd = self._autostart_command()
+                winreg.SetValueEx(key, name, 0, winreg.REG_SZ, cmd)
+                self.log("Autostart enabled (HKCU Run)")
+            else:
+                try:
+                    winreg.DeleteValue(key, name)
+                    self.log("Autostart disabled (HKCU Run)")
+
+                except FileNotFoundError:
+                    self.log("Autostart entry not found; nothing to remove")
+
+            winreg.CloseKey(key)
+            return True
+
+        except Exception as e:
+            self.log(f"[ERROR] Failed to update autostart registry: {e}")
+            return False
+
+    def is_autostart_enabled(self):
+        """
+        Return True if an autostart entry exists in HKCU Run.
+
+        Returns:
+            bool: True if autostart is enabled, False otherwise.
+        """
+        try:
+            if platform.system() != "Windows":
+                return False
+            
+            import winreg
+            
+            run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_READ)
+            try:
+                val, _ = winreg.QueryValueEx(key, "AutoRewarder")
+                winreg.CloseKey(key)
+                return bool(val)
+            except FileNotFoundError:
+                winreg.CloseKey(key)
+                return False
+        except Exception:
             return False
 
     # Send message to UI log area
