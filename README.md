@@ -3,11 +3,26 @@
 ![Stars](https://img.shields.io/github/stars/safarsin/AutoRewarder?style=for-the-badge)
 ![Downloads](https://img.shields.io/github/downloads/safarsin/AutoRewarder/total?style=for-the-badge&color=007ac)
 
-An advanced desktop automation tool for Microsoft Rewards. AutoRewarder performs Bing searches and collects Daily Sets using mathematically driven, human-like input simulation (W3C Actions, Bezier curves, and smart scrolling).
+An advanced, set-and-forget automation tool for Microsoft Rewards. AutoRewarder performs Bing searches and collects Daily Sets using mathematically driven, human-like input simulation (W3C Actions, Bezier curves, and smart scrolling).
 
-Built with a robust Python/Selenium backend and a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview. Packaged as a executable Windows app (via Inno Setup) for a seamless, plug-and-play experience.
+Built with a robust Python/Selenium backend, it offers two modes of operation: a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview, and a script-only version (CLI tool) for running without GUI. Packaged as a executable Windows app (via Inno Setup) for a seamless, plug-and-play experience.
 
 > **Ready to start? Check out the complete [USER GUIDE](USER_GUIDE.md)**
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Screenshots & Demo](#screenshots--demo)
+- [Tech Stack](#tech-stack)
+- [System Requirements](#system-requirements)
+- [Features](#features)
+- [Quick Start (For Users)](#quick-start-for-users)
+- [Development Setup (For Developers)](#development-setup-for-developers)
+- [Build & Distribution](#build--distribution)
+- [Project Structure](#project-structure)
+- [Runtime Data](#runtime-data)
+- [Troubleshooting](#troubleshooting)
+- [Roadmap](#roadmap)
 
 ## Installation
 
@@ -59,16 +74,20 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 ## Features
 
-**User Features:**
+**User Experience & Interface:**
 - First Setup flow with dedicated Edge profile for isolation
+- Comprehensive settings section
 - Optional hide-browser mode (headless automation toggle)
 - Live terminal-like logs with real-time updates
+- Script-only version (CLI tool) for running without GUI
 - Update available notifications (GitHub Releases)
 - Local history view with date, time, query, and execution status
 - One-click start automation (1-99 searches per session)
 - Safe recovery for corrupted settings/history files
 
-**Automation Features:**
+**Automation & Core Logic:**
+- Automatic start-up (launches the app silently in the background on system boot)
+- Advanced scheduling (automated daily runs with specific intervals, run duration, total searches and queries per hour)
 - Background WebDriver warmup at startup for faster execution
 - Human-like search behavior (typing delays, random pauses, smooth scrolling)
 - Uses real-world queries from assets/queries.json (3428 unique entries from google-trends dataset)
@@ -77,6 +96,10 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 - Natural mouse movement/clicking (W3C Actions)
 - Daily Set task collection (runs once per day)
 - Separate browser thread isolation
+
+**Developer & Code Quality:**
+- Advanced documentation (comprehensive docstrings and detailed guides)
+- Strict code formatting and static type checking (Black, Flake8, MyPy) 
 
 ## Quick Start (For Users)
 
@@ -124,9 +147,10 @@ AutoRewarder/
 ├── GUI/
 │   ├── index.html        # Main window UI
 │   ├── history.html      # History view UI
+|   ├── history.css       # History view styling
 │   ├── script.js         # Frontend logic and bridge calls
 │   ├── styles.css        # App styling
-|   ├── settings.js        # Settings page logic and bridge calls
+|   ├── settings.js       # Settings page logic and bridge calls
 |   ├── settings.css      # Settings page styling
 │   └── normalize.css     # CSS reset
 ├── assets/
@@ -145,6 +169,7 @@ AutoRewarder/
 │   ├── settings_manager.py # Manages user settings storage and retrieval
 │   └── utils.py          # Utility functions(human-typing, update checks)
 ├── AutoRewarder.py       # Python backend and webview window
+├── AutoRewarder_CLI.py   # Script-only version without GUI (for advanced users)
 ├── AutoRewarder.spec     # PyInstaller build spec
 ├── AutoRewarder.iss      # Inno Setup installer script
 ├── LICENSE              
@@ -184,14 +209,17 @@ For common issues and solutions, see the [Troubleshooting](USER_GUIDE.md#trouble
 - [x] Better randomized scrolling (unique speed/length per session)
 - [x] Advanced "coffee" breaks during long sessions
 - [x] Navigation flow: sometimes switch result tabs (Images/Videos/News)
-- [ ] Browser choice (Chrome, Firefox support in addition to Edge)
-- [ ] Advanced scheduling (automated daily runs at specific times)
+- [x] Script-only version (CLI tool without GUI)
+- [x] Automatic start-up 
+- [x] Advanced scheduling (automated daily runs at specific times)
 - [ ] Statistics dashboard (points tracking, session summaries)
+- [ ] Browser choice (Chrome, Firefox support in addition to Edge)
 - [ ] Multi-account support (manage multiple Rewards accounts)
-- [ ] Script-only version (CLI tool without GUI)
-- [ ] Daily Set "Claim" actions
+- [ ] Mobile support
+- [ ] Daily "Claim" actions
 - [ ] Keyboard shortcuts
 - [ ] UI themes (dark/light mode)
+
 
 ## Disclaimer
 
