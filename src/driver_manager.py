@@ -1,73 +1,83 @@
 from selenium import webdriver
 from selenium.webdriver.edge.options import Options
-from .config import EDGE_PROFILE_PATH
 
 
 class DriverManager:
     """
-    Manages the Selenium WebDriver for MS Edge,
-    including setup and configuration.
+    Manages the Selenium WebDriver for MS Edge.
+
+    Each DriverManager instance is bound to a specific Edge --user-data-dir
+    (i.e. one account). Switching account = rebuilding this manager with a
+    different profile_path.
     """
 
-    def __init__(self, hide_browser=False):
+    def __init__(self, profile_path=None, hide_browser=False):
         """
-        Initialize the DriverManager with default settings.
-
         Args:
-            hide_browser (bool): Whether to run the browser in headless mode (invisible). Default is False (visible).
+            profile_path (str | None): Absolute path to the Selenium --user-data-dir
+                directory. None when no account is selected (empty state). In that
+                case setup_driver will raise, since there is nothing to launch.
+            hide_browser (bool): Whether to run the browser in headless mode.
         """
+        self.profile_path = profile_path
         self.hide_browser = hide_browser
 
-    def setup_driver(self, headless=None):
+    def setup_driver(self, headless=None, disable_identity=False):
         """
-        Set up the Selenium WebDriver for MS Edge with the specified options.
+        Set up the Selenium WebDriver for MS Edge using this manager's profile.
 
         Args:
-            headless (bool): Whether to run the browser in headless mode (invisible).
-            If None, it will use the default setting from the instance.
+            headless: Headless override. Falls back to self.hide_browser.
+            disable_identity: When True, add Edge/Chromium flags that disable
+                the Windows-account-based auto sign-in. Used during First
+                Setup so a second MSA can actually log in.
 
         Returns:
-            webdriver.Edge: The configured Microsoft Edge WebDriver instance.
+            webdriver.Edge: The configured WebDriver instance.
+
+        Raises:
+            RuntimeError: If profile_path is None (no account selected).
         """
+        if not self.profile_path:
+            raise RuntimeError(
+                "No account selected: cannot start the browser. "
+                "Create or select an account first."
+            )
+
         if headless is None:
             headless = self.hide_browser
 
-        # Setup Microsoft Edge (driver will be downloaded automatically)
         options = Options()
-        options.add_argument(f"--user-data-dir={EDGE_PROFILE_PATH}")
-        options.add_argument(
-            "--profile-directory=Default"
-        )  # Use the default profile or change to a specific one if needed
-        options.add_argument(
-            "--disable-blink-features=AutomationControlled"
-        )  # Hide automation
-        options.add_argument(
-            "--no-default-browser-check"
-        )  # Don't check if Edge is default
+        options.add_argument(f"--user-data-dir={self.profile_path}")
+        options.add_argument("--profile-directory=Default")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--no-default-browser-check")
+        options.add_argument("--no-first-run")
         options.add_argument("--window-size=1920,1080")
-        options.add_experimental_option(
-            "excludeSwitches", ["enable-automation"]
-        )  # Remove "Browser is being controlled by automated test software" infobar
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+
+        if disable_identity:
+            # Kill the various Chromium/Edge paths that silently sign the user
+            # in with the Windows-level Microsoft identity.
+            options.add_argument(
+                "--disable-features=msImplicitSignin,AadSsoUrlInterceptionEnabled,"
+                "WebOtpBackendAuto,IdentityConsistency,msIdentityWebSignIn,"
+                "msEdgeIdentitySyncInterception"
+            )
+            options.add_argument("--disable-sync")
 
         if headless:
-            # Run in headless mode (invisible)
             options.add_argument("--headless=new")
             options.add_argument("--window-size=1920,1080")
-            options.add_argument("--disable-gpu")  # Disable GPU for headless mode
+            options.add_argument("--disable-gpu")
 
-        # Automatic driver dowload and setup
         _driver = webdriver.Edge(options=options)
         return _driver
 
     def close_running_edge(self):
         """
         Close running Edge processes to avoid conflicts with the Selenium profile.
-        Optional, because the new bot uses a separate profile to avoid conflicts, so it should work even if the main Edge browser is open.
-        But can be useful if users have issues with the bot not working due to conflicts with their main Edge browser.
+        Kept as a no-op for backward compatibility; per-account profiles make this
+        generally unnecessary.
         """
-
-        # Close running Edge processes to avoid conflicts with the Selenium profile
-        # os.system("taskkill /f /im msedge.exe >nul 2>&1")
-        # os.system("taskkill /f /im msedgedriver.exe >nul 2>&1")
-        # time.sleep(2)
         return
