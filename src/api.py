@@ -375,6 +375,9 @@ class AutoRewarderAPI:
     def _autostart_command(self):
         """
         Return the command string to use for autostart registry entry.
+
+        Returns:
+            str: The command to execute AutoRewarder in headless mode.
         """
 
         # if .exe, just call itself with --headless
@@ -385,11 +388,66 @@ class AutoRewarderAPI:
         runner_py = os.path.join(BASE_DIR, "AutoRewarder_CLI.py")
         return f'"{sys.executable}" "{runner_py}"'
 
+    def _linux_autostart_path(self):
+        """
+        Return the Linux autostart .desktop file path.
+
+        Returns:
+            str: The file path for the autostart .desktop entry.
+        """
+
+        autostart_dir = os.path.join(os.path.expanduser("~"), ".config", "autostart")
+        return os.path.join(autostart_dir, "AutoRewarder.desktop")
+
+    def _set_autostart_linux(self, enable):
+        """
+        Enable or disable autostart on Linux using a .desktop file.
+
+        Args:
+            enable (bool): True to enable autostart, False to disable.
+
+        Returns:
+            bool: True if the .desktop file was successfully updated, False otherwise.
+        """
+
+        try:
+            desktop_path = self._linux_autostart_path()
+
+            if enable:
+                os.makedirs(os.path.dirname(desktop_path), exist_ok=True)
+
+                cmd = self._autostart_command()
+                desktop_file = (
+                    "[Desktop Entry]\n"
+                    "Type=Application\n"
+                    "Name=AutoRewarder\n"
+                    f"Exec={cmd}\n"
+                    "Terminal=false\n"
+                    "X-GNOME-Autostart-enabled=true\n"
+                )
+
+                with open(desktop_path, "w", encoding="utf-8") as file:
+                    file.write(desktop_file)
+
+                self.log("Autostart enabled (.desktop)")
+            else:
+                if os.path.exists(desktop_path):
+                    os.remove(desktop_path)
+                    self.log("Autostart disabled (.desktop)")
+                else:
+                    self.log("Autostart entry not found; nothing to remove")
+
+            return True
+
+        except Exception as e:
+            self.log(f"[ERROR] Failed to update Linux autostart: {e}")
+            return False
+
     def _set_autostart_registry(self, enable):
         """
-        Enable or disable autostart by writing/removing Run key in HKCU registry.
+        Enable or disable autostart for the current platform.
 
-        Uses HKCU so admin rights are not required. Only supported on Windows.
+        Uses HKCU on Windows and a .desktop file on Linux. Other platforms are not supported.
 
         Args:
             enable (bool): True to enable autostart, False to disable.
@@ -399,8 +457,13 @@ class AutoRewarderAPI:
         """
 
         try:
-            if platform.system() != "Windows":
-                self.log("Autostart is only supported on Windows in this build.")
+            system_name = platform.system()
+
+            if system_name == "Linux":
+                return self._set_autostart_linux(enable)
+
+            if system_name != "Windows":
+                self.log("Autostart is only supported on Windows and Linux.")
                 return False
 
             try:
@@ -436,13 +499,18 @@ class AutoRewarderAPI:
 
     def is_autostart_enabled(self):
         """
-        Return True if an autostart entry exists in HKCU Run.
+        Return True if an autostart entry exists for the current platform.
 
         Returns:
             bool: True if autostart is enabled, False otherwise.
         """
         try:
-            if platform.system() != "Windows":
+            system_name = platform.system()
+
+            if system_name == "Linux":
+                return os.path.exists(self._linux_autostart_path())
+
+            if system_name != "Windows":
                 return False
             
             import winreg
