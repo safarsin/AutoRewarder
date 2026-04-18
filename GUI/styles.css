@@ -122,6 +122,27 @@ button {
   gap: 4px;
 }
 
+.app-footer {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 2px 0 4px 0;
+  margin-top: -4px;
+  flex-shrink: 0;
+}
+
+.app-footer a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+
+.app-footer a:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
 /* =========================================================================
    Card
    ========================================================================= */
