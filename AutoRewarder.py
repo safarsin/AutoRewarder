@@ -28,11 +28,7 @@ if __name__ == "__main__":
     # If started with --headless, delegate to the headless runner and exit.
     if args.headless:
         # Import here to avoid importing headless_runner when running the GUI.
-        try:
-            from AutoRewarder_CLI import main as headless_main
-        except Exception:
-            # Try module path when running from package root
-            from .AutoRewarder_CLI import main as headless_main
+        from AutoRewarder_CLI import main as headless_main
 
         headless_main()
         sys.exit(0)
