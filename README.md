@@ -101,7 +101,7 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 - Advanced scheduling (automated daily runs with specific intervals, run duration, total searches and queries per hour)
 - Background WebDriver warmup at startup for faster execution
 - Human-like search behavior (typing delays, random pauses, smooth scrolling)
-- Uses real-world queries from assets/queries.json (3428 unique entries from google-trends dataset)
+- Uses real-world queries from assets/queries.json (8165 unique entries from google-trends dataset)
 - Randomized delays to reduce repetitive patterns
 - Optional tab switching between result categories (Images/Videos/News)
 - Natural mouse movement/clicking (W3C Actions)
@@ -208,7 +208,7 @@ AutoRewarder/
 │   └── normalize.css     # CSS reset
 ├── assets/
 │   ├── icon.ico          # App icon
-│   ├── queries.json      # Queries list (3428 unique queries)
+│   ├── queries.json      # Queries list (8165 unique queries)
 │   └── screenshots/      # Screenshots and GIFs for documentation
 ├── src/
 │   ├── __init__.py       # Python package initialization
