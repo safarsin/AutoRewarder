@@ -31,6 +31,7 @@ def iso_now():
 
     return datetime.now().isoformat(timespec="seconds")
 
+
 def console_log(message):
     """
     Log a message to the console and append it to a rotating background log file.
@@ -47,7 +48,10 @@ def console_log(message):
     # Append to log file; if file reaches or exceeds MAX(6 MB) size, remove it and start fresh
     try:
         # If file exists and is too large, delete it so we start a fresh log
-        if os.path.exists(LOG_FILE_PATH) and os.path.getsize(LOG_FILE_PATH) >= LOG_MAX_SIZE:
+        if (
+            os.path.exists(LOG_FILE_PATH)
+            and os.path.getsize(LOG_FILE_PATH) >= LOG_MAX_SIZE
+        ):
             try:
                 os.remove(LOG_FILE_PATH)
             except Exception:
@@ -59,6 +63,7 @@ def console_log(message):
 
     except Exception as e:
         print(f"[ERROR] Can't write to log file: {e}")
+
 
 def run_single(api, count):
     """
@@ -73,6 +78,7 @@ def run_single(api, count):
     api.main(int(count))
     console_log("Single run finished")
 
+
 def run_scheduled(api, total_queries, duration_hours, queries_per_hour):
     """
     Run queries over a specified duration with advanced scheduling.
@@ -86,7 +92,9 @@ def run_scheduled(api, total_queries, duration_hours, queries_per_hour):
 
     total_queries = int(total_queries)
     duration_hours = float(duration_hours)
-    api.log(f"Scheduling {total_queries} queries over {duration_hours} hours (qph={queries_per_hour})")
+    api.log(
+        f"Scheduling {total_queries} queries over {duration_hours} hours (qph={queries_per_hour})"
+    )
 
     # Decide batch size to avoid creating driver for every single query.
     try:
@@ -101,7 +109,9 @@ def run_scheduled(api, total_queries, duration_hours, queries_per_hour):
     if qph_int > 0:
         raw_batch = qph_int // 6  # 10-minute batches if qph specified
     else:
-        raw_batch = total_queries // max(1, int(duration_hours * 2)) # Default to ~30-minute batches
+        raw_batch = total_queries // max(
+            1, int(duration_hours * 2)
+        )  # Default to ~30-minute batches
 
     per_batch = max(1, min(10, raw_batch))
 
@@ -114,13 +124,17 @@ def run_scheduled(api, total_queries, duration_hours, queries_per_hour):
 
     interval = total_seconds / num_batches
 
-    console_log(f"Scheduling {num_batches} batches of ~{per_batch} queries; interval ~{interval:.2f}s")
+    console_log(
+        f"Scheduling {num_batches} batches of ~{per_batch} queries; interval ~{interval:.2f}s"
+    )
 
     remaining = total_queries
 
     for i in range(num_batches):
         batch_count = min(per_batch, remaining)
-        console_log(f"Batch {i+1}/{num_batches}: running {batch_count} queries (remaining {remaining})")
+        console_log(
+            f"Batch {i+1}/{num_batches}: running {batch_count} queries (remaining {remaining})"
+        )
 
         try:
             api.main(batch_count)
@@ -137,6 +151,7 @@ def run_scheduled(api, total_queries, duration_hours, queries_per_hour):
         time.sleep(sleep_time)
 
     console_log("Scheduled run complete")
+
 
 def create_api_headless():
     """
@@ -167,7 +182,7 @@ def create_api_headless():
         api.history._logger = console_log
     except Exception:
         pass
-    
+
     try:
         api.daily_set.logger = console_log
     except Exception:
@@ -175,17 +190,28 @@ def create_api_headless():
 
     return api
 
+
 def main():
     """
     Main function to parse arguments, read settings, and run AutoRewarder in the appropriate mode.
     """
 
-    parser = argparse.ArgumentParser(description="AutoRewarder CLI runner and scheduler")
-    parser.add_argument("--once", action="store_true", help="Run a single immediate job")
+    parser = argparse.ArgumentParser(
+        description="AutoRewarder CLI runner and scheduler"
+    )
+    parser.add_argument(
+        "--once", action="store_true", help="Run a single immediate job"
+    )
     parser.add_argument("--count", type=int, help="Number of queries for a single run")
-    parser.add_argument("--duration", type=float, help="Run duration in hours for advanced scheduling")
-    parser.add_argument("--total-queries", type=int, help="Total queries for the scheduled run")
-    parser.add_argument("--queries-per-hour", type=int, help="Queries per hour target for scheduling")
+    parser.add_argument(
+        "--duration", type=float, help="Run duration in hours for advanced scheduling"
+    )
+    parser.add_argument(
+        "--total-queries", type=int, help="Total queries for the scheduled run"
+    )
+    parser.add_argument(
+        "--queries-per-hour", type=int, help="Queries per hour target for scheduling"
+    )
     args = parser.parse_args()
 
     settings_manager = SettingsManager()
@@ -224,6 +250,7 @@ def main():
             total_queries = int(settings.get("totalQueries", 30))
 
     run_scheduled(api, int(total_queries), float(run_duration), qph)
+
 
 if __name__ == "__main__":
     try:

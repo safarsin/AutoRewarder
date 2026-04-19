@@ -296,14 +296,16 @@ class AutoRewarderAPI:
 
         Args:
             settings_data (dict): A dictionary containing user settings to be saved.
-        
+
         Returns:
             bool: True if the save operation was successful, False otherwise.
         """
 
         try:
             if not isinstance(settings_data, dict):
-                self.log("[ERROR] Invalid settings payload: must be a JSON object/dictionary")
+                self.log(
+                    "[ERROR] Invalid settings payload: must be a JSON object/dictionary"
+                )
                 raise ValueError("Settings payload must be a JSON object/dictionary")
 
             current = self.settings_manager.get_settings()
@@ -319,7 +321,9 @@ class AutoRewarderAPI:
                 current["autoStartUp"] = bool(settings_data["autoStartUp"])
 
             if "advancedScheduling" in settings_data:
-                current["advancedScheduling"] = bool(settings_data["advancedScheduling"])
+                current["advancedScheduling"] = bool(
+                    settings_data["advancedScheduling"]
+                )
 
             if "runDuration" in settings_data:
                 try:
@@ -368,7 +372,7 @@ class AutoRewarderAPI:
             return True
 
         except Exception as e:
-            short_error = str(e)[:50] 
+            short_error = str(e)[:50]
             self.log(f"[ERROR] Failed saving settings: {short_error}")
             return False
 
@@ -470,11 +474,15 @@ class AutoRewarderAPI:
                 import winreg
 
             except Exception:
-                self.log("[WARNING] winreg module not available; cannot modify registry.")
+                self.log(
+                    "[WARNING] winreg module not available; cannot modify registry."
+                )
                 return False
 
             run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
-            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_SET_VALUE)
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_SET_VALUE
+            )
 
             name = "AutoRewarder"
 
@@ -512,9 +520,9 @@ class AutoRewarderAPI:
 
             if system_name != "Windows":
                 return False
-            
+
             import winreg
-            
+
             run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
             key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_READ)
             try:

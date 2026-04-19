@@ -20,7 +20,9 @@ from src.config import GUI_DIR, ASSETS_DIR
 # Entry point of the application
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--headless", action="store_true", help="Run in headless/background mode")
+    parser.add_argument(
+        "--headless", action="store_true", help="Run in headless/background mode"
+    )
     args, _ = parser.parse_known_args()
 
     # If started with --headless, delegate to the headless runner and exit.
