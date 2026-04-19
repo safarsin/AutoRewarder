@@ -117,6 +117,25 @@ This toggle controls whether you can see Microsoft Edge while searches are happe
 
 When enabled, AutoRewarder will automatically start a session when you turn on your computer.
 
+If you want to disable this setting, simply turn it off and save settings.
+Or you can remove AutoRewarder from Windows Startup here:
+
+<img src="assets/screenshots/start-up.png" width="400">
+
+### How to check if it's running or stop it (Task Manager)
+
+Since AutoRewarder can run silently in the background (when using Autostart or CLI mode), you might not see an open window. Here is how to manage it:
+
+**To check status or force stop:**
+1. Open **Task Manager** (`Ctrl + Shift + Esc`).
+2. Look for `AutoRewarder.exe` in the **Processes** tab.
+3. If it's there, the bot is active.
+4. To stop the bot, right-click `AutoRewarder.exe` and select **End task**.
+
+<img src="assets/screenshots/tasks.jpg" width="400">
+
+> If you see the process using some CPU and Network, it means it's currently performing searches!
+
 ### Advanced Scheduling
 
 When enabled, you can set the run duration (hours), total searches, and queries per hour. This allows you to spread out searches over a longer period of time.

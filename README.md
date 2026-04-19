@@ -55,10 +55,10 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 > <sub>*Demo is sped up for viewing purposes. Actual execution includes randomized delays and pauses to mimic human behavior.*</sub>
 
-| Main Window | History & Updates |
+| Main Window | Settings & History |
 | :---: | :---: |
-| <img src="assets/screenshots/main_window.png"> | <img src="assets/screenshots/history_window1.png"> |
-| <img src="assets/screenshots/main_window1.png"> | <img src="assets/screenshots/update_check.png"> |
+| <img src="assets/screenshots/main1.png"> | <img src="assets/screenshots/settings.gif"> |
+| <img src="assets/screenshots/main2.png"> | <img src="assets/screenshots/history_window1.png"> |
 
 ---
 
