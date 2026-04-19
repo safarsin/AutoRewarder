@@ -356,6 +356,15 @@ class AutoRewarderAPI:
                 qph = max(1, min(99, qph))
                 current["queriesPerHour"] = qph
 
+            # Handle autostart (Windows registry) if the flag changed
+            try:
+                new_autostart = bool(current.get("autoStartUp", False))
+                if new_autostart != prev_autostart:
+                    self._set_autostart_registry(new_autostart)
+            except Exception as e:
+                self.log(f"[WARNING] Failed to update autostart: {e}")
+                raise Exception(f"Could not update Windows Registry: {e}")
+            
             # Save merged settings
             self.settings_manager.save_settings(current)
 
@@ -367,15 +376,7 @@ class AutoRewarderAPI:
                 # Don't fail saving if runtime effect cannot be applied
                 self.log("[WARNING] Failed to apply runtime hide_browser setting")
 
-            # Handle autostart (Windows registry) if the flag changed
-            try:
-                new_autostart = bool(current.get("autoStartUp", False))
-                if new_autostart != prev_autostart:
-                    self._set_autostart_registry(new_autostart)
-            except Exception as e:
-                self.log(f"[WARNING] Failed to update autostart: {e}")
-
-            self.log("Settings saved")
+            self.log("Settings saved successfully")
             return True
 
         except Exception as e:

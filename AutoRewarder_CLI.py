@@ -163,15 +163,15 @@ def create_api_headless():
 
     api = AutoRewarderAPI()
 
+    # Replace logging with console output and update components that captured the logger early
+    api.log = console_log
+
     # Force headless in runtime and settings
     try:
         api.set_hide_browser(True)
     except Exception:
         # Fallback: set driver manager flag directly
         api.driver_manager.hide_browser = True
-
-    # Replace logging with console output and update components that captured the logger early
-    api.log = console_log
 
     try:
         api.search_engine._logger = console_log

@@ -276,7 +276,7 @@ For common issues and solutions, see the [Troubleshooting](USER_GUIDE.md#trouble
 - [x] Navigation flow: sometimes switch result tabs (Images/Videos/News)
 - [x] Script-only version (CLI tool without GUI)
 - [x] Automatic start-up 
-- [x] Advanced scheduling (automated daily runs at specific times)
+- [x] Query pacing over a specified duration (rate-based scheduling)
 - [ ] Statistics dashboard (points tracking, session summaries)
 - [ ] Browser choice (Chrome, Firefox support in addition to Edge)
 - [ ] Multi-account support (manage multiple Rewards accounts)
