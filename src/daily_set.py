@@ -5,6 +5,7 @@ import time
 from datetime import date
 from selenium.webdriver.common.by import By
 
+
 class DailySet:
     """
     A class to manage the Daily Set tasks in Microsoft Rewards, scoped to one account.

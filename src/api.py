@@ -46,7 +46,9 @@ class AutoRewarderAPI:
 
         # Global (app-wide) settings. Per-account data is handled below.
         self.global_settings = GlobalSettingsManager()
-        self.hide_browser = bool(self.global_settings.get_settings().get("hide_browser", False))
+        self.hide_browser = bool(
+            self.global_settings.get_settings().get("hide_browser", False)
+        )
 
         # Account layer: migration runs here. `account_manager` is the source of
         # truth for the dropdown.
@@ -69,9 +71,7 @@ class AutoRewarderAPI:
         self._migrate_legacy_global_schedule()
 
         # Scheduled runs. The thread is a no-op while no account has a schedule.
-        self.scheduler = Scheduler(
-            self, self.account_manager, logger=self._safe_log
-        )
+        self.scheduler = Scheduler(self, self.account_manager, logger=self._safe_log)
         self.scheduler.start()
 
     # ------------------------------------------------------------------
@@ -315,9 +315,7 @@ class AutoRewarderAPI:
             return False
         ok = windows_startup.set_launch_on_startup(bool(enabled))
         if ok:
-            self.log(
-                f"Start with Windows: {'ON' if enabled else 'OFF'}"
-            )
+            self.log(f"Start with Windows: {'ON' if enabled else 'OFF'}")
         else:
             self.log("[ERROR] Could not update the Windows startup entry.")
         return ok
@@ -389,7 +387,9 @@ class AutoRewarderAPI:
 
     def delete_account(self, account_id):
         if self._run_lock.locked() and account_id == self.account_manager.current_id():
-            self.log("[WARNING] Cannot delete the active account while the bot is running.")
+            self.log(
+                "[WARNING] Cannot delete the active account while the bot is running."
+            )
             return False
         try:
             self.account_manager.delete(account_id)
@@ -447,7 +447,9 @@ class AutoRewarderAPI:
 
         current = self.account_manager.get_current()
         label = current["label"] if current else "account"
-        self.log(f"Starting First Setup for '{label}'... Please log in to your Microsoft account.")
+        self.log(
+            f"Starting First Setup for '{label}'... Please log in to your Microsoft account."
+        )
 
         # Capture current policy state so we can restore it afterwards.
         previous_policy = edge_policy.get_current_value()
@@ -521,13 +523,11 @@ class AutoRewarderAPI:
                 # Fallback if the forced-prompt URL fails.
                 setup_driver.get("https://login.live.com/")
 
-            self.log(
-                """Sign in with the Microsoft account for THIS profile.
+            self.log("""Sign in with the Microsoft account for THIS profile.
 - Enter the email and password yourself; don't pick a suggested account.
 - If Microsoft still auto-connects another account, click the avatar
   (top-right on Bing) and choose 'Sign in with a different account'.
-- Close the browser when you're done."""
-            )
+- Close the browser when you're done.""")
 
             while len(setup_driver.window_handles) > 0:
                 time.sleep(1)
@@ -560,7 +560,9 @@ class AutoRewarderAPI:
                 edge_policy.restore_value(previous_policy)
 
             if setup_succeeded:
-                self.log(f"First Setup completed for '{label}'! You can now start the bot.")
+                self.log(
+                    f"First Setup completed for '{label}'! You can now start the bot."
+                )
                 self.account_meta.mark_up_as_done()
                 if self.history is not None:
                     self.history.add_to_history("First Setup Completed", "Success")
@@ -647,12 +649,16 @@ class AutoRewarderAPI:
                 self.search_engine.perform_searches(self._driver, queries_to_search)
 
                 if self.daily_set.should_perform_daily_set():
-                    self.log("Daily Set not completed today. Starting Daily Set tasks...")
+                    self.log(
+                        "Daily Set not completed today. Starting Daily Set tasks..."
+                    )
                     human = HumanBehavior(self._driver, show_cursor=True)
                     success = self.daily_set.perform_daily_set(self._driver, human)
                     if success:
                         self.daily_set.mark_as_completed()
-                        self.log("Daily Set tasks completed and marked as done for today.")
+                        self.log(
+                            "Daily Set tasks completed and marked as done for today."
+                        )
                     else:
                         self.log("Daily Set failed. Not marked as done for today.")
             finally:

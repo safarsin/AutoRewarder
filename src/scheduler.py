@@ -129,10 +129,10 @@ class Scheduler:
         meta.set_schedule(sched_copy)
 
         queries = max(1, min(99, int(sched.get("queries") or 30)))
-        self._log(f"Scheduler: starting scheduled run for '{label}' ({queries} queries).")
-        threading.Thread(
-            target=self._api.main, args=(queries,), daemon=True
-        ).start()
+        self._log(
+            f"Scheduler: starting scheduled run for '{label}' ({queries} queries)."
+        )
+        threading.Thread(target=self._api.main, args=(queries,), daemon=True).start()
 
     # ---- Helpers -----------------------------------------------------
 
