@@ -54,5 +54,5 @@ STATUS_FILE_PATH = os.path.join(APP_DIR, "status.json")
 JSON_FILE_PATH = os.path.join(ASSETS_DIR, "queries.json")
 LOG_FILE_PATH = os.path.join(APP_DIR, "background_log.txt")
 
-# Maximum size (in bytes) before truncating the log file (6 MB)
+# Maximum size (in bytes) before the log file is deleted and recreated (6 MB)
 LOG_MAX_SIZE = 6 * 1024 * 1024

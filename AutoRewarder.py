@@ -26,6 +26,11 @@ if __name__ == "__main__":
 
     # If started with --headless, delegate to the headless runner and exit.
     if args.headless:
+
+        # Remove --headless from sys.argv to prevent issues with AutoRewarder_CLI.py argument parsing.
+        if "--headless" in sys.argv:
+            sys.argv.remove("--headless")
+
         # Import here to avoid importing headless_runner when running the GUI.
         from AutoRewarder_CLI import main as headless_main
 
