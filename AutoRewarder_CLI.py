@@ -46,11 +46,6 @@ def console_log(message):
 
     # Append to log file; if file reaches or exceeds MAX(6 MB) size, remove it and start fresh
     try:
-        # Ensure log directory exists
-        log_dir = os.path.dirname(LOG_FILE_PATH)
-        if log_dir and not os.path.exists(log_dir):
-            os.makedirs(log_dir, exist_ok=True)
-
         # If file exists and is too large, delete it so we start a fresh log
         if os.path.exists(LOG_FILE_PATH) and os.path.getsize(LOG_FILE_PATH) >= LOG_MAX_SIZE:
             try:
