@@ -364,7 +364,7 @@ class AutoRewarderAPI:
             except Exception as e:
                 self.log(f"[WARNING] Failed to update autostart: {e}")
                 raise Exception(f"Could not update Windows Registry: {e}")
-            
+
             # Save merged settings
             self.settings_manager.save_settings(current)
 
