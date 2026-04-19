@@ -23,7 +23,7 @@ Welcome! This guide will help you get started with AutoRewarder and explain all 
 
 ### Step 1: Download
 1. Go to the [Releases page](https://github.com/safarsin/AutoRewarder/releases) on GitHub
-2. Find the latest release (v3.0 or newer)
+2. Find the latest release (v3.1 or newer)
 3. Download `AutoRewarder-Setup.exe`
 
 ### Step 2: Install
@@ -57,6 +57,10 @@ First Setup creates a special profile for Microsoft Edge that AutoRewarder will 
 2. Wait for it to complete (you should see Microsoft Edge open)
 3. Sign in to your Microsoft Rewards account on the Bing page that opens (don't sync browser)
 <img src="assets/screenshots/sing_in.png" alt="Sign in screenshot" width="400">
+
+> [!WARNING]
+> **Important:** Don't sync browser
+
 4. Close the browser when done
 5. You're ready to use AutoRewarder!
 
@@ -109,6 +113,19 @@ This toggle controls whether you can see Microsoft Edge while searches are happe
 - Less distracting if you're working on something else
 - Slightly faster performance since it doesn't have to render the browser window what will save system resources (RAM/CPU)
 
+### Automatic Start-Up
+
+When enabled, AutoRewarder will automaticly start a session when you turn on your computer.
+
+### Advanced Scheduling
+
+When enabled, you can set the run duration (hours), total searches, and queries per hour. This allows you to spread out searches over a longer period of time.
+
+It will run in the background and take breaks as needed to meet the schedule you set. Intervals are unique and randomized by +/- 25% of the base interval to mimic human behavior.
+
+> [!WARNING]
+> **Important:** Make sure that your PC is connected to the internet and does not go to sleep while the bot is running.
+
 ---
 
 ## Viewing Search History
@@ -127,11 +144,21 @@ AutoRewarder keeps track of all searches it has performed.
 ### Where is History Saved?
 
 History is saved in your user data folder:
+
 ```
 C:\Users\[YourUsername]\AppData\Local\AutoRewarder\history.json
 ```
 
 You don't need to access this directly — use the History button in the app instead.
+
+## View background process logs
+
+If you want to see detailed logs of the background process (for debugging or monitoring), you can find them in the `background_log.txt` file located in the same user data folder:
+
+```
+C:\Users\[YourUsername]\AppData\Local\AutoRewarder\background_log.txt
+```
+
 
 ---
 
@@ -223,6 +250,6 @@ A: Currently, the pre-built installer and standalone executable are only availab
 ---
 
 **Last Updated**: April 2026  
-**Version**: 3.0
+**Version**: 3.1
 
 Enjoy using AutoRewarder! 🎉

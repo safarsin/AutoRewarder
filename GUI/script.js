@@ -54,7 +54,8 @@ function start_bot() {
   document.getElementById('dot').classList.add('active');
   document.getElementById('status_text').innerText = "Executing";
   
-
+  // Disable the hide browser toggle during execution
+  document.getElementById("hideBrowserToggle").disabled = true;
   
   // 3. Call the Python function to start the bot
   pywebview.api.main(count);
@@ -89,6 +90,11 @@ function enable_start_button() {
   
   document.getElementById('dot').classList.remove('active');
   document.getElementById('status_text').innerText = "Waiting";
+
+  let hideBrowserToggle = document.getElementById("hideBrowserToggle");
+  if (hideBrowserToggle) {
+    hideBrowserToggle.disabled = false;
+  }
 }
 
 function show_history() {
@@ -190,6 +196,43 @@ window.addEventListener('pywebviewready', function() {
     const toggle = document.getElementById('hideBrowserToggle');
     if (toggle) {
       toggle.checked = Boolean(settings.hide_browser);
+    }
+
+    // Restore settings UI values if available
+    const autoStartElem = document.getElementById('autoStartUp');
+    const advElem = document.getElementById('advancedScheduling');
+
+    if (autoStartElem) {
+      autoStartElem.checked = Boolean(settings.autoStartUp);
+      // Trigger change handler to enable/disable dependent controls
+      autoStartElem.dispatchEvent(new Event('change'));
+
+      // Check registry state matches saved setting and warn if not
+      pywebview.api.is_autostart_enabled().then(function(enabled) {
+        if (Boolean(enabled) !== Boolean(settings.autoStartUp)) {
+          alert('[WARNING] Auto-start state in registry does not match saved settings!');
+        }
+      });
+    }
+
+    if (advElem) {
+      advElem.checked = Boolean(settings.advancedScheduling);
+      advElem.dispatchEvent(new Event('change'));
+    }
+
+    if (settings.runDuration != null) {
+      const rd = document.getElementById('runDuration');
+      if (rd) rd.value = settings.runDuration;
+    }
+
+    if (settings.totalQueries != null) {
+      const tq = document.getElementById('totalQueries');
+      if (tq) tq.value = settings.totalQueries;
+    }
+
+    if (settings.queriesPerHour != null) {
+      const qph = document.getElementById('queriesPerHour');
+      if (qph) qph.value = settings.queriesPerHour;
     }
 
   });

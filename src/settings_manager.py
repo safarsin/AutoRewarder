@@ -27,6 +27,11 @@ class SettingsManager:
         default_settings = {
             "first_setup_done": False,
             "hide_browser": False,
+            "autoStartUp": False,
+            "advancedScheduling": False,
+            "runDuration": 3,
+            "totalQueries": 30,
+            "queriesPerHour": 10,
         }
 
         if APP_DIR and not os.path.exists(APP_DIR):
@@ -42,6 +47,11 @@ class SettingsManager:
 
                 if not isinstance(settings, dict):
                     raise ValueError("Settings file must contain a JSON object")
+
+                # Ensure any newly-added default keys exist in the loaded settings
+                for k, v in default_settings.items():
+                    if k not in settings:
+                        settings[k] = v
 
                 return settings
         except (json.JSONDecodeError, UnicodeDecodeError, ValueError):

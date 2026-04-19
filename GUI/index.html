@@ -20,7 +20,7 @@
           <line x1="8" y1="21" x2="16" y2="21"></line>
           <line x1="12" y1="17" x2="12" y2="21"></line>
         </svg>
-        AutoRewarder <span class="version">v3.0</span>
+        AutoRewarder <span class="version">v3.1</span>
       </div>
 
       <button id="settingsBtn" class="settings-btn" aria-label="Settings">
@@ -66,7 +66,21 @@
           <div class="settings nested-setting hidden" id="runDurationWrapper">
             <label class="settings-label">
               <span class="title sub-title">Run duration (hours)</span>
-              <input type="number" id="runDuration" class="time-input" min="1" max="24" value="4">
+              <input type="number" id="runDuration" class="time-input" min="1" max="24" value="3">
+            </label>
+          </div>
+
+          <div class="settings nested-setting hidden" id="totalQueriesWrapper">
+            <label class="settings-label">
+              <span class="title sub-title">Total queries</span>
+              <input type="number" id="totalQueries" class="time-input" min="1" max="99" value="30">
+            </label>
+          </div>
+
+          <div class="settings nested-setting hidden" id="queriesPerHourWrapper">
+            <label class="settings-label">
+              <span class="title sub-title">Queries per hour</span>
+              <input type="number" id="queriesPerHour" class="time-input" min="1" max="99" value="10">
             </label>
           </div>
         </div>
@@ -120,6 +134,11 @@
       
     <!-- Python pushes messages here via update_log(...) from script.js. -->
     <div id="log_area">Waiting for core startup...<br></div>
+
+    <div class="developer">
+      <a href="https://github.com/safarsin/AutoRewarder" target="_blank">AutoRewarder</a> by 
+      <a href="https://github.com/safarsin" target="_blank">safarsin</a>
+    </div>
   </div>
 
   <script src="script.js"></script>
