@@ -5,7 +5,7 @@
 
 An advanced, set-and-forget automation tool for Microsoft Rewards. AutoRewarder performs Bing searches and collects Daily Sets using mathematically driven, human-like input simulation (W3C Actions, Bezier curves, and smart scrolling).
 
-Built with a robust Python/Selenium backend, it offers two modes of operation: a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview, and a script-only version (CLI tool) for running without GUI. Packaged as a executable Windows app (via Inno Setup) for a seamless, plug-and-play experience.
+Built with a robust Python/Selenium backend, it offers two modes of operation: a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview, and a script-only version (CLI tool) for running without GUI. Packaged as an executable Windows app (via Inno Setup) for a seamless, plug-and-play experience.
 
 > **Ready to start? Check out the complete [USER GUIDE](USER_GUIDE.md)**
 

@@ -214,6 +214,16 @@ def main():
     )
     args = parser.parse_args()
 
+    # Validate arguments
+    if args.count is not None and args.count <= 0:
+        parser.error("--count must be a positive integer (greater than 0).")
+
+    if args.duration is not None and args.duration <= 0:
+        parser.error("--duration must be greater than 0.")
+
+    if args.total_queries is not None and args.total_queries <= 0:
+        parser.error("--total-queries must be a positive integer.")
+
     settings_manager = SettingsManager()
     settings = settings_manager.get_settings()
 
