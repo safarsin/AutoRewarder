@@ -3,7 +3,6 @@ import time
 import json
 import threading
 import webbrowser
-import webview
 import sys
 import platform
 
@@ -81,6 +80,14 @@ class AutoRewarderAPI:
         """
         Open a new window to display the search history.
         """
+        try:
+            import webview
+
+        except Exception as e:
+            short_error = str(e)[:50]
+            self.log(f"[ERROR] Cannot open history window: {short_error}")
+            return
+
         webview.create_window(
             title="Query History",
             url=os.path.join(GUI_DIR, "history.html"),
