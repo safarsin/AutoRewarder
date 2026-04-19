@@ -534,14 +534,17 @@ class AutoRewarderAPI:
             import winreg
 
             run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
-            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_READ)
+
             try:
-                val, _ = winreg.QueryValueEx(key, "AutoRewarder")
-                winreg.CloseKey(key)
-                return bool(val)
-            except FileNotFoundError:
-                winreg.CloseKey(key)
+                with winreg.OpenKey(
+                    winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_READ
+                ) as key:
+                    val, _ = winreg.QueryValueEx(key, "AutoRewarder")
+                    return bool(val)
+
+            except OSError:
                 return False
+
         except Exception:
             return False
 

@@ -95,26 +95,28 @@ document.addEventListener('DOMContentLoaded', () => {
         settingsData.runDuration = runDurationValue;
       }
 
-      // Read and validate total queries
-      const totalQueriesRaw = document.getElementById('totalQueries').value.trim();
-      parsedTotalQueries = parseInt(totalQueriesRaw, 10);
+      if (isAdvancedSchedulingEnabled) {
+        // Read and validate total queries
+        const totalQueriesRaw = document.getElementById('totalQueries').value.trim();
+        parsedTotalQueries = parseInt(totalQueriesRaw, 10);
 
-      if (isNaN(parsedTotalQueries) || parsedTotalQueries <= 0) {
-        alert('Please enter a valid positive number for total queries.');
-        return;
+        if (isNaN(parsedTotalQueries) || parsedTotalQueries <= 0) {
+          alert('Please enter a valid positive number for total queries.');
+          return;
+        }
+
+        // Read and validate queries per hour
+        const queriesPerHourRaw = document.getElementById('queriesPerHour').value.trim();
+        parsedQueriesPerHour = parseInt(queriesPerHourRaw, 10);
+
+        if (isNaN(parsedQueriesPerHour) || parsedQueriesPerHour <= 0) {
+          alert('Please enter a valid positive number for queries per hour.');
+          return;
+        }
+
+        settingsData.totalQueries = parsedTotalQueries;
+        settingsData.queriesPerHour = parsedQueriesPerHour;
       }
-
-      // Read and validate queries per hour
-      const queriesPerHourRaw = document.getElementById('queriesPerHour').value.trim();
-      parsedQueriesPerHour = parseInt(queriesPerHourRaw, 10);
-
-      if (isNaN(parsedQueriesPerHour) || parsedQueriesPerHour <= 0) {
-        alert('Please enter a valid positive number for queries per hour.');
-        return;
-      }
-
-      settingsData.totalQueries = parsedTotalQueries;
-      settingsData.queriesPerHour = parsedQueriesPerHour;
 
       // Call Python to save the settings (if running inside pywebview/UI)
       try {

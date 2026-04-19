@@ -12,7 +12,6 @@ Usage:
 import os
 import sys
 import argparse
-import webview
 
 from src.api import AutoRewarderAPI
 from src.config import GUI_DIR, ASSETS_DIR
@@ -32,6 +31,8 @@ if __name__ == "__main__":
 
         headless_main()
         sys.exit(0)
+
+    import webview
 
     api = AutoRewarderAPI()
     window = webview.create_window(
