@@ -1,0 +1,86 @@
+:root {
+  --bg-main: #0d1117; 
+  --bg-panel: #161b22;
+  --text-main: #c9d1d9;
+  --text-muted: #8b949e;
+  --border: #30363d;
+  --success: #2ea043;
+  --error: #f85149;
+}
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  margin: 0;
+  padding: 20px;
+  user-select: text;
+}
+
+h2 {
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* History table layout */
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.history-table th {
+  text-align: left;
+  padding: 12px 15px;
+  color: var(--text-muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  background-color: #010409;
+}
+
+.history-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* delete border for last row */
+.history-table tr:last-child td {
+  border-bottom: none; 
+}
+
+.status-success { 
+  color: var(--success); 
+  font-weight: 500; 
+}
+
+.status-error { 
+  color: var(--error); 
+  font-weight: 500; 
+}
+
+/* WebKit-only scrollbar styling (Chromium/Edge). */
+::-webkit-scrollbar { 
+  width: 8px; 
+  height: 8px;
+}
+
+::-webkit-scrollbar-track { 
+  background: var(--bg-main); 
+  border-radius: 4px; 
+}
+::-webkit-scrollbar-thumb { 
+  background: var(--border); 
+  border-radius: 4px; 
+}
+::-webkit-scrollbar-thumb:hover { 
+  background: var(--text-muted); 
+}

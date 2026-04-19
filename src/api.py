@@ -3,9 +3,10 @@ import time
 import json
 import threading
 import webbrowser
-import webview
+import sys
+import platform
 
-from .config import GUI_DIR, REPO, CURRENT_VERSION, JSON_FILE_PATH
+from .config import GUI_DIR, REPO, CURRENT_VERSION, JSON_FILE_PATH, BASE_DIR
 from .driver_manager import DriverManager
 from .history import HistoryManager
 from .search_engine import SearchEngine
@@ -79,6 +80,14 @@ class AutoRewarderAPI:
         """
         Open a new window to display the search history.
         """
+        try:
+            import webview
+
+        except Exception as e:
+            short_error = str(e)[:50]
+            self.log(f"[ERROR] Cannot open history window: {short_error}")
+            return
+
         webview.create_window(
             title="Query History",
             url=os.path.join(GUI_DIR, "history.html"),
@@ -283,6 +292,262 @@ class AutoRewarderAPI:
         self.settings_manager.set_hide_browser(is_hide)
 
         self.log(f"Browser hidden mode: {'ON' if is_hide else 'OFF'}")
+
+    def save_user_settings(self, settings_data):
+        """
+        Save user settings received from the GUI. This method validates and merges
+        provided keys into the existing settings file and applies runtime effects
+        where appropriate (e.g., hide_browser, autoStartUp etc.).
+
+        Called from JS via `pywebview.api.save_user_settings({...})`.
+
+        Args:
+            settings_data (dict): A dictionary containing user settings to be saved.
+
+        Returns:
+            bool: True if the save operation was successful, False otherwise.
+        """
+
+        try:
+            if not isinstance(settings_data, dict):
+                self.log(
+                    "[ERROR] Invalid settings payload: must be a JSON object/dictionary"
+                )
+                raise ValueError("Settings payload must be a JSON object/dictionary")
+
+            current = self.settings_manager.get_settings()
+
+            # Keep previous autostart state to decide whether to modify registry
+            prev_autostart = bool(current.get("autoStartUp", False))
+
+            # Merge and validate known keys (don't overwrite unrelated settings)
+            if "hide_browser" in settings_data:
+                current["hide_browser"] = bool(settings_data["hide_browser"])
+
+            if "autoStartUp" in settings_data:
+                current["autoStartUp"] = bool(settings_data["autoStartUp"])
+
+            if "advancedScheduling" in settings_data:
+                current["advancedScheduling"] = bool(
+                    settings_data["advancedScheduling"]
+                )
+
+            if "runDuration" in settings_data:
+                try:
+                    rd = int(settings_data["runDuration"])
+                except Exception:
+                    raise ValueError("runDuration must be an integer")
+                rd = max(1, min(24, rd))
+                current["runDuration"] = rd
+
+            if "totalQueries" in settings_data:
+                try:
+                    tq = int(settings_data["totalQueries"])
+                except Exception:
+                    raise ValueError("totalQueries must be an integer")
+                tq = max(1, min(99, tq))
+                current["totalQueries"] = tq
+
+            if "queriesPerHour" in settings_data:
+                try:
+                    qph = int(settings_data["queriesPerHour"])
+                except Exception:
+                    raise ValueError("queriesPerHour must be an integer")
+                qph = max(1, min(99, qph))
+                current["queriesPerHour"] = qph
+
+            # Handle autostart (Windows registry) if the flag changed
+            try:
+                new_autostart = bool(current.get("autoStartUp", False))
+                if new_autostart != prev_autostart:
+                    self._set_autostart_registry(new_autostart)
+            except Exception as e:
+                self.log(f"[WARNING] Failed to update autostart: {e}")
+                raise Exception(f"Could not update Windows Registry: {e}")
+
+            # Save merged settings
+            self.settings_manager.save_settings(current)
+
+            # Apply runtime effects where relevant
+            try:
+                if current.get("hide_browser") is not None:
+                    self.set_hide_browser(bool(current.get("hide_browser")))
+            except Exception:
+                # Don't fail saving if runtime effect cannot be applied
+                self.log("[WARNING] Failed to apply runtime hide_browser setting")
+
+            self.log("Settings saved successfully")
+            return True
+
+        except Exception as e:
+            short_error = str(e)[:50]
+            self.log(f"[ERROR] Failed saving settings: {short_error}")
+            return False
+
+    def _autostart_command(self):
+        """
+        Return the command string to use for autostart registry entry.
+
+        Returns:
+            str: The command to execute AutoRewarder in headless mode.
+        """
+
+        # if .exe, just call itself with --headless
+        if getattr(sys, "frozen", False):
+            return f'"{sys.executable}" --headless'
+
+        # if script, call python with the AutoRewarder_CLI.py
+        runner_py = os.path.join(BASE_DIR, "AutoRewarder_CLI.py")
+        return f'"{sys.executable}" "{runner_py}"'
+
+    def _linux_autostart_path(self):
+        """
+        Return the Linux autostart .desktop file path.
+
+        Returns:
+            str: The file path for the autostart .desktop entry.
+        """
+
+        autostart_dir = os.path.join(os.path.expanduser("~"), ".config", "autostart")
+        return os.path.join(autostart_dir, "AutoRewarder.desktop")
+
+    def _set_autostart_linux(self, enable):
+        """
+        Enable or disable autostart on Linux using a .desktop file.
+
+        Args:
+            enable (bool): True to enable autostart, False to disable.
+
+        Returns:
+            bool: True if the .desktop file was successfully updated, False otherwise.
+        """
+
+        try:
+            desktop_path = self._linux_autostart_path()
+
+            if enable:
+                os.makedirs(os.path.dirname(desktop_path), exist_ok=True)
+
+                cmd = self._autostart_command()
+                desktop_file = (
+                    "[Desktop Entry]\n"
+                    "Type=Application\n"
+                    "Name=AutoRewarder\n"
+                    f"Exec={cmd}\n"
+                    "Terminal=false\n"
+                    "X-GNOME-Autostart-enabled=true\n"
+                )
+
+                with open(desktop_path, "w", encoding="utf-8") as file:
+                    file.write(desktop_file)
+
+                self.log("Autostart enabled (.desktop)")
+            else:
+                if os.path.exists(desktop_path):
+                    os.remove(desktop_path)
+                    self.log("Autostart disabled (.desktop)")
+                else:
+                    self.log("Autostart entry not found; nothing to remove")
+
+            return True
+
+        except Exception as e:
+            self.log(f"[ERROR] Failed to update Linux autostart: {e}")
+            return False
+
+    def _set_autostart_registry(self, enable):
+        """
+        Enable or disable autostart for the current platform.
+
+        Uses HKCU on Windows and a .desktop file on Linux. Other platforms are not supported.
+
+        Args:
+            enable (bool): True to enable autostart, False to disable.
+
+        Returns:
+            bool: True if the registry was successfully updated, False otherwise.
+        """
+
+        try:
+            system_name = platform.system()
+
+            if system_name == "Linux":
+                return self._set_autostart_linux(enable)
+
+            if system_name != "Windows":
+                self.log("Autostart is only supported on Windows and Linux.")
+                return False
+
+            try:
+                import winreg
+
+            except Exception:
+                self.log(
+                    "[WARNING] winreg module not available; cannot modify registry."
+                )
+                return False
+
+            run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_SET_VALUE
+            )
+
+            try:
+                name = "AutoRewarder"
+
+                if enable:
+                    cmd = self._autostart_command()
+                    winreg.SetValueEx(key, name, 0, winreg.REG_SZ, cmd)
+                    self.log("Autostart enabled (HKCU Run)")
+                else:
+                    try:
+                        winreg.DeleteValue(key, name)
+                        self.log("Autostart disabled (HKCU Run)")
+
+                    except FileNotFoundError:
+                        self.log("Autostart entry not found; nothing to remove")
+
+            finally:
+                winreg.CloseKey(key)
+
+            return True
+
+        except Exception as e:
+            self.log(f"[ERROR] Failed to update autostart registry: {e}")
+            return False
+
+    def is_autostart_enabled(self):
+        """
+        Return True if an autostart entry exists for the current platform.
+
+        Returns:
+            bool: True if autostart is enabled, False otherwise.
+        """
+        try:
+            system_name = platform.system()
+
+            if system_name == "Linux":
+                return os.path.exists(self._linux_autostart_path())
+
+            if system_name != "Windows":
+                return False
+
+            import winreg
+
+            run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+
+            try:
+                with winreg.OpenKey(
+                    winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_READ
+                ) as key:
+                    val, _ = winreg.QueryValueEx(key, "AutoRewarder")
+                    return bool(val)
+
+            except OSError:
+                return False
+
+        except Exception:
+            return False
 
     # Send message to UI log area
     def log(self, message):

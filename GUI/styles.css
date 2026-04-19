@@ -28,7 +28,7 @@ body {
   width: 500px;
   background-color: var(--bg-panel);
   border: 1px solid var(--border);
-  padding: 24px;
+  padding: 24px 24px 10px 24px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.5);
 }
 
@@ -305,4 +305,22 @@ transition: color 0.2s;
 }
 ::-webkit-scrollbar-thumb:hover { 
   background: var(--text-muted); 
+}
+
+/* Developer attribution (footer) */
+.developer {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.developer a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.developer a:hover {
+  text-decoration: underline;
 }
