@@ -115,7 +115,7 @@ This toggle controls whether you can see Microsoft Edge while searches are happe
 
 ### Automatic Start-Up
 
-When enabled, AutoRewarder will automaticly start a session when you turn on your computer.
+When enabled, AutoRewarder will automatically start a session when you turn on your computer.
 
 ### Advanced Scheduling
 

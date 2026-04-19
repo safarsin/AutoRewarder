@@ -200,11 +200,11 @@ AutoRewarder/
 ├── GUI/
 │   ├── index.html        # Main window UI
 │   ├── history.html      # History view UI
-|   ├── history.css       # History view styling
+│   ├── history.css       # History view styling
 │   ├── script.js         # Frontend logic and bridge calls
 │   ├── styles.css        # App styling
-|   ├── settings.js       # Settings page logic and bridge calls
-|   ├── settings.css      # Settings page styling
+│   ├── settings.js       # Settings page logic and bridge calls
+│   ├── settings.css      # Settings page styling
 │   └── normalize.css     # CSS reset
 ├── assets/
 │   ├── icon.ico          # App icon

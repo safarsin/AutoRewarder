@@ -484,21 +484,24 @@ class AutoRewarderAPI:
                 winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_SET_VALUE
             )
 
-            name = "AutoRewarder"
+            try:
+                name = "AutoRewarder"
 
-            if enable:
-                cmd = self._autostart_command()
-                winreg.SetValueEx(key, name, 0, winreg.REG_SZ, cmd)
-                self.log("Autostart enabled (HKCU Run)")
-            else:
-                try:
-                    winreg.DeleteValue(key, name)
-                    self.log("Autostart disabled (HKCU Run)")
+                if enable:
+                    cmd = self._autostart_command()
+                    winreg.SetValueEx(key, name, 0, winreg.REG_SZ, cmd)
+                    self.log("Autostart enabled (HKCU Run)")
+                else:
+                    try:
+                        winreg.DeleteValue(key, name)
+                        self.log("Autostart disabled (HKCU Run)")
 
-                except FileNotFoundError:
-                    self.log("Autostart entry not found; nothing to remove")
+                    except FileNotFoundError:
+                        self.log("Autostart entry not found; nothing to remove")
 
-            winreg.CloseKey(key)
+            finally:
+                winreg.CloseKey(key)
+
             return True
 
         except Exception as e:
