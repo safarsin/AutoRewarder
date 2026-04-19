@@ -235,10 +235,16 @@ AutoRewarder/
 
 ## Runtime Data
 
-The app stores runtime files in:
+The application stores its runtime files (profiles, history, logs, and settings) in a dedicated folder separate from your main browser. 
 
+**On Windows:**
 ```text
 %USERPROFILE%\AppData\Local\AutoRewarder
+```
+
+**On Linux:**
+```text
+~/.local/share/AutoRewarder
 ```
 
 Created files and folders:
@@ -247,6 +253,7 @@ EdgeProfile/   # Separate Edge profile for WebDriver
 settings.json  # User settings (first_setup_done, hide_browser)
 history.json   # Search history (date, time, query, status)
 status.json    # Daily Set completion status (per-day)
+background_log.txt # Logs from the background performance (for debugging)
 ```
 
 ---

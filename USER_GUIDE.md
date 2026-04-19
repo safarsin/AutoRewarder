@@ -144,11 +144,21 @@ AutoRewarder keeps track of all searches it has performed.
 ### Where is History Saved?
 
 History is saved in your user data folder:
+
 ```
 C:\Users\[YourUsername]\AppData\Local\AutoRewarder\history.json
 ```
 
 You don't need to access this directly — use the History button in the app instead.
+
+## View background process logs
+
+If you want to see detailed logs of the background process (for debugging or monitoring), you can find them in the `background_log.txt` file located in the same user data folder:
+
+```
+C:\Users\[YourUsername]\AppData\Local\AutoRewarder\background_log.txt
+```
+
 
 ---
 
