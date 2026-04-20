@@ -407,6 +407,52 @@ input[type="number"]:focus {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+/* PC + Mobile query counters in the Run card */
+.count-group {
+  display: flex;
+  gap: 8px;
+}
+
+.count-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.count-field:hover { border-color: var(--accent); }
+.count-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.count-field > span {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.count-field input[type="number"] {
+  width: 46px;
+  padding: 3px 4px;
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
+  font-size: 13px;
+}
+
+.count-field input[type="number"]:focus {
+  border: none;
+  box-shadow: none;
+}
+
 /* Toggle switch */
 
 .toggle-row {
@@ -1077,23 +1123,106 @@ input[type="number"]:focus {
 .schedule-card-status {
   font-size: 11px;
   color: var(--text-dim);
+  /* Keep the live summary on a single line with an ellipsis when it
+     gets long (e.g. "PC 30 / Mobile 20 · 3h @ 10/h · Setup pending"). */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.schedule-card.expanded .schedule-card-status {
+  color: var(--text-muted);
 }
 
 .schedule-card-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  transition: opacity 0.2s;
+  gap: 10px;
+  max-height: 0;
+  opacity: 0;
+  padding: 0 12px;
+  overflow: hidden;
+  transition: max-height 0.22s ease, opacity 0.18s ease, padding 0.22s ease;
+  pointer-events: none;
 }
 
-.schedule-card.disabled .schedule-card-body {
+.schedule-card.expanded .schedule-card-body {
+  max-height: 320px;
+  opacity: 1;
+  padding: 0 12px 12px 12px;
+  pointer-events: auto;
+}
+
+.schedule-card.disabled.expanded .schedule-card-body {
+  opacity: 0.55;
+}
+
+/* Accordion trigger row (avatar + info + chevron) */
+.schedule-card {
+  overflow: hidden;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.schedule-card.expanded { border-color: var(--accent); }
+
+.schedule-card-header {
+  padding: 10px 12px;
+}
+
+.schedule-card-trigger {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.schedule-card-trigger:hover { background: transparent; box-shadow: none; }
+
+.schedule-card-chev {
+  color: var(--text-dim);
+  flex-shrink: 0;
+  transition: transform 0.2s, color 0.15s;
+}
+
+.schedule-card.expanded .schedule-card-chev {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+
+/* Advanced scheduling sub-toggle + fields inside the accordion body */
+.sched-adv-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.sched-adv-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sched-adv-fields {
+  transition: opacity 0.15s;
+}
+
+.sched-adv-fields.dim {
   opacity: 0.45;
   pointer-events: none;
 }
 
-.form-grid-3 {
+.form-grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 

@@ -10,7 +10,7 @@ import os
 import platform
 import sys
 
-CURRENT_VERSION = "v3.0"
+CURRENT_VERSION = "v3.1"
 REPO = "safarsin/AutoRewarder"
 
 PLATFORM_NAME = platform.system()
@@ -66,6 +66,11 @@ JSON_FILE_PATH = os.path.join(ASSETS_DIR, "queries.json")
 LEGACY_EDGE_PROFILE_PATH = os.path.join(APP_DIR, "EdgeProfile")
 LEGACY_HISTORY_FILE_PATH = os.path.join(APP_DIR, "history.json")
 LEGACY_STATUS_FILE_PATH = os.path.join(APP_DIR, "status.json")
+
+# Rotating background log written by AutoRewarder_CLI.py (headless mode).
+LOG_FILE_PATH = os.path.join(APP_DIR, "background_log.txt")
+# Size threshold in bytes; when exceeded, the log file is deleted and recreated.
+LOG_MAX_SIZE = 6 * 1024 * 1024  # 6 MB
 
 
 def account_dir(account_id):

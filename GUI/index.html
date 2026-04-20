@@ -21,7 +21,7 @@
         </div>
         <div class="brand-text">
           <h1>AutoRewarder</h1>
-          <span class="brand-sub">Microsoft Rewards · v3.0</span>
+          <span class="brand-sub">Microsoft Rewards · v3.1</span>
         </div>
       </div>
 
@@ -65,8 +65,17 @@
     <section class="card run-card">
       <div class="run-top">
         <div class="field-inline">
-          <label for="count_input" class="field-label">Queries per run</label>
-          <input type="number" id="count_input" value="30" min="1" max="99">
+          <span class="field-label">Queries</span>
+          <div class="count-group">
+            <label class="count-field" title="Desktop searches (up to 30/day on Microsoft Rewards)">
+              <span>PC</span>
+              <input type="number" id="count_pc" value="30" min="0" max="99">
+            </label>
+            <label class="count-field" title="Mobile searches (up to 20/day on Microsoft Rewards)">
+              <span>Mobile</span>
+              <input type="number" id="count_mobile" value="20" min="0" max="99">
+            </label>
+          </div>
         </div>
 
         <label class="toggle-row" title="Run browser in the background">

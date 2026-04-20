@@ -22,7 +22,16 @@ class DriverManager:
         self.profile_path = profile_path
         self.hide_browser = hide_browser
 
-    def setup_driver(self, headless=None, disable_identity=False):
+    # Realistic iPhone UA so Microsoft Rewards credits the searches as mobile.
+    MOBILE_USER_AGENT = (
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2_1 like Mac OS X) "
+        "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 "
+        "Mobile/15E148 Safari/604.1"
+    )
+    MOBILE_WINDOW_SIZE = "412,915"
+    DESKTOP_WINDOW_SIZE = "1920,1080"
+
+    def setup_driver(self, headless=None, disable_identity=False, mobile=False):
         """
         Set up the Selenium WebDriver for MS Edge using this manager's profile.
 
@@ -31,6 +40,9 @@ class DriverManager:
             disable_identity: When True, add Edge/Chromium flags that disable
                 the Windows-account-based auto sign-in. Used during First
                 Setup so a second MSA can actually log in.
+            mobile: When True, launch Edge with an iPhone user agent and a
+                mobile-sized viewport so Rewards credits the searches as
+                mobile. When False, use the desktop viewport.
 
         Returns:
             webdriver.Edge: The configured WebDriver instance.
@@ -53,8 +65,14 @@ class DriverManager:
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--no-default-browser-check")
         options.add_argument("--no-first-run")
-        options.add_argument("--window-size=1920,1080")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
+
+        if mobile:
+            options.add_argument(f"--user-agent={self.MOBILE_USER_AGENT}")
+            window_size = self.MOBILE_WINDOW_SIZE
+        else:
+            window_size = self.DESKTOP_WINDOW_SIZE
+        options.add_argument(f"--window-size={window_size}")
 
         if disable_identity:
             # Kill the various Chromium/Edge paths that silently sign the user
@@ -68,7 +86,6 @@ class DriverManager:
 
         if headless:
             options.add_argument("--headless=new")
-            options.add_argument("--window-size=1920,1080")
             options.add_argument("--disable-gpu")
 
         _driver = webdriver.Edge(options=options)

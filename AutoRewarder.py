@@ -1,22 +1,50 @@
 """
 Main entry point for the AutoRewarder application.
 
-This script initializes the core AutoRewarderAPI and launches the desktop
-graphical user interface (GUI) using pywebview.
+By default this script launches the desktop GUI (pywebview). When invoked
+with the `--headless` flag — typically by the OS-level autostart entry
+that the "Start with Windows/Linux" toggle installs — it delegates to
+`AutoRewarder_CLI.main()`, which drives scheduled runs for every enabled
+account without bringing up a window.
 
 Usage:
-    Run this file directly to start the application:
+    # GUI:
     python AutoRewarder.py
+
+    # Headless / scheduled:
+    python AutoRewarder.py --headless [--account <id-or-label>]
 """
 
+import argparse
 import os
-import webview
+import sys
 
-from src.api import AutoRewarderAPI
-from src.config import GUI_DIR, ASSETS_DIR
-
-# Entry point of the application
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        "--headless", action="store_true", help="Run in headless/background mode"
+    )
+    args, _ = parser.parse_known_args()
+
+    # Delegate to the CLI runner when --headless is set. Any remaining args
+    # (e.g., --account, --pc, --mobile) stay in sys.argv so the CLI parser
+    # can consume them.
+    if args.headless:
+        if "--headless" in sys.argv:
+            sys.argv.remove("--headless")
+
+        from AutoRewarder_CLI import main as headless_main
+
+        headless_main()
+        sys.exit(0)
+
+    # GUI path — import webview + the API lazily so the headless path doesn't
+    # pay for the pywebview import cost.
+    import webview
+
+    from src.api import AutoRewarderAPI
+    from src.config import GUI_DIR, ASSETS_DIR
+
     api = AutoRewarderAPI()
     window = webview.create_window(
         title="AutoRewarder",

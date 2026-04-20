@@ -1,6 +1,8 @@
 import os
+import sys
 import time
 import json
+import platform
 import threading
 import webbrowser
 import webview
@@ -10,6 +12,7 @@ from .config import (
     REPO,
     CURRENT_VERSION,
     JSON_FILE_PATH,
+    BASE_DIR,
     edge_profile_path,
     history_path,
     status_path,
@@ -22,8 +25,6 @@ from .settings_manager import GlobalSettingsManager, AccountMetaManager
 from .account_manager import AccountManager
 from .daily_set import DailySet
 from .human_behavior import HumanBehavior
-from .scheduler import Scheduler
-from . import windows_startup
 from . import edge_policy
 
 
@@ -70,9 +71,9 @@ class AutoRewarderAPI:
         # into the per-account meta.json it referenced.
         self._migrate_legacy_global_schedule()
 
-        # Scheduled runs. The thread is a no-op while no account has a schedule.
-        self.scheduler = Scheduler(self, self.account_manager, logger=self._safe_log)
-        self.scheduler.start()
+        # Scheduled runs are driven by the OS autostart entry which launches
+        # `AutoRewarder.py --headless` → `AutoRewarder_CLI.main()`. No in-app
+        # daemon thread.
 
     # ------------------------------------------------------------------
     # Context lifecycle
@@ -209,7 +210,7 @@ class AutoRewarderAPI:
     # ------------------------------------------------------------------
 
     def is_running(self):
-        """True when the bot is mid-run. Used by the scheduler to avoid overlap."""
+        """True when the bot is mid-run. Used by the headless runner to avoid overlap."""
         return self._run_lock.locked()
 
     def get_schedule(self, account_id):
@@ -235,8 +236,9 @@ class AutoRewarderAPI:
     def set_schedule(self, account_id, payload):
         """
         Persist the schedule for a specific account.
-        `payload` is a dict with optional keys: enabled, time (HH:MM), queries,
-        window_hours. Unknown keys are ignored.
+        `payload` accepts: enabled, advancedScheduling, runDuration (1..24),
+        queriesPerHour (1..99), queries_pc (0..99), queries_mobile (0..99).
+        Unknown keys are ignored.
         """
         if not account_id or not self.account_manager.exists(account_id):
             return False
@@ -251,12 +253,22 @@ class AutoRewarderAPI:
 
         new = {
             "enabled": bool(_pick("enabled", current["enabled"])),
-            "time": str(_pick("time", current["time"])),
-            "queries": max(1, min(99, int(_pick("queries", current["queries"])))),
-            "window_hours": max(
-                0, min(24, int(_pick("window_hours", current["window_hours"])))
+            "advancedScheduling": bool(
+                _pick("advancedScheduling", current["advancedScheduling"])
             ),
-            # Reset the daily-dedup key so an edited schedule can still fire today.
+            "runDuration": max(
+                1, min(24, int(_pick("runDuration", current["runDuration"])))
+            ),
+            "queriesPerHour": max(
+                1, min(99, int(_pick("queriesPerHour", current["queriesPerHour"])))
+            ),
+            "queries_pc": max(
+                0, min(99, int(_pick("queries_pc", current["queries_pc"])))
+            ),
+            "queries_mobile": max(
+                0, min(99, int(_pick("queries_mobile", current["queries_mobile"])))
+            ),
+            # Reset the daily-dedup marker so the edited schedule can still fire today.
             "last_triggered_date": None,
         }
         meta.set_schedule(new)
@@ -264,9 +276,11 @@ class AutoRewarderAPI:
         label = self.account_manager.get(account_id)
         label = label["label"] if label else account_id
         if new["enabled"]:
+            mode = "advanced" if new["advancedScheduling"] else "simple"
             self.log(
-                f"Schedule '{label}': {new['time']} ±{new['window_hours']}h, "
-                f"{new['queries']} queries."
+                f"Schedule '{label}' ({mode}): PC={new['queries_pc']}, "
+                f"Mobile={new['queries_mobile']}, "
+                f"{new['runDuration']}h @ {new['queriesPerHour']}/h"
             )
         else:
             self.log(f"Schedule '{label}' disabled.")
@@ -274,50 +288,141 @@ class AutoRewarderAPI:
 
     def _migrate_legacy_global_schedule(self):
         """
-        One-shot: if settings.json still has the old global `schedule` key,
-        move it into the referenced account's meta.json (if that account exists)
-        and strip it from global settings.
+        Clean up any pre-existing global `schedule` key left over from an
+        earlier version of this branch. The schedule now lives in each
+        account's meta.json, so we just drop the global one. Anything
+        valuable was already migrated during a previous upgrade cycle.
         """
         settings = self.global_settings.get_settings()
-        legacy = settings.get("schedule")
-        if not isinstance(legacy, dict):
-            if "schedule" in settings:
-                settings.pop("schedule", None)
-                self.global_settings.save_settings(settings)
-            return
+        if "schedule" in settings:
+            settings.pop("schedule", None)
+            self.global_settings.save_settings(settings)
 
-        aid = legacy.get("account_id")
-        if aid and self.account_manager.exists(aid):
-            ported = {
-                "enabled": bool(legacy.get("enabled", False)),
-                "time": str(legacy.get("time", "09:00")),
-                "queries": int(legacy.get("queries", 30)),
-                "window_hours": int(legacy.get("window_hours", 1)),
-                "last_triggered_date": legacy.get("last_triggered_date"),
-            }
-            AccountMetaManager(aid).set_schedule(ported)
-            self._safe_log(f"Migrated legacy global schedule into account {aid}.")
+    # ---- Autostart (OS-level) — ported from v3.1 main -----------------
 
-        settings.pop("schedule", None)
-        self.global_settings.save_settings(settings)
+    def _autostart_command(self):
+        """Command string registered for autostart."""
+        # Frozen build: call the bundled exe with --headless.
+        if getattr(sys, "frozen", False):
+            return f'"{sys.executable}" --headless'
+        # Dev: call python on the entry script with --headless so the dispatch
+        # in AutoRewarder.py forwards to AutoRewarder_CLI.main().
+        entry = os.path.join(BASE_DIR, "AutoRewarder.py")
+        return f'"{sys.executable}" "{entry}" --headless'
+
+    def _linux_autostart_path(self):
+        return os.path.join(
+            os.path.expanduser("~"), ".config", "autostart", "AutoRewarder.desktop"
+        )
+
+    def _set_autostart_linux(self, enable):
+        """Create or remove the Linux .desktop autostart entry."""
+        try:
+            desktop_path = self._linux_autostart_path()
+            if enable:
+                os.makedirs(os.path.dirname(desktop_path), exist_ok=True)
+                cmd = self._autostart_command()
+                desktop_file = (
+                    "[Desktop Entry]\n"
+                    "Type=Application\n"
+                    "Name=AutoRewarder\n"
+                    f"Exec={cmd}\n"
+                    "Terminal=false\n"
+                    "X-GNOME-Autostart-enabled=true\n"
+                )
+                with open(desktop_path, "w", encoding="utf-8") as fh:
+                    fh.write(desktop_file)
+                self.log("Autostart enabled (.desktop)")
+            else:
+                if os.path.exists(desktop_path):
+                    os.remove(desktop_path)
+                    self.log("Autostart disabled (.desktop)")
+                else:
+                    self.log("Autostart entry not found; nothing to remove")
+            return True
+        except Exception as e:
+            self.log(f"[ERROR] Failed to update Linux autostart: {e}")
+            return False
+
+    def _set_autostart_registry(self, enable):
+        """Platform-agnostic entry point. Windows → HKCU Run, Linux → .desktop."""
+        try:
+            system_name = platform.system()
+            if system_name == "Linux":
+                return self._set_autostart_linux(enable)
+            if system_name != "Windows":
+                self.log("Autostart is only supported on Windows and Linux.")
+                return False
+
+            try:
+                import winreg
+            except Exception:
+                self.log(
+                    "[WARNING] winreg module not available; cannot modify registry."
+                )
+                return False
+
+            run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+            with winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_SET_VALUE
+            ) as key:
+                name = "AutoRewarder"
+                if enable:
+                    winreg.SetValueEx(
+                        key, name, 0, winreg.REG_SZ, self._autostart_command()
+                    )
+                    self.log("Autostart enabled (HKCU Run)")
+                else:
+                    try:
+                        winreg.DeleteValue(key, name)
+                        self.log("Autostart disabled (HKCU Run)")
+                    except FileNotFoundError:
+                        self.log("Autostart entry not found; nothing to remove")
+            return True
+        except Exception as e:
+            self.log(f"[ERROR] Failed to update autostart registry: {e}")
+            return False
+
+    def is_autostart_enabled(self):
+        """Return True if an autostart entry exists for the current platform."""
+        try:
+            system_name = platform.system()
+            if system_name == "Linux":
+                return os.path.exists(self._linux_autostart_path())
+            if system_name != "Windows":
+                return False
+            try:
+                import winreg
+            except Exception:
+                return False
+            run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+            try:
+                with winreg.OpenKey(
+                    winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_READ
+                ) as key:
+                    val, _ = winreg.QueryValueEx(key, "AutoRewarder")
+                    return bool(val)
+            except OSError:
+                return False
+        except Exception:
+            return False
 
     def get_launch_on_startup(self):
-        """Return a dict describing the OS support + current state of 'launch on startup'."""
+        """Return OS support flag + current autostart state for the Settings UI."""
+        system_name = platform.system()
         return {
-            "supported": windows_startup.is_supported(),
-            "enabled": windows_startup.is_launch_on_startup(),
+            "supported": system_name in ("Windows", "Linux"),
+            "enabled": self.is_autostart_enabled(),
         }
 
     def set_launch_on_startup(self, enabled):
-        """Register or unregister the app in the Windows Run key. No-op elsewhere."""
-        if not windows_startup.is_supported():
-            self.log("[WARNING] 'Start with Windows' is only available on Windows.")
-            return False
-        ok = windows_startup.set_launch_on_startup(bool(enabled))
+        """Register or unregister the OS autostart entry. Called from JS."""
+        ok = self._set_autostart_registry(bool(enabled))
         if ok:
-            self.log(f"Start with Windows: {'ON' if enabled else 'OFF'}")
-        else:
-            self.log("[ERROR] Could not update the Windows startup entry.")
+            # Mirror the state into global settings.json for the UI.
+            settings = self.global_settings.get_settings()
+            settings["autoStartUp"] = bool(enabled)
+            self.global_settings.save_settings(settings)
         return ok
 
     # ------------------------------------------------------------------
@@ -604,8 +709,15 @@ class AutoRewarderAPI:
     # Main run
     # ------------------------------------------------------------------
 
-    def main(self, count):
-        """Run the bot against the currently-selected account."""
+    def main(self, pc_count, mobile_count=0):
+        """
+        Run the bot against the currently-selected account.
+
+        Executes sequentially:
+          1. PC phase     — desktop UA, `pc_count` Bing searches, then Daily Set.
+          2. Mobile phase — iPhone UA, `mobile_count` Bing searches only.
+        Either count may be 0 to skip that phase.
+        """
         if self.account_manager.current_id() is None:
             self.log("[ERROR] No account selected. Add one via the dropdown.")
             if self._webview_window:
@@ -614,6 +726,18 @@ class AutoRewarderAPI:
 
         if self.account_meta is None or not self.account_meta.is_first_setup_done():
             self.log("[ERROR] First Setup has not been completed for this account.")
+            if self._webview_window:
+                self._webview_window.evaluate_js("enable_start_button()")
+            return
+
+        try:
+            pc_count = max(0, int(pc_count or 0))
+            mobile_count = max(0, int(mobile_count or 0))
+        except (TypeError, ValueError):
+            pc_count, mobile_count = 0, 0
+
+        if pc_count == 0 and mobile_count == 0:
+            self.log("[WARNING] Nothing to do (PC and Mobile counts are both 0).")
             if self._webview_window:
                 self._webview_window.evaluate_js("enable_start_button()")
             return
@@ -632,44 +756,59 @@ class AutoRewarderAPI:
                 except Exception:
                     pass
 
-            queries_to_search = self.search_engine.load_queries_from_json(
-                JSON_FILE_PATH, num_needed=count
-            )
+            if pc_count > 0:
+                self._run_phase(mobile=False, count=pc_count, do_daily_set=True)
 
-            if not queries_to_search:
-                self.log("No queries available for search. Exiting...")
-                if self.history is not None:
-                    self.history.add_to_history(
-                        "N/A", "[ERROR] No queries available for search"
-                    )
-                return
+            if mobile_count > 0:
+                self._run_phase(mobile=True, count=mobile_count, do_daily_set=False)
 
-            self._driver = self.driver_manager.setup_driver()
+            self.log("Done!")
+        finally:
             try:
-                self.search_engine.perform_searches(self._driver, queries_to_search)
-
-                if self.daily_set.should_perform_daily_set():
-                    self.log(
-                        "Daily Set not completed today. Starting Daily Set tasks..."
-                    )
-                    human = HumanBehavior(self._driver, show_cursor=True)
-                    success = self.daily_set.perform_daily_set(self._driver, human)
-                    if success:
-                        self.daily_set.mark_as_completed()
-                        self.log(
-                            "Daily Set tasks completed and marked as done for today."
-                        )
-                    else:
-                        self.log("Daily Set failed. Not marked as done for today.")
-            finally:
-                try:
-                    self._driver.quit()
-                except Exception as e:
-                    self.log(f"[WARNING] Error closing driver: {e}")
-
-                time.sleep(0.5)
-                self.log("Done!")
                 if self._webview_window:
                     self._webview_window.evaluate_js("enable_start_button()")
-        finally:
+            except Exception:
+                pass
             self._run_lock.release()
+
+    def _run_phase(self, mobile, count, do_daily_set):
+        """
+        Open a driver for a single phase (PC or Mobile), do `count` searches,
+        optionally run the Daily Set, then quit.
+        """
+        label = "Mobile" if mobile else "PC"
+        self.log(
+            f"=== {label} phase — {count} {'queries' if count != 1 else 'query'} ==="
+        )
+
+        queries_to_search = self.search_engine.load_queries_from_json(
+            JSON_FILE_PATH, num_needed=count
+        )
+        if not queries_to_search:
+            self.log(f"[WARNING] {label}: no queries available. Skipping phase.")
+            if self.history is not None:
+                self.history.add_to_history(
+                    "N/A", f"[ERROR] {label}: no queries available"
+                )
+            return
+
+        self._driver = self.driver_manager.setup_driver(mobile=mobile)
+        try:
+            self.search_engine.perform_searches(self._driver, queries_to_search)
+
+            if do_daily_set and self.daily_set.should_perform_daily_set():
+                self.log("Daily Set not completed today. Starting Daily Set tasks...")
+                human = HumanBehavior(self._driver, show_cursor=True)
+                success = self.daily_set.perform_daily_set(self._driver, human)
+                if success:
+                    self.daily_set.mark_as_completed()
+                    self.log("Daily Set tasks completed and marked as done for today.")
+                else:
+                    self.log("Daily Set failed. Not marked as done for today.")
+        finally:
+            try:
+                self._driver.quit()
+            except Exception as e:
+                self.log(f"[WARNING] Error closing driver: {e}")
+            self._driver = None
+            time.sleep(0.5)

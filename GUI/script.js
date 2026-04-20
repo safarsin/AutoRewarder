@@ -194,15 +194,17 @@ function start_bot() {
     return;
   }
 
-  const countStr = document.getElementById('count_input').value;
-  const count = parseInt(countStr, 10);
+  const pc = parseInt(document.getElementById('count_pc').value, 10);
+  const mobile = parseInt(document.getElementById('count_mobile').value, 10);
 
-  if (isNaN(count) || count <= 0) {
-    show_toast('Enter a valid positive number of queries.', 'warning');
+  const pcValid = !isNaN(pc) && pc >= 0 && pc <= 99;
+  const mobileValid = !isNaN(mobile) && mobile >= 0 && mobile <= 99;
+  if (!pcValid || !mobileValid) {
+    show_toast('PC and Mobile must each be between 0 and 99.', 'warning');
     return;
   }
-  if (count > 99) {
-    show_toast('Maximum 99 queries per run.', 'warning');
+  if (pc + mobile === 0) {
+    show_toast('Set at least one of PC or Mobile above 0.', 'warning');
     return;
   }
 
@@ -212,7 +214,7 @@ function start_bot() {
   if (label) label.textContent = 'Running…';
 
   update_status_indicator('executing');
-  pywebview.api.main(count);
+  pywebview.api.main(pc, mobile);
 }
 
 function enable_start_button() {
@@ -513,6 +515,19 @@ function render_schedule_cards(schedules) {
   }
 }
 
+function format_schedule_summary(item, sched, enabled) {
+  const prefix = item.first_setup_done ? '' : 'Setup pending · ';
+  if (!enabled) return prefix + 'Schedule off';
+  const pc = sched.queries_pc != null ? sched.queries_pc : 30;
+  const mobile = sched.queries_mobile != null ? sched.queries_mobile : 20;
+  if (sched.advancedScheduling) {
+    const dur = sched.runDuration != null ? sched.runDuration : 3;
+    const qph = sched.queriesPerHour != null ? sched.queriesPerHour : 10;
+    return `${prefix}PC ${pc} / Mobile ${mobile} · ${dur}h @ ${qph}/h`;
+  }
+  return `${prefix}PC ${pc} / Mobile ${mobile} · at launch`;
+}
+
 function build_schedule_card(item) {
   const acc = { id: item.id, label: item.label };
   const sched = item.schedule || {};
@@ -521,11 +536,16 @@ function build_schedule_card(item) {
   card.className = 'schedule-card' + (sched.enabled ? '' : ' disabled');
   card.dataset.id = item.id;
 
-  // Header: avatar + name/status + enable toggle
+  // Header: accordion trigger (avatar + info + chevron) + enable toggle.
   const header = document.createElement('div');
   header.className = 'schedule-card-header';
 
-  header.appendChild(make_avatar(acc));
+  const trigger = document.createElement('button');
+  trigger.type = 'button';
+  trigger.className = 'schedule-card-trigger';
+  trigger.setAttribute('aria-expanded', 'false');
+
+  trigger.appendChild(make_avatar(acc));
 
   const title = document.createElement('div');
   title.className = 'schedule-card-title';
@@ -534,12 +554,25 @@ function build_schedule_card(item) {
   name.textContent = acc.label;
   const status = document.createElement('div');
   status.className = 'schedule-card-status';
-  status.textContent =
-    (item.first_setup_done ? '' : 'Setup pending · ') +
-    (sched.enabled ? 'Schedule on' : 'Schedule off');
+  status.textContent = format_schedule_summary(item, sched, Boolean(sched.enabled));
   title.appendChild(name);
   title.appendChild(status);
-  header.appendChild(title);
+  trigger.appendChild(title);
+
+  const chev = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  chev.setAttribute('class', 'schedule-card-chev');
+  chev.setAttribute('width', '14');
+  chev.setAttribute('height', '14');
+  chev.setAttribute('viewBox', '0 0 24 24');
+  chev.setAttribute('fill', 'none');
+  chev.setAttribute('stroke', 'currentColor');
+  chev.setAttribute('stroke-width', '2');
+  chev.setAttribute('stroke-linecap', 'round');
+  chev.setAttribute('stroke-linejoin', 'round');
+  chev.innerHTML = '<polyline points="6 9 12 15 18 9"></polyline>';
+  trigger.appendChild(chev);
+
+  header.appendChild(trigger);
 
   const toggleWrap = document.createElement('label');
   toggleWrap.className = 'toggle-compact';
@@ -557,26 +590,90 @@ function build_schedule_card(item) {
 
   card.appendChild(header);
 
-  // Body: 3-column form
+  // Body (collapsed by default via CSS).
   const body = document.createElement('div');
   body.className = 'schedule-card-body';
 
-  const grid = document.createElement('div');
-  grid.className = 'form-grid-3';
+  // Advanced scheduling sub-toggle row.
+  const advRow = document.createElement('label');
+  advRow.className = 'sched-adv-row';
+  const advInput = document.createElement('input');
+  advInput.type = 'checkbox';
+  advInput.className = 'schedule-advanced';
+  advInput.checked = Boolean(sched.advancedScheduling);
+  const advPill = document.createElement('span');
+  advPill.className = 'toggle-pill';
+  const advLabel = document.createElement('span');
+  advLabel.className = 'sched-adv-label';
+  advLabel.textContent = 'Advanced scheduling (drip-feed across duration)';
+  const advWrap = document.createElement('span');
+  advWrap.className = 'toggle-compact';
+  advWrap.appendChild(advInput);
+  advWrap.appendChild(advPill);
+  advRow.appendChild(advWrap);
+  advRow.appendChild(advLabel);
+  body.appendChild(advRow);
 
-  grid.appendChild(make_form_field('Start time', 'time', 'schedule-time', sched.time || '09:00'));
-  grid.appendChild(make_form_field('Queries',    'number', 'schedule-queries', sched.queries != null ? sched.queries : 30, { min: 1, max: 99 }));
-  grid.appendChild(make_form_field('Window (h)', 'number', 'schedule-window', sched.window_hours != null ? sched.window_hours : 1, { min: 0, max: 12 }));
+  // PC + Mobile row.
+  const rowPcMobile = document.createElement('div');
+  rowPcMobile.className = 'form-grid-2';
+  const pcDefault = sched.queries_pc != null ? sched.queries_pc : 30;
+  const mobileDefault = sched.queries_mobile != null ? sched.queries_mobile : 20;
+  rowPcMobile.appendChild(make_form_field('PC queries', 'number', 'schedule-queries-pc', pcDefault, { min: 0, max: 99 }));
+  rowPcMobile.appendChild(make_form_field('Mobile queries', 'number', 'schedule-queries-mobile', mobileDefault, { min: 0, max: 99 }));
+  body.appendChild(rowPcMobile);
 
-  body.appendChild(grid);
+  // Duration + qph row (only meaningful when advancedScheduling is on).
+  const rowAdv = document.createElement('div');
+  rowAdv.className = 'form-grid-2 sched-adv-fields';
+  const durDefault = sched.runDuration != null ? sched.runDuration : 3;
+  const qphDefault = sched.queriesPerHour != null ? sched.queriesPerHour : 10;
+  rowAdv.appendChild(make_form_field('Run duration (h)', 'number', 'schedule-run-duration', durDefault, { min: 1, max: 24 }));
+  rowAdv.appendChild(make_form_field('Queries / hour', 'number', 'schedule-queries-per-hour', qphDefault, { min: 1, max: 99 }));
+  if (!advInput.checked) rowAdv.classList.add('dim');
+  body.appendChild(rowAdv);
+
   card.appendChild(body);
 
-  // Toggle wires disabled state on body.
+  // Accordion expand/collapse on trigger click — one open at a time.
+  trigger.addEventListener('click', () => {
+    const wasExpanded = card.classList.contains('expanded');
+    const container = document.getElementById('schedule_accounts_list');
+    if (container) {
+      container.querySelectorAll('.schedule-card.expanded').forEach(other => {
+        other.classList.remove('expanded');
+        const otherTrig = other.querySelector('.schedule-card-trigger');
+        if (otherTrig) otherTrig.setAttribute('aria-expanded', 'false');
+      });
+    }
+    if (!wasExpanded) {
+      card.classList.add('expanded');
+      trigger.setAttribute('aria-expanded', 'true');
+    }
+  });
+
+  // Live summary refresh whenever a field changes.
+  const refreshSummary = () => {
+    const liveSched = {
+      advancedScheduling: advInput.checked,
+      queries_pc: parseInt(card.querySelector('.schedule-queries-pc').value, 10),
+      queries_mobile: parseInt(card.querySelector('.schedule-queries-mobile').value, 10),
+      runDuration: parseInt(card.querySelector('.schedule-run-duration').value, 10),
+      queriesPerHour: parseInt(card.querySelector('.schedule-queries-per-hour').value, 10),
+    };
+    status.textContent = format_schedule_summary(item, liveSched, toggleInput.checked);
+  };
+
   toggleInput.addEventListener('change', () => {
     card.classList.toggle('disabled', !toggleInput.checked);
-    status.textContent =
-      (item.first_setup_done ? '' : 'Setup pending · ') +
-      (toggleInput.checked ? 'Schedule on' : 'Schedule off');
+    refreshSummary();
+  });
+  advInput.addEventListener('change', () => {
+    rowAdv.classList.toggle('dim', !advInput.checked);
+    refreshSummary();
+  });
+  body.querySelectorAll('input[type="number"]').forEach(f => {
+    f.addEventListener('input', refreshSummary);
   });
 
   return card;
@@ -612,22 +709,34 @@ async function save_settings() {
   for (const card of cards) {
     const id = card.dataset.id;
     const enabled = card.querySelector('.schedule-enabled').checked;
-    const time = card.querySelector('.schedule-time').value || '09:00';
-    const queries = parseInt(card.querySelector('.schedule-queries').value, 10);
-    const windowHours = parseInt(card.querySelector('.schedule-window').value, 10);
+    const advancedScheduling = card.querySelector('.schedule-advanced').checked;
+    const pc = parseInt(card.querySelector('.schedule-queries-pc').value, 10);
+    const mobile = parseInt(card.querySelector('.schedule-queries-mobile').value, 10);
+    const runDuration = parseInt(card.querySelector('.schedule-run-duration').value, 10);
+    const queriesPerHour = parseInt(card.querySelector('.schedule-queries-per-hour').value, 10);
 
     if (enabled) {
-      if (!/^\d{2}:\d{2}$/.test(time)) {
-        show_toast('Enter a valid start time (HH:MM) for all enabled schedules.', 'warning');
+      if (isNaN(pc) || pc < 0 || pc > 99) {
+        show_toast('PC queries must be between 0 and 99.', 'warning');
         return;
       }
-      if (isNaN(queries) || queries < 1 || queries > 99) {
-        show_toast('Queries must be between 1 and 99 (all enabled schedules).', 'warning');
+      if (isNaN(mobile) || mobile < 0 || mobile > 99) {
+        show_toast('Mobile queries must be between 0 and 99.', 'warning');
         return;
       }
-      if (isNaN(windowHours) || windowHours < 0 || windowHours > 12) {
-        show_toast('Window must be between 0 and 12 hours.', 'warning');
+      if ((pc || 0) + (mobile || 0) === 0) {
+        show_toast('Set at least one of PC or Mobile queries above 0.', 'warning');
         return;
+      }
+      if (advancedScheduling) {
+        if (isNaN(runDuration) || runDuration < 1 || runDuration > 24) {
+          show_toast('Run duration must be between 1 and 24 hours.', 'warning');
+          return;
+        }
+        if (isNaN(queriesPerHour) || queriesPerHour < 1 || queriesPerHour > 99) {
+          show_toast('Queries per hour must be between 1 and 99.', 'warning');
+          return;
+        }
       }
     }
 
@@ -635,9 +744,11 @@ async function save_settings() {
       id: id,
       payload: {
         enabled: enabled,
-        time: time,
-        queries: isNaN(queries) ? 30 : queries,
-        window_hours: isNaN(windowHours) ? 1 : windowHours,
+        advancedScheduling: advancedScheduling,
+        queries_pc: isNaN(pc) ? 30 : pc,
+        queries_mobile: isNaN(mobile) ? 20 : mobile,
+        runDuration: isNaN(runDuration) ? 3 : runDuration,
+        queriesPerHour: isNaN(queriesPerHour) ? 10 : queriesPerHour,
       },
     });
   }
