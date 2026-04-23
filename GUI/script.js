@@ -144,11 +144,16 @@ function create_avatar(account, size) { return make_avatar(account, size); }
 
 // =========================================================================
 // Activity log
+//
+// Security: log messages can contain user-controlled strings (account labels
+// entered via the "Add/Rename" modals, Python exception messages, etc.).
+// We therefore build the log line node with textContent/createElement only —
+// never innerHTML — so a crafted account name like `<img src=x onerror=...>`
+// renders as literal text. For the one legitimate case where we need a
+// clickable element (update-available notice), see `update_log_link` below,
+// which builds the anchor via createElement so the URL is never parsed as
+// HTML.
 // =========================================================================
-
-function clear_log(str) {
-  return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-}
 
 function detect_log_severity(msg) {
   const s = String(msg);
@@ -158,15 +163,52 @@ function detect_log_severity(msg) {
   return '';
 }
 
+function _new_log_line(message) {
+  const severity = detect_log_severity(message);
+  const line = document.createElement('div');
+  line.className = 'log-line' + (severity ? ' ' + severity : '');
+
+  // Preserve newlines without HTML: split → text nodes separated by <br>.
+  const parts = String(message).split('\n');
+  for (let i = 0; i < parts.length; i++) {
+    if (i > 0) line.appendChild(document.createElement('br'));
+    line.appendChild(document.createTextNode(parts[i]));
+  }
+  return line;
+}
+
 function update_log(message) {
   const logDiv = document.getElementById('log_area');
   if (!logDiv) return;
 
-  const severity = detect_log_severity(message);
-  const safeHtml = clear_log(message).replace(/\n/g, '<br>');
-  const line = document.createElement('div');
-  line.className = 'log-line' + (severity ? ' ' + severity : '');
-  line.innerHTML = safeHtml;
+  logDiv.appendChild(_new_log_line(message));
+  logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+/**
+ * Append a log line with a trailing clickable link. Only the `text` portion
+ * is user-facing content (still safely inserted as text); the anchor is
+ * built via createElement so the URL cannot be interpreted as HTML.
+ * Called from Python via evaluate_js when an app update is available.
+ */
+function update_log_link(text, linkLabel, url) {
+  const logDiv = document.getElementById('log_area');
+  if (!logDiv) return;
+
+  const line = _new_log_line(text);
+  line.appendChild(document.createTextNode(' '));
+
+  const a = document.createElement('a');
+  a.href = '#';
+  a.textContent = String(linkLabel);
+  a.addEventListener('click', function (e) {
+    e.preventDefault();
+    if (window.pywebview && pywebview.api && typeof pywebview.api.open_link === 'function') {
+      pywebview.api.open_link(String(url));
+    }
+  });
+  line.appendChild(a);
+
   logDiv.appendChild(line);
   logDiv.scrollTop = logDiv.scrollHeight;
 }

@@ -91,14 +91,16 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.status-success {
+/* Higher specificity than `.history-table td` so the status cells actually
+   override the default text color. */
+.history-table td.status-success {
   color: var(--success);
-  font-weight: 500;
+  font-weight: 600;
 }
 
-.status-error {
+.history-table td.status-error {
   color: var(--danger);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .empty-row {

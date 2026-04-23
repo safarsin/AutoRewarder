@@ -159,11 +159,12 @@ def _create_headless_api():
     api.log = console_log
     api._safe_log = console_log
 
-    try:
-        api.set_hide_browser(True)
-    except Exception:
-        if api.driver_manager is not None:
-            api.driver_manager.hide_browser = True
+    # Force headless at runtime only — do NOT call api.set_hide_browser(True),
+    # which persists to settings.json and would silently flip the user's GUI
+    # preference every time a scheduled run fires.
+    api.hide_browser = True
+    if api.driver_manager is not None:
+        api.driver_manager.hide_browser = True
 
     # Rebind the logger on per-account managers that captured it early.
     if api.history is not None:

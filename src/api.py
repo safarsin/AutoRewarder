@@ -5,7 +5,11 @@ import json
 import platform
 import threading
 import webbrowser
-import webview
+
+# `webview` (pywebview) is imported lazily inside `open_history_window` — the
+# only method that needs it — so AutoRewarder_CLI.py can import
+# AutoRewarderAPI and run headless without dragging in pywebview or its
+# display-layer requirements.
 
 from .config import (
     GUI_DIR,
@@ -121,6 +125,10 @@ class AutoRewarderAPI:
             print(message)
 
     def open_history_window(self):
+        # Local import: pywebview is a GUI-only dependency, kept out of the
+        # headless CLI import chain (see comment at top of this module).
+        import webview
+
         webview.create_window(
             title="Query History",
             url=os.path.join(GUI_DIR, "history.html"),
@@ -157,8 +165,20 @@ class AutoRewarderAPI:
             f"Please download the latest version for better performance and "
             f"to avoid potential issues due to Microsoft updates."
         )
-        link_html = f"<a href='#' onclick='window.pywebview.api.open_link(\"{url}\")'>Click here to download</a>"
-        self.log(f"New version {latest_version} available: {link_html}")
+
+        # Structured call into JS: the text, the link label and the URL are
+        # each passed as plain arguments (via json.dumps), and update_log_link
+        # builds the <a> element with createElement/textContent — no HTML
+        # parsing, so nothing user-controllable can inject markup.
+        try:
+            self._webview_window.evaluate_js(
+                "update_log_link("
+                f"{json.dumps(f'New version {latest_version} available.')}, "
+                f"{json.dumps('Click here to download')}, "
+                f"{json.dumps(url)})"
+            )
+        except Exception as e:
+            self.log(f"[ERROR] Error displaying update link: {e}")
 
         try:
             self._webview_window.evaluate_js(f"alert({json.dumps(msg)})")

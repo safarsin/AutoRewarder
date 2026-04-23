@@ -71,22 +71,48 @@
 
       pywebview.api.get_history().then(function(data) {
         const tbody = document.getElementById('table_body');
-        tbody.innerHTML = '';
+        // Clear existing rows by removing children (no innerHTML parsing).
+        while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
 
         if (!data || data.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="4" class="empty-row">No runs yet. Start one from the main window.</td></tr>';
+          const tr = document.createElement('tr');
+          const td = document.createElement('td');
+          td.colSpan = 4;
+          td.className = 'empty-row';
+          td.textContent = 'No runs yet. Start one from the main window.';
+          tr.appendChild(td);
+          tbody.appendChild(tr);
           return;
         }
 
+        // Build every row via createElement + textContent so query/status
+        // values coming from history.json (ultimately user-controlled) can't
+        // be interpreted as HTML.
         const rows = data.slice().reverse();
         for (const item of rows) {
-          const statusClass = String(item.status).includes('ERROR') ? 'status-error' : 'status-success';
+          const statusClass =
+            String(item.status).includes('ERROR') ? 'status-error' : 'status-success';
           const tr = document.createElement('tr');
-          tr.innerHTML =
-            '<td class="cell-meta">' + item.date + '</td>' +
-            '<td class="cell-meta">' + item.time + '</td>' +
-            '<td>' + item.query + '</td>' +
-            '<td class="' + statusClass + '">' + item.status + '</td>';
+
+          const dateTd = document.createElement('td');
+          dateTd.className = 'cell-meta';
+          dateTd.textContent = item.date;
+
+          const timeTd = document.createElement('td');
+          timeTd.className = 'cell-meta';
+          timeTd.textContent = item.time;
+
+          const queryTd = document.createElement('td');
+          queryTd.textContent = item.query;
+
+          const statusTd = document.createElement('td');
+          statusTd.className = statusClass;
+          statusTd.textContent = item.status;
+
+          tr.appendChild(dateTd);
+          tr.appendChild(timeTd);
+          tr.appendChild(queryTd);
+          tr.appendChild(statusTd);
           tbody.appendChild(tr);
         }
       });
