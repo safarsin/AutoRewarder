@@ -237,7 +237,7 @@ class AutoRewarderAPI:
         """
         Persist the schedule for a specific account.
         `payload` accepts: enabled, advancedScheduling, runDuration (1..24),
-        queriesPerHour (1..99), queries_pc (0..99), queries_mobile (0..99).
+        queriesPerHour (1..99), queries_pc (0..130), queries_mobile (0..99).
         Unknown keys are ignored.
         """
         if not account_id or not self.account_manager.exists(account_id):
@@ -263,7 +263,7 @@ class AutoRewarderAPI:
                 1, min(99, int(_pick("queriesPerHour", current["queriesPerHour"])))
             ),
             "queries_pc": max(
-                0, min(99, int(_pick("queries_pc", current["queries_pc"])))
+                0, min(130, int(_pick("queries_pc", current["queries_pc"])))
             ),
             "queries_mobile": max(
                 0, min(99, int(_pick("queries_mobile", current["queries_mobile"])))
@@ -794,11 +794,15 @@ class AutoRewarderAPI:
 
         self._driver = self.driver_manager.setup_driver(mobile=mobile)
         try:
-            self.search_engine.perform_searches(self._driver, queries_to_search)
+            self.search_engine.perform_searches(
+                self._driver, queries_to_search, mobile=mobile
+            )
 
             if do_daily_set and self.daily_set.should_perform_daily_set():
                 self.log("Daily Set not completed today. Starting Daily Set tasks...")
-                human = HumanBehavior(self._driver, show_cursor=True)
+                human = HumanBehavior(
+                    self._driver, show_cursor=True, mobile=mobile
+                )
                 success = self.daily_set.perform_daily_set(self._driver, human)
                 if success:
                     self.daily_set.mark_as_completed()

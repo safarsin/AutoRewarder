@@ -13,7 +13,7 @@ DEFAULT_ACCOUNT_SCHEDULE = {
     "advancedScheduling": False,
     "runDuration": 3,  # hours, 1..24
     "queriesPerHour": 10,  # 1..99
-    "queries_pc": 30,  # 0..99
+    "queries_pc": 30,  # 0..130
     "queries_mobile": 20,  # 0..99
     "last_triggered_date": None,
 }

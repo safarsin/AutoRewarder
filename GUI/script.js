@@ -197,10 +197,14 @@ function start_bot() {
   const pc = parseInt(document.getElementById('count_pc').value, 10);
   const mobile = parseInt(document.getElementById('count_mobile').value, 10);
 
-  const pcValid = !isNaN(pc) && pc >= 0 && pc <= 99;
+  const pcValid = !isNaN(pc) && pc >= 0 && pc <= 130;
   const mobileValid = !isNaN(mobile) && mobile >= 0 && mobile <= 99;
-  if (!pcValid || !mobileValid) {
-    show_toast('PC and Mobile must each be between 0 and 99.', 'warning');
+  if (!pcValid) {
+    show_toast('PC must be between 0 and 130.', 'warning');
+    return;
+  }
+  if (!mobileValid) {
+    show_toast('Mobile must be between 0 and 99.', 'warning');
     return;
   }
   if (pc + mobile === 0) {
@@ -619,7 +623,7 @@ function build_schedule_card(item) {
   rowPcMobile.className = 'form-grid-2';
   const pcDefault = sched.queries_pc != null ? sched.queries_pc : 30;
   const mobileDefault = sched.queries_mobile != null ? sched.queries_mobile : 20;
-  rowPcMobile.appendChild(make_form_field('PC queries', 'number', 'schedule-queries-pc', pcDefault, { min: 0, max: 99 }));
+  rowPcMobile.appendChild(make_form_field('PC queries', 'number', 'schedule-queries-pc', pcDefault, { min: 0, max: 130 }));
   rowPcMobile.appendChild(make_form_field('Mobile queries', 'number', 'schedule-queries-mobile', mobileDefault, { min: 0, max: 99 }));
   body.appendChild(rowPcMobile);
 
@@ -716,8 +720,8 @@ async function save_settings() {
     const queriesPerHour = parseInt(card.querySelector('.schedule-queries-per-hour').value, 10);
 
     if (enabled) {
-      if (isNaN(pc) || pc < 0 || pc > 99) {
-        show_toast('PC queries must be between 0 and 99.', 'warning');
+      if (isNaN(pc) || pc < 0 || pc > 130) {
+        show_toast('PC queries must be between 0 and 130.', 'warning');
         return;
       }
       if (isNaN(mobile) || mobile < 0 || mobile > 99) {

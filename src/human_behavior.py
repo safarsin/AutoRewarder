@@ -2,26 +2,50 @@ import random
 import time
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.actions.action_builder import ActionBuilder
+from selenium.webdriver.common.actions.pointer_input import PointerInput
 
 
 class HumanBehavior:
     """
     Simulates human-like behavior when interacting with a web page.
+
+    Two modes:
+    - desktop (mobile=False): mouse pointer, Bezier trajectories, wheel scroll
+      via JS scrollBy, click = mousedown/mouseup.
+    - mobile  (mobile=True):  touch pointer, no hover before tap (touch
+      pointers don't emit hover events), direct tap at element center with
+      a short natural hold, scroll via swipe gesture (pointerdown -> move ->
+      pointerup) instead of JS scrollBy.
     """
 
-    def __init__(self, driver, show_cursor=True):
+    def __init__(self, driver, show_cursor=True, mobile=False):
         """
-        Initialize the HumanBehavior with a Selenium WebDriver instance and cursor visibility.
-
         Args:
-            driver (webdriver): The Selenium WebDriver instance to interact with the web page.
-            show_cursor (bool): Whether to show a debug cursor on the page to visualize mouse movements. Default is True.
+            driver (webdriver): The Selenium WebDriver instance.
+            show_cursor (bool): Whether to draw a debug cursor overlay.
+            mobile (bool): Whether to emit touch gestures instead of mouse
+                events. Pair with a driver that has `Emulation.setTouchEmulationEnabled`
+                enabled (done automatically by DriverManager when mobile=True).
         """
 
         self.driver = driver
         self.show_cursor = show_cursor
+        self.mobile = bool(mobile)
         # Stored in viewport coordinates (not document coordinates).
         self.last_mouse_position = [random.randint(100, 500), random.randint(100, 500)]
+
+    def _new_actions(self):
+        """
+        Build an ActionChains bound to the right W3C pointer type.
+        On mobile, the default mouse pointer is replaced with a touch pointer
+        so every subsequent pointer_action emits touch events.
+        """
+        actions = ActionChains(self.driver)
+        if self.mobile:
+            touch = PointerInput(kind="touch", name="touch")
+            actions.w3c_actions = ActionBuilder(self.driver, mouse=touch, duration=0)
+        return actions
 
     def _draw_debug_cursor(self, x, y, color="red"):
         """
@@ -118,6 +142,10 @@ class HumanBehavior:
 
         Based on studies showing users typically scroll 10-30% of a page
         """
+
+        if self.mobile:
+            self._swipe_scroll()
+            return
 
         if random.random() < 0.7:
             random_scroll_divisor = random.uniform(2, 10)
@@ -340,12 +368,21 @@ class HumanBehavior:
 
     def click_element(self, element, scroll_into_view=True):
         """
-        Full cycle: move to element, highlight in green (click), then click
+        Full cycle: move to element, highlight in green (click), then click.
+
+        On mobile, this skips the Bezier-curve mouse travel (touch pointers
+        don't emit hover events) and performs a single tap gesture at the
+        element's center.
 
         Args:
             element (WebElement): The target element to click.
-            scroll_into_view (bool): Whether to scroll the element into view if it's outside the viewport. Default is True.
+            scroll_into_view (bool): Whether to scroll the element into view
+                if it's outside the viewport. Default is True.
         """
+
+        if self.mobile:
+            self._tap_element(element, scroll_into_view=scroll_into_view)
+            return
 
         self.move_to_element(element, scroll_into_view=scroll_into_view)
         time.sleep(random.uniform(0.1, 0.3))
@@ -376,3 +413,148 @@ class HumanBehavior:
         self._draw_debug_cursor(
             self.last_mouse_position[0], self.last_mouse_position[1], color="red"
         )
+
+    # ---------------------------------------------------------------------
+    # Mobile-only helpers (touch gestures)
+    # ---------------------------------------------------------------------
+
+    def _tap_element(self, element, scroll_into_view=True):
+        """
+        Tap an element with a real touch gesture: touchstart at a jittered
+        point within the element's rect, a natural hold (50-150 ms), then
+        touchend. No Bezier travel — a finger doesn't hover before landing.
+        """
+        if scroll_into_view:
+            try:
+                needs_scroll = bool(
+                    self.driver.execute_script(
+                        """
+                        const el = arguments[0];
+                        if (!el) return true;
+                        const r = el.getBoundingClientRect();
+                        const vh = window.innerHeight || document.documentElement.clientHeight;
+                        const vw = window.innerWidth  || document.documentElement.clientWidth;
+                        return (r.bottom <= 0) || (r.top >= vh) || (r.right <= 0) || (r.left >= vw);
+                        """,
+                        element,
+                    )
+                )
+            except Exception:
+                needs_scroll = True
+
+            if needs_scroll:
+                try:
+                    self.driver.execute_script(
+                        "arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});",
+                        element,
+                    )
+                    # Wait for the scroll to settle — mobile scroll is momentum-based.
+                    time.sleep(random.uniform(0.35, 0.8))
+                except Exception:
+                    pass
+
+        # Element rect (viewport coords).
+        try:
+            rect = self.driver.execute_script(
+                "const r = arguments[0].getBoundingClientRect();"
+                "return [r.left, r.top, r.width, r.height];",
+                element,
+            )
+            elem_left, elem_top, elem_width, elem_height = rect
+        except Exception:
+            # Element detached; fall back to a JS click.
+            try:
+                self.driver.execute_script("arguments[0].click();", element)
+            except Exception:
+                element.click()
+            return
+
+        elem_width = max(1, int(elem_width))
+        elem_height = max(1, int(elem_height))
+
+        # Pick a realistic tap point: somewhere around the center with a
+        # pad so we don't always land on the exact pixel center (a finger
+        # has a fat touch surface; real taps are inside the target, not
+        # geometrically perfect).
+        pad_x = max(1, elem_width // 3)
+        pad_y = max(1, elem_height // 3)
+        tap_x = int(elem_left + elem_width / 2 + random.randint(-pad_x, pad_x))
+        tap_y = int(elem_top + elem_height / 2 + random.randint(-pad_y, pad_y))
+
+        vw, vh = self._get_viewport_size()
+        tap_x, tap_y = self._clamp_point(tap_x, tap_y, vw, vh)
+
+        self._draw_debug_cursor(tap_x, tap_y, color="green")
+
+        try:
+            actions = self._new_actions()
+            actions.w3c_actions.pointer_action.move_to_location(tap_x, tap_y)
+            actions.w3c_actions.pointer_action.pointer_down()
+            # Natural tap hold duration.
+            actions.w3c_actions.pointer_action.pause(random.uniform(0.05, 0.14))
+            actions.w3c_actions.pointer_action.pointer_up()
+            actions.perform()
+        except WebDriverException:
+            try:
+                self.driver.execute_script("arguments[0].click();", element)
+            except Exception:
+                element.click()
+
+        self.last_mouse_position = [tap_x, tap_y]
+        time.sleep(random.uniform(0.18, 0.45))
+        self._draw_debug_cursor(tap_x, tap_y, color="red")
+
+    def _swipe_scroll(self):
+        """
+        Scroll by emitting one or more swipe-up gestures (touchstart near the
+        bottom of the viewport, touchmove upward, touchend). Matches the
+        original scroll_page distribution: 70% short browse, 30% deep scroll.
+        """
+        width, height = self._get_viewport_size()
+
+        # Match original ratio: 70% small scroll (1-2 swipes), 30% deep (2-4).
+        if random.random() < 0.7:
+            num_swipes = random.randint(1, 2)
+        else:
+            num_swipes = random.randint(2, 4)
+
+        for _ in range(num_swipes):
+            x = width // 2 + random.randint(-width // 6, width // 6)
+            y_start = int(height * random.uniform(0.70, 0.88))
+            y_end = int(height * random.uniform(0.12, 0.30))
+
+            x, y_start = self._clamp_point(x, y_start, width, height)
+            x, y_end = self._clamp_point(x, y_end, width, height)
+
+            try:
+                actions = self._new_actions()
+                actions.w3c_actions.pointer_action.move_to_location(x, y_start)
+                actions.w3c_actions.pointer_action.pointer_down()
+
+                steps = random.randint(8, 14)
+                for i in range(1, steps + 1):
+                    t = self._ease_in_out(i / steps)
+                    y = int(y_start + (y_end - y_start) * t)
+                    x_jit = x + random.randint(-3, 3)
+                    x_jit, y = self._clamp_point(x_jit, y, width, height)
+                    actions.w3c_actions.pointer_action.move_to_location(x_jit, y)
+                    actions.w3c_actions.pointer_action.pause(
+                        random.uniform(0.010, 0.028)
+                    )
+
+                actions.w3c_actions.pointer_action.pointer_up()
+                actions.perform()
+            except WebDriverException:
+                # Fallback: JS scroll if the touch gesture rejects.
+                try:
+                    self.driver.execute_script(
+                        f"window.scrollBy(0, {y_start - y_end});"
+                    )
+                except Exception:
+                    pass
+
+            # Pause between swipes (inertia + reading time).
+            time.sleep(random.uniform(0.5, 1.4))
+
+        # Final "reading" pause, same order of magnitude as the JS scroll.
+        time.sleep(random.uniform(2.5, 5.5))

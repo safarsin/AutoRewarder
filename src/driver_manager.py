@@ -89,6 +89,49 @@ class DriverManager:
             options.add_argument("--disable-gpu")
 
         _driver = webdriver.Edge(options=options)
+
+        if mobile:
+            # Turn the session into a genuine mobile one at the engine level.
+            # Beyond the UA string, this makes `navigator.maxTouchPoints > 0`,
+            # `window.matchMedia("(pointer: coarse)")` true, the viewport match
+            # iPhone metrics, and touch events fire for real — so sites that
+            # fingerprint using the DOM/CSS touch surface see a real mobile.
+            try:
+                _driver.execute_cdp_cmd(
+                    "Emulation.setTouchEmulationEnabled",
+                    {"enabled": True, "maxTouchPoints": 5},
+                )
+                _driver.execute_cdp_cmd(
+                    "Emulation.setEmitTouchEventsForMouse",
+                    {"enabled": True, "configuration": "mobile"},
+                )
+                _driver.execute_cdp_cmd(
+                    "Emulation.setDeviceMetricsOverride",
+                    {
+                        "width": 412,
+                        "height": 915,
+                        "deviceScaleFactor": 3,
+                        "mobile": True,
+                    },
+                )
+                _driver.execute_cdp_cmd(
+                    "Emulation.setUserAgentOverride",
+                    {
+                        "userAgent": self.MOBILE_USER_AGENT,
+                        "platform": "iPhone",
+                        "userAgentMetadata": {
+                            "platform": "iOS",
+                            "platformVersion": "17.2.1",
+                            "architecture": "",
+                            "model": "iPhone",
+                            "mobile": True,
+                        },
+                    },
+                )
+            except Exception:
+                # CDP is best-effort; fall back to the UA+window-size flags.
+                pass
+
         return _driver
 
     def close_running_edge(self):
