@@ -695,6 +695,15 @@ function build_schedule_card(item) {
     if (!wasExpanded) {
       card.classList.add('expanded');
       trigger.setAttribute('aria-expanded', 'true');
+      // Bring the freshly-expanded card into view inside its scrollable
+      // container so its body fields aren't clipped when there are many
+      // accounts. Wait for the max-height transition to start so we know
+      // the final layout height.
+      setTimeout(() => {
+        try {
+          card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch (_) { /* older webview engines */ }
+      }, 240);
     }
   });
 

@@ -791,12 +791,18 @@ input[type="number"]:focus {
 .modal-box {
   width: 340px;
   max-width: 90%;
+  /* Never grow taller than the window: the body scrolls internally, the
+     header and footer stay pinned so the Save / Cancel buttons are always
+     reachable even with many accounts. */
+  max-height: 90vh;
   background-color: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   animation: modal-in 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-box.wide { width: 420px; }
@@ -806,6 +812,7 @@ input[type="number"]:focus {
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px 6px 18px;
+  flex-shrink: 0;
 }
 
 .modal-title {
@@ -817,6 +824,11 @@ input[type="number"]:focus {
 
 .modal-body {
   padding: 6px 18px 16px 18px;
+  /* Take the remaining space inside the capped modal-box and scroll when
+     the schedule list (or any future content) overflows. */
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .modal-message {
@@ -851,6 +863,7 @@ input[type="number"]:focus {
   padding: 10px 18px 14px 18px;
   border-top: 1px solid var(--border-soft);
   background-color: rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;  /* Pinned: Save/Cancel always visible. */
 }
 
 .btn-primary,
@@ -1083,24 +1096,30 @@ input[type="number"]:focus {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 360px;
-  overflow-y: auto;
+  /* No internal cap or scroll — the parent .modal-body handles overflow,
+     so we avoid the nested-scroll situation that was clipping cards. */
 }
 
 .schedule-card {
   background-color: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  /* CRITICAL: keep cards at their natural height. Without this, the parent
+     `.schedule-accounts-list` (a flex column with capped max-height) shrinks
+     every card proportionally to fit, which chops the headers in half and
+     clips the inputs of the expanded card. */
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: border-color 0.15s, background-color 0.15s;
 }
 
 .schedule-card-header {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 10px 12px;
 }
 
 .schedule-card-title {
@@ -1149,7 +1168,11 @@ input[type="number"]:focus {
 .schedule-card.expanded .schedule-card-body {
   max-height: 320px;
   opacity: 1;
-  padding: 0 12px 12px 12px;
+  /* Padding top + a thin separator give a clear break between the header
+     (avatar / status / toggle) and the form fields, so the body doesn't
+     look glued to the header when the card is open. */
+  padding: 12px;
+  border-top: 1px solid var(--border-soft);
   pointer-events: auto;
 }
 
@@ -1157,17 +1180,7 @@ input[type="number"]:focus {
   opacity: 0.55;
 }
 
-/* Accordion trigger row (avatar + info + chevron) */
-.schedule-card {
-  overflow: hidden;
-  transition: border-color 0.15s, background-color 0.15s;
-}
-
 .schedule-card.expanded { border-color: var(--accent); }
-
-.schedule-card-header {
-  padding: 10px 12px;
-}
 
 .schedule-card-trigger {
   flex: 1;
