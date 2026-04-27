@@ -6,138 +6,233 @@
 
   <link rel="stylesheet" href="normalize.css">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="settings.css">
-
 </head>
 <body>
 
-  <div class="container">
-    
-    <div class="header-container">
-      <div class="header">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-          <line x1="8" y1="21" x2="16" y2="21"></line>
-          <line x1="12" y1="17" x2="12" y2="21"></line>
-        </svg>
-        AutoRewarder <span class="version">v3.1</span>
-      </div>
+  <main class="app">
 
-      <button id="settingsBtn" class="settings-btn" aria-label="Settings">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" 
-          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-settings">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 
-            0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 
-            1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 
-            0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 
-            2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 
-            2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 
-            2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 
-            1.65 0 0 0-1.51 1z">
-          </path>
-        </svg>
-      </button>
-
-      <div id="settingsPanel" class="settings-panel">
-        <div class="settings-header">
-          <h3>Settings</h3>
-          <button id="closeSettingsBtn" aria-label="Close settings">
-            &times;
-          </button>
-        </div>
-
-        <div class="settings-content">
-
-          <div class="settings">
-            <label class="settings-label">
-              <span class="title">Automatic start-up</span>
-              <input type="checkbox" id="autoStartUp" class="big-checkbox">
-            </label>
-          </div>
-
-          <div class="settings disabled" id="advSchedulingWrapper">
-            <label class="settings-label">
-              <span class="title">Advanced scheduling</span>
-              <input type="checkbox" id="advancedScheduling" class="big-checkbox" disabled>
-            </label>
-          </div>
-
-          <div class="settings nested-setting hidden" id="runDurationWrapper">
-            <label class="settings-label">
-              <span class="title sub-title">Run duration (hours)</span>
-              <input type="number" id="runDuration" class="time-input" min="1" max="24" value="3">
-            </label>
-          </div>
-
-          <div class="settings nested-setting hidden" id="totalQueriesWrapper">
-            <label class="settings-label">
-              <span class="title sub-title">Total queries</span>
-              <input type="number" id="totalQueries" class="time-input" min="1" max="99" value="30">
-            </label>
-          </div>
-
-          <div class="settings nested-setting hidden" id="queriesPerHourWrapper">
-            <label class="settings-label">
-              <span class="title sub-title">Queries per hour</span>
-              <input type="number" id="queriesPerHour" class="time-input" min="1" max="99" value="10">
-            </label>
-          </div>
-        </div>
-
-        <div class="settings-footer">
-          <button id="saveSettingsBtn" class="save-btn">Save settings</button>
-        </div>
-
-      </div>
-      
-    </div>
-
-    <div class="controls">
-      <div class="input-group">
-        <label for="count_input">Queries:</label>
-        <input type="number" id="count_input" value="30" min="1" max="99">
-      </div>
-      <!-- First Setup creates/validates browser profile before regular runs. -->
-      <button id="setup_btn" onclick="start_first_setup()">First Setup</button>
-      <button id="start_btn" onclick="start_bot()">Start</button>
-    </div>
-
-    <!-- Terminal header: quick actions (history/toggle) + live execution status. -->
-    <div class="status-bar">
-      <div class="log-left-section">
-        <span>SYSTEM.LOG</span>
-
-        <button id="history_btn" onclick="show_history()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+    <!-- ==================== Header ==================== -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2l3 7h7l-5.5 4 2 7.5-6.5-4.5-6.5 4.5 2-7.5L2 9h7z"></path>
           </svg>
-          History
+        </div>
+        <div class="brand-text">
+          <h1>AutoRewarder</h1>
+          <span class="brand-sub">Microsoft Rewards · v3.1</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button id="manageBtn" class="icon-ghost" type="button" aria-label="Manage accounts" title="Manage accounts">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+        </button>
+        <button id="settingsBtn" class="icon-ghost" type="button" aria-label="Settings" title="Settings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
         </button>
       </div>
+    </header>
 
-      <div class="log-right-section">
-        <div class="hide-browser">
-          <label class="switch-container">
-            <input type="checkbox" id="hideBrowserToggle">
-            <span class="slider"></span>
-            <span class="switch-text">Hide browser</span>
-          </label>
+    <!-- ==================== Account card ==================== -->
+    <section class="card account-card">
+      <div class="card-label">Account</div>
+      <div class="account-picker" id="account_picker">
+        <button class="account-trigger" id="account_trigger" type="button" aria-haspopup="listbox" aria-expanded="false" disabled>
+          <span class="avatar" id="current_avatar" aria-hidden="true">?</span>
+          <span class="account-info">
+            <span class="account-name" id="current_label">No account</span>
+            <span class="account-meta" id="current_meta">Loading…</span>
+          </span>
+          <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+        <div class="account-menu" id="account_menu" role="listbox" hidden></div>
+      </div>
+    </section>
+
+    <!-- ==================== Run card ==================== -->
+    <section class="card run-card">
+      <div class="run-top">
+        <div class="field-inline">
+          <span class="field-label">Queries</span>
+          <div class="count-group">
+            <label class="count-field" title="Desktop searches (up to 30/day on Microsoft Rewards)">
+              <span>PC</span>
+              <input type="number" id="count_pc" value="30" min="0" max="130">
+            </label>
+            <label class="count-field" title="Mobile searches (up to 20/day on Microsoft Rewards)">
+              <span>Mobile</span>
+              <input type="number" id="count_mobile" value="20" min="0" max="99">
+            </label>
+          </div>
         </div>
 
-        <div class="status-indicator">
-          <div class="dot" id="dot"></div>
-          <span id="status_text">Waiting</span>
-        </div>
-      </div>  
+        <label class="toggle-row" title="Run browser in the background">
+          <input type="checkbox" id="hideBrowserToggle">
+          <span class="toggle-pill"></span>
+          <span class="toggle-label">Hide browser</span>
+        </label>
+      </div>
+
+      <button id="start_btn" class="primary-btn-lg" onclick="start_bot()" disabled>
+        <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <polygon points="6 4 20 12 6 20 6 4"></polygon>
+        </svg>
+        <span class="btn-label">Start run</span>
+      </button>
+
+      <div class="status-row">
+        <span class="dot" id="dot"></span>
+        <span id="status_text">Loading…</span>
+      </div>
+    </section>
+
+    <!-- ==================== Activity card ==================== -->
+    <section class="card activity-card">
+      <div class="card-header">
+        <div class="card-label">Activity</div>
+        <button id="history_btn" class="ghost-link" type="button" onclick="show_history()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          View history
+        </button>
+      </div>
+      <div id="log_area" class="activity-feed"></div>
+    </section>
+
+    <footer class="app-footer">
+      AutoRewarder by <a href="#" id="repo_link" onclick="pywebview.api.open_link('https://github.com/safarsin/AutoRewarder'); return false;">safarsin</a>
+    </footer>
+
+  </main>
+
+  <!-- ==================== Empty state (first launch) ==================== -->
+  <div id="empty_state" class="empty-overlay" hidden>
+    <div class="empty-card">
+      <div class="empty-illu" aria-hidden="true">
+        <svg width="96" height="96" viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="14" y="22" width="68" height="44" rx="4" fill="var(--surface-2)"></rect>
+          <line x1="8" y1="70" x2="88" y2="70"></line>
+          <line x1="38" y1="70" x2="58" y2="70" stroke-width="3" stroke="var(--surface-2)"></line>
+          <circle cx="48" cy="42" r="11" fill="var(--accent-soft)" stroke="var(--accent)"></circle>
+          <line x1="48" y1="36" x2="48" y2="48" stroke="var(--accent)"></line>
+          <line x1="42" y1="42" x2="54" y2="42" stroke="var(--accent)"></line>
+        </svg>
+      </div>
+      <h2 class="empty-title">Welcome to AutoRewarder</h2>
+      <p class="empty-subtitle">Add your first Microsoft account to get started.</p>
+      <button id="empty_cta" class="primary-btn-lg" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        Create your first account
+      </button>
     </div>
-      
-    <!-- Python pushes messages here via update_log(...) from script.js. -->
-    <div id="log_area">Waiting for core startup...<br></div>
+  </div>
 
-    <div class="developer">
-      <a href="https://github.com/safarsin/AutoRewarder" target="_blank">AutoRewarder</a> by 
-      <a href="https://github.com/safarsin" target="_blank">safarsin</a>
+  <!-- ==================== Settings modal ==================== -->
+  <div id="settings_modal" class="modal-backdrop" hidden>
+    <div class="modal-box wide" role="dialog" aria-modal="true" aria-labelledby="settings_modal_title">
+      <div class="modal-header">
+        <h3 id="settings_modal_title" class="modal-title">Settings</h3>
+        <button id="settingsModalClose" class="icon-ghost" type="button" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+
+        <section class="settings-group">
+          <div class="settings-group-title">General</div>
+          <label class="settings-row">
+            <div class="settings-row-text">
+              <div class="settings-row-label">Start with Windows</div>
+              <div class="settings-row-hint" id="startup_hint">Launch AutoRewarder when you sign in.</div>
+            </div>
+            <span class="toggle-compact">
+              <input type="checkbox" id="startupToggle">
+              <span class="toggle-pill"></span>
+            </span>
+          </label>
+        </section>
+
+        <section class="settings-group">
+          <div class="settings-group-title">Scheduled runs</div>
+          <p class="settings-group-hint">
+            One schedule per account. Each run fires at a random minute inside its window for a natural look.
+          </p>
+          <div id="schedule_accounts_list" class="schedule-accounts-list"></div>
+          <div id="schedule_empty" class="accounts-empty" hidden>
+            No accounts yet. Add one first to schedule a run.
+          </div>
+        </section>
+
+      </div>
+      <div class="modal-footer">
+        <button id="settingsCancel" class="btn-secondary" type="button">Cancel</button>
+        <button id="settingsSave" class="btn-primary" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Accounts management modal ==================== -->
+  <div id="accounts_modal" class="modal-backdrop" hidden>
+    <div class="modal-box wide" role="dialog" aria-modal="true" aria-labelledby="accounts_modal_title">
+      <div class="modal-header">
+        <h3 id="accounts_modal_title" class="modal-title">Your accounts</h3>
+        <button id="accountsModalClose" class="icon-ghost" type="button" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <ul id="accounts_list" class="accounts-list"></ul>
+        <button id="addAccountBtn" class="secondary-btn" type="button">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Add account
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Toast container ==================== -->
+  <div id="toast_container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- ==================== Generic modal ==================== -->
+  <div id="app_modal" class="modal-backdrop" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal_title">
+      <div class="modal-header">
+        <h3 id="modal_title" class="modal-title">Title</h3>
+      </div>
+      <div class="modal-body">
+        <p id="modal_message" class="modal-message"></p>
+        <input id="modal_input" class="modal-input" type="text" hidden>
+      </div>
+      <div class="modal-footer">
+        <button id="modal_cancel" class="btn-secondary" type="button">Cancel</button>
+        <button id="modal_confirm" class="btn-primary" type="button">OK</button>
+      </div>
     </div>
   </div>
 

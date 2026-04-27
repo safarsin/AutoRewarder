@@ -95,16 +95,18 @@ class SearchEngine:
         else:
             return random.randint(10, 15)
 
-    def perform_searches(self, driver, queries):
+    def perform_searches(self, driver, queries, mobile=False):
         """
         Perform searches on Bing using Selenium WebDriver with human-like behavior.
 
         Args:
             driver (WebDriver): An instance of Selenium WebDriver to control the browser.
             queries (list): A list of search queries to perform.
+            mobile (bool): When True, HumanBehavior emits touch gestures instead
+                of mouse events — pair with a mobile-emulated driver.
         """
 
-        human = HumanBehavior(driver, show_cursor=True)
+        human = HumanBehavior(driver, show_cursor=True, mobile=mobile)
 
         next_coffee_break = self.get_coffee_break_count()
         searches_since_break = 0

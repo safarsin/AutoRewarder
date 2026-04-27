@@ -1,86 +1,110 @@
-:root {
-  --bg-main: #0d1117; 
-  --bg-panel: #161b22;
-  --text-main: #c9d1d9;
-  --text-muted: #8b949e;
-  --border: #30363d;
-  --success: #2ea043;
-  --error: #f85149;
-}
+/* =========================================================================
+   History window — dedicated styles for GUI/history.html.
+   Design tokens (--text, --accent, --surface-1, etc.) come from styles.css.
+   ========================================================================= */
 
 body {
-  font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
-  background-color: var(--bg-main);
-  color: var(--text-main);
-  margin: 0;
-  padding: 20px;
+  display: block;
+  padding: 24px;
+  overflow: auto;
   user-select: text;
 }
 
-h2 {
-  margin-top: 0;
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.history-title {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 18px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid var(--border);
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
 }
 
-/* History table layout */
+.history-title svg {
+  color: var(--accent);
+}
+
+.account-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .history-table {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-  background-color: var(--bg-panel);
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  background-color: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
 .history-table th {
   text-align: left;
-  padding: 12px 15px;
-  color: var(--text-muted);
+  padding: 10px 14px;
+  color: var(--text-dim);
   font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   border-bottom: 1px solid var(--border);
-  background-color: #010409;
+  background-color: var(--surface-2);
 }
+
+.history-table th.col-date   { width: 18%; }
+.history-table th.col-time   { width: 12%; }
+.history-table th.col-query  { width: 40%; }
+.history-table th.col-status { width: 30%; }
 
 .history-table td {
-  padding: 12px 15px;
-  border-bottom: 1px solid var(--border);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text);
 }
 
-/* delete border for last row */
 .history-table tr:last-child td {
-  border-bottom: none; 
+  border-bottom: none;
 }
 
-.status-success { 
-  color: var(--success); 
-  font-weight: 500; 
+.history-table tr:hover td {
+  background-color: var(--surface-2);
 }
 
-.status-error { 
-  color: var(--error); 
-  font-weight: 500; 
+.cell-meta {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
-/* WebKit-only scrollbar styling (Chromium/Edge). */
-::-webkit-scrollbar { 
-  width: 8px; 
-  height: 8px;
+/* Higher specificity than `.history-table td` so the status cells actually
+   override the default text color. */
+.history-table td.status-success {
+  color: var(--success);
+  font-weight: 600;
 }
 
-::-webkit-scrollbar-track { 
-  background: var(--bg-main); 
-  border-radius: 4px; 
+.history-table td.status-error {
+  color: var(--danger);
+  font-weight: 600;
 }
-::-webkit-scrollbar-thumb { 
-  background: var(--border); 
-  border-radius: 4px; 
-}
-::-webkit-scrollbar-thumb:hover { 
-  background: var(--text-muted); 
+
+.empty-row {
+  text-align: center;
+  color: var(--text-dim);
+  padding: 28px 0;
 }

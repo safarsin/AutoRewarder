@@ -3,7 +3,7 @@ Configuration module for AutoRewarder.
 
 This module defines constants and paths used throughout the AutoRewarder application,
 such as version information, repository details, platform-specific directories,
-and file paths for storing user data and settings.
+and helpers to resolve per-account file paths (Edge profile, history, status, meta).
 """
 
 import os
@@ -47,12 +47,52 @@ if getattr(sys, "frozen", False):
 if not os.path.exists(APP_DIR):
     os.makedirs(APP_DIR)
 
-EDGE_PROFILE_PATH = os.path.join(APP_DIR, "EdgeProfile")
-HISTORY_FILE_PATH = os.path.join(APP_DIR, "history.json")
-SETTINGS_FILE_PATH = os.path.join(APP_DIR, "settings.json")
-STATUS_FILE_PATH = os.path.join(APP_DIR, "status.json")
+# Multi-account storage layout:
+#   APP_DIR/
+#     settings.json          (global: hide_browser, current_account_id, schema_version)
+#     accounts.json          (index: [{id, label, created_at}])
+#     accounts/
+#       <account_id>/
+#         EdgeProfile/
+#         history.json
+#         status.json
+#         meta.json          (per-account: first_setup_done)
+ACCOUNTS_DIR = os.path.join(APP_DIR, "accounts")
+GLOBAL_SETTINGS_PATH = os.path.join(APP_DIR, "settings.json")
+ACCOUNTS_INDEX_PATH = os.path.join(APP_DIR, "accounts.json")
 JSON_FILE_PATH = os.path.join(ASSETS_DIR, "queries.json")
-LOG_FILE_PATH = os.path.join(APP_DIR, "background_log.txt")
 
-# Maximum size (in bytes) before the log file is deleted and recreated (6 MB)
-LOG_MAX_SIZE = 6 * 1024 * 1024
+# Legacy single-account paths (used only for one-shot migration detection).
+LEGACY_EDGE_PROFILE_PATH = os.path.join(APP_DIR, "EdgeProfile")
+LEGACY_HISTORY_FILE_PATH = os.path.join(APP_DIR, "history.json")
+LEGACY_STATUS_FILE_PATH = os.path.join(APP_DIR, "status.json")
+
+# Rotating background log written by AutoRewarder_CLI.py (headless mode).
+LOG_FILE_PATH = os.path.join(APP_DIR, "background_log.txt")
+# Size threshold in bytes; when exceeded, the log file is deleted and recreated.
+LOG_MAX_SIZE = 6 * 1024 * 1024  # 6 MB
+
+
+def account_dir(account_id):
+    """Return the directory holding all files for a given account."""
+    return os.path.join(ACCOUNTS_DIR, account_id)
+
+
+def edge_profile_path(account_id):
+    """Return the Selenium --user-data-dir path for a given account."""
+    return os.path.join(account_dir(account_id), "EdgeProfile")
+
+
+def history_path(account_id):
+    """Return the history.json path for a given account."""
+    return os.path.join(account_dir(account_id), "history.json")
+
+
+def status_path(account_id):
+    """Return the daily-set status.json path for a given account."""
+    return os.path.join(account_dir(account_id), "status.json")
+
+
+def account_meta_path(account_id):
+    """Return the per-account meta.json path (stores first_setup_done)."""
+    return os.path.join(account_dir(account_id), "meta.json")

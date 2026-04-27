@@ -5,23 +5,22 @@ import time
 from datetime import date
 from selenium.webdriver.common.by import By
 
-from .config import STATUS_FILE_PATH
-
 
 class DailySet:
     """
-    A class to manage the Daily Set tasks in Microsoft Rewards.
+    A class to manage the Daily Set tasks in Microsoft Rewards, scoped to one account.
     """
 
-    def __init__(self, logger=None):
+    def __init__(self, status_file, logger=None):
         """
         Initialize the DailySet manager.
 
         Args:
+            status_file (str): Absolute path to this account's status.json.
             logger (callable, optional): A function to log messages. Defaults to None.
         """
 
-        self.status_file = STATUS_FILE_PATH
+        self.status_file = status_file
         self.logger = logger
 
     def _log(self, message):
@@ -72,6 +71,7 @@ class DailySet:
         data["last_daily_set_date"] = today
 
         # Write atomically to reduce the chance of leaving a partially-written JSON file.
+        os.makedirs(os.path.dirname(self.status_file), exist_ok=True)
         temp_file = self.status_file + ".tmp"
         with open(temp_file, "w", encoding="utf-8") as file:
             json.dump(data, file)
