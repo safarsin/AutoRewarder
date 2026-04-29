@@ -820,9 +820,7 @@ class AutoRewarderAPI:
 
             if do_daily_set and self.daily_set.should_perform_daily_set():
                 self.log("Daily Set not completed today. Starting Daily Set tasks...")
-                human = HumanBehavior(
-                    self._driver, show_cursor=True, mobile=mobile
-                )
+                human = HumanBehavior(self._driver, show_cursor=True, mobile=mobile)
                 success = self.daily_set.perform_daily_set(self._driver, human)
                 if success:
                     self.daily_set.mark_as_completed()
