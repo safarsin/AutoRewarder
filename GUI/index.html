@@ -64,7 +64,13 @@
     <!-- ==================== Run card ==================== -->
     <section class="card run-card">
       <div class="run-top">
-        <div class="field-inline">
+        <label class="toggle-row" title="Skip searches; only complete the daily Rewards tasks">
+          <input type="checkbox" id="dailyOnlyToggle">
+          <span class="toggle-pill"></span>
+          <span class="toggle-label">Daily tasks only</span>
+        </label>
+
+        <div class="field-inline queries-panel">
           <span class="field-label">Queries</span>
           <div class="count-group">
             <label class="count-field" title="Desktop searches (up to 30/day on Microsoft Rewards)">
@@ -85,12 +91,20 @@
         </label>
       </div>
 
-      <button id="start_btn" class="primary-btn-lg" onclick="start_bot()" disabled>
-        <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <polygon points="6 4 20 12 6 20 6 4"></polygon>
-        </svg>
-        <span class="btn-label">Start run</span>
-      </button>
+      <div class="run-actions">
+        <button id="start_btn" class="primary-btn-lg" onclick="start_bot()" disabled>
+          <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <polygon points="6 4 20 12 6 20 6 4"></polygon>
+          </svg>
+          <span class="btn-label">Start run</span>
+        </button>
+        <button id="stop_btn" class="stop-btn" type="button" onclick="stop_bot()" disabled aria-label="Stop the current run">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <rect x="6" y="6" width="12" height="12" rx="1"></rect>
+          </svg>
+          <span class="stop-label">Stop</span>
+        </button>
+      </div>
 
       <div class="status-row">
         <span class="dot" id="dot"></span>

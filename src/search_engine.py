@@ -95,7 +95,7 @@ class SearchEngine:
         else:
             return random.randint(10, 15)
 
-    def perform_searches(self, driver, queries, mobile=False):
+    def perform_searches(self, driver, queries, mobile=False, stop_event=None):
         """
         Perform searches on Bing using Selenium WebDriver with human-like behavior.
 
@@ -104,6 +104,9 @@ class SearchEngine:
             queries (list): A list of search queries to perform.
             mobile (bool): When True, HumanBehavior emits touch gestures instead
                 of mouse events — pair with a mobile-emulated driver.
+            stop_event (threading.Event, optional): If provided and set, the
+                loop bails out at the next checkpoint and any in-progress
+                coffee break is interrupted immediately.
         """
 
         human = HumanBehavior(driver, show_cursor=True, mobile=mobile)
@@ -115,6 +118,10 @@ class SearchEngine:
         self._log(f"Next coffee break after {next_coffee_break} searches.")
 
         for i, query in enumerate(queries):
+            if stop_event is not None and stop_event.is_set():
+                self._log("Stop requested — halting search loop.")
+                return
+
             try:
                 # Open Bing homepage
                 driver.get("https://www.bing.com")
@@ -135,7 +142,13 @@ class SearchEngine:
                     self._log(
                         f"Sleeping for {pause_duration:.2f} seconds to mimic a coffee break."
                     )
-                    time.sleep(pause_duration)
+                    # Interruptible sleep: Event.wait returns True early if Stop is pressed.
+                    if stop_event is not None:
+                        if stop_event.wait(pause_duration):
+                            self._log("Stop requested during coffee break — halting.")
+                            return
+                    else:
+                        time.sleep(pause_duration)
 
                     next_coffee_break = self.get_coffee_break_count()
                     searches_since_break = 0
@@ -210,14 +223,20 @@ class SearchEngine:
                 self._add_to_history(query, "Success")
 
             except NoSuchElementException:
+                if stop_event is not None and stop_event.is_set():
+                    return
                 self._log(f"[ERROR] Search box not found on attempt #{i+1}")
                 self._add_to_history(query, "[ERROR] Search box not found")
 
             except WebDriverException as e:
+                if stop_event is not None and stop_event.is_set():
+                    return
                 short_error = str(e).split("\n")[0][:28]
                 self._log(f"[ERROR] WebDriver error on attempt #{i+1}: {short_error}")
                 self._add_to_history(query, f"[ERROR] WebDriver Error: {short_error}")
 
             except Exception as e:
+                if stop_event is not None and stop_event.is_set():
+                    return
                 self._log(f"[ERROR] Unknown error on attempt #{i+1}: {e}")
                 self._add_to_history(query, f"[ERROR] Unknown Error: {str(e)[:50]}")

@@ -48,6 +48,9 @@ class AutoRewarderAPI:
         self._driver = None
         self.is_driver_loading = False
         self._run_lock = threading.Lock()
+        # Set when the user clicks Stop. Long loops in search_engine and
+        # daily_set poll this between iterations and bail out cleanly.
+        self._stop_event = threading.Event()
 
         # Global (app-wide) settings. Per-account data is handled below.
         self.global_settings = GlobalSettingsManager()
@@ -232,6 +235,28 @@ class AutoRewarderAPI:
     def is_running(self):
         """True when the bot is mid-run. Used by the headless runner to avoid overlap."""
         return self._run_lock.locked()
+
+    def stop(self):
+        """
+        User-initiated graceful stop.
+
+        Sets the stop flag so cooperating loops (searches, daily set) bail at
+        the next checkpoint, and force-quits the active driver to break any
+        in-progress Selenium call. The current run thread will exit through
+        its normal `finally` cleanup, which re-enables the Start button.
+        """
+        if not self._run_lock.locked():
+            return False
+
+        self.log("Stop requested. Closing browser…")
+        self._stop_event.set()
+
+        try:
+            if self._driver is not None:
+                self._driver.quit()
+        except Exception:
+            pass
+        return True
 
     def get_schedule(self, account_id):
         """Return a specific account's schedule (defaults merged in)."""
@@ -729,14 +754,19 @@ class AutoRewarderAPI:
     # Main run
     # ------------------------------------------------------------------
 
-    def main(self, pc_count, mobile_count=0):
+    def main(self, pc_count, mobile_count=0, daily_only=False):
         """
         Run the bot against the currently-selected account.
 
-        Executes sequentially:
+        Default mode (daily_only=False): runs sequentially
           1. PC phase     — desktop UA, `pc_count` Bing searches, then Daily Set.
           2. Mobile phase — iPhone UA, `mobile_count` Bing searches only.
         Either count may be 0 to skip that phase.
+
+        Daily-only mode (daily_only=True): skips searches entirely and only
+        opens a desktop driver to run the Daily Set + More Activities. Both
+        count arguments are ignored. Useful when the user just wants to
+        collect today's daily-task points without churning searches.
         """
         if self.account_manager.current_id() is None:
             self.log("[ERROR] No account selected. Add one via the dropdown.")
@@ -750,13 +780,15 @@ class AutoRewarderAPI:
                 self._webview_window.evaluate_js("enable_start_button()")
             return
 
+        daily_only = bool(daily_only)
+
         try:
             pc_count = max(0, int(pc_count or 0))
             mobile_count = max(0, int(mobile_count or 0))
         except (TypeError, ValueError):
             pc_count, mobile_count = 0, 0
 
-        if pc_count == 0 and mobile_count == 0:
+        if not daily_only and pc_count == 0 and mobile_count == 0:
             self.log("[WARNING] Nothing to do (PC and Mobile counts are both 0).")
             if self._webview_window:
                 self._webview_window.evaluate_js("enable_start_button()")
@@ -766,8 +798,14 @@ class AutoRewarderAPI:
             self.log("[WARNING] A run is already in progress.")
             return
 
+        # Reset stop flag before each run so a previous Stop doesn't carry over.
+        self._stop_event.clear()
+
         try:
-            self.log("Starting AutoRewarder (Edge Edition)...")
+            if daily_only:
+                self.log("Starting AutoRewarder (Daily tasks only)...")
+            else:
+                self.log("Starting AutoRewarder (Edge Edition)...")
             if self._webview_window:
                 try:
                     self._webview_window.evaluate_js(
@@ -776,13 +814,19 @@ class AutoRewarderAPI:
                 except Exception:
                     pass
 
-            if pc_count > 0:
-                self._run_phase(mobile=False, count=pc_count, do_daily_set=True)
+            if daily_only:
+                self._run_daily_only()
+            else:
+                if pc_count > 0 and not self._stop_event.is_set():
+                    self._run_phase(mobile=False, count=pc_count, do_daily_set=True)
 
-            if mobile_count > 0:
-                self._run_phase(mobile=True, count=mobile_count, do_daily_set=False)
+                if mobile_count > 0 and not self._stop_event.is_set():
+                    self._run_phase(mobile=True, count=mobile_count, do_daily_set=False)
 
-            self.log("Done!")
+            if self._stop_event.is_set():
+                self.log("Stopped.")
+            else:
+                self.log("Done!")
         finally:
             try:
                 if self._webview_window:
@@ -790,6 +834,53 @@ class AutoRewarderAPI:
             except Exception:
                 pass
             self._run_lock.release()
+
+    def _run_daily_only(self):
+        """
+        Open a PC driver, run only the Daily Set + More Activities, scrape
+        the points balance, then quit. No Bing searches are performed.
+
+        Unlike the normal flow, this path is user-initiated (explicit toggle)
+        so it ignores `should_perform_daily_set()` — if the saved status says
+        "done today" but the user clicked Start anyway, they want it to run.
+        The card-level detection inside perform_daily_set will skip cards
+        that are genuinely complete, so re-running on a real already-done day
+        just confirms state without wasting clicks.
+        """
+        if self.daily_set is None:
+            self.log("[ERROR] Daily tasks unavailable for this account.")
+            return
+
+        if not self.daily_set.should_perform_daily_set():
+            self.log(
+                "Note: today is already marked as done in status.json, "
+                "but running anyway since you asked explicitly."
+            )
+
+        self.log("=== Daily tasks only — no searches ===")
+
+        self._driver = self.driver_manager.setup_driver(mobile=False)
+        try:
+            human = HumanBehavior(self._driver, show_cursor=True, mobile=False)
+            success = self.daily_set.perform_daily_set(
+                self._driver, human, stop_event=self._stop_event
+            )
+            if self._stop_event.is_set():
+                self.log("Daily tasks aborted by Stop.")
+                return
+            if success:
+                self.daily_set.mark_as_completed()
+                self.log("Daily tasks completed and marked as done for today.")
+            else:
+                self.log("Daily tasks failed. Not marked as done for today.")
+
+        finally:
+            try:
+                self._driver.quit()
+            except Exception as e:
+                self.log(f"[WARNING] Error closing driver: {e}")
+            self._driver = None
+            time.sleep(0.5)
 
     def _run_phase(self, mobile, count, do_daily_set):
         """
@@ -815,18 +906,31 @@ class AutoRewarderAPI:
         self._driver = self.driver_manager.setup_driver(mobile=mobile)
         try:
             self.search_engine.perform_searches(
-                self._driver, queries_to_search, mobile=mobile
+                self._driver,
+                queries_to_search,
+                mobile=mobile,
+                stop_event=self._stop_event,
             )
 
-            if do_daily_set and self.daily_set.should_perform_daily_set():
+            if (
+                do_daily_set
+                and not self._stop_event.is_set()
+                and self.daily_set.should_perform_daily_set()
+            ):
                 self.log("Daily Set not completed today. Starting Daily Set tasks...")
-                human = HumanBehavior(self._driver, show_cursor=True, mobile=mobile)
-                success = self.daily_set.perform_daily_set(self._driver, human)
-                if success:
-                    self.daily_set.mark_as_completed()
-                    self.log("Daily Set tasks completed and marked as done for today.")
-                else:
-                    self.log("Daily Set failed. Not marked as done for today.")
+                human = HumanBehavior(
+                    self._driver, show_cursor=True, mobile=mobile
+                )
+                success = self.daily_set.perform_daily_set(
+                    self._driver, human, stop_event=self._stop_event
+                )
+                if not self._stop_event.is_set():
+                    if success:
+                        self.daily_set.mark_as_completed()
+                        self.log("Daily Set tasks completed and marked as done for today.")
+                    else:
+                        self.log("Daily Set failed. Not marked as done for today.")
+
         finally:
             try:
                 self._driver.quit()
