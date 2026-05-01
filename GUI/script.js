@@ -287,6 +287,8 @@ function update_status_indicator(forceState) {
     else state = 'ready';
   }
 
+  set_hide_browser_toggle_enabled(state !== 'executing');
+
   switch (state) {
     case 'executing':
       dot.classList.add('active');
@@ -309,6 +311,15 @@ function update_status_indicator(forceState) {
 
 function show_history() {
   pywebview.api.open_history_window();
+}
+
+function set_hide_browser_toggle_enabled(enabled) {
+  const toggle = document.getElementById('hideBrowserToggle');
+  if (!toggle) return;
+  toggle.disabled = !enabled;
+  toggle.setAttribute('aria-disabled', String(!enabled));
+  const row = toggle.closest('.toggle-row');
+  if (row) row.classList.toggle('row-disabled', !enabled);
 }
 
 function hideBrowserToggle() {

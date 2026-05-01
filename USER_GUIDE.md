@@ -23,7 +23,7 @@ Welcome! This guide will help you get started with AutoRewarder and explain all 
 
 ### Step 1: Download
 1. Go to the [Releases page](https://github.com/safarsin/AutoRewarder/releases) on GitHub
-2. Find the latest release (v3.1 or newer)
+2. Find the latest release (v3.2 or newer)
 3. Download `AutoRewarder-Setup.exe`
 
 ### Step 2: Install
@@ -45,26 +45,52 @@ Welcome! This guide will help you get started with AutoRewarder and explain all 
 
 ## First Run & Setup
 
-When you run AutoRewarder for the first time, you'll see a first setup button.
+On first launch, AutoRewarder starts with no accounts. You will see an empty state with a **Create your first account** button (or use **Add account** from the header).
 
 ### What is First Setup?
 
-First Setup creates a special profile for Microsoft Edge that AutoRewarder will use. This keeps it separate from your personal browsing data and settings. It only needs to be done once. After that, you can start using AutoRewarder without worrying about it affecting your regular Edge profile.
+First Setup creates a dedicated Edge profile for each account. This keeps it separate from your personal browsing data and lets you manage multiple Rewards accounts safely.
 
 ### How to Complete First Setup
 
-1. Click the **First Setup** button on the main window
-2. Wait for it to complete (you should see Microsoft Edge open)
-3. Sign in to your Microsoft Rewards account on the Bing page that opens (don't sync browser)
-<img src="assets/screenshots/sing_in.png" alt="Sign in screenshot" width="400">
+1. Click **Create your first account** (or **Add account**)
+2. Enter a name for the account
+3. Microsoft Edge opens. Sign in to the Rewards account for this profile. 
 
-> [!WARNING]
-> **Important:** Don't sync browser
+<img src="assets/screenshots/new_sign_in/sign_in_2.png" width="400">
 
-4. Close the browser when done
-5. You're ready to use AutoRewarder!
+4. Close the browser window when done
+5. The account will show as **Ready**
 
-**You only need to do this once** If you run the app again, First Setup won't appear (it will use the saved profile).
+### Multiple Accounts
+
+Adding another account is slightly different, so please follow these steps:
+
+1. Click **Add account**
+2. Enter a name for the new account
+3. Microsoft Edge opens again, but this time it will suggest you automatically sign in. Do NOT accept the sign-in prompt. Instead, click **No, thanks** or **x**.
+
+<img src="assets/screenshots/new_sign_in/sign_in_3.png" width="400">
+
+4. Then click the profile icon in the top right corner of Edge and choose **Add new account**.
+
+<img src="assets/screenshots/new_sign_in/sign_in_4.png" width="400">
+<img src="assets/screenshots/new_sign_in/sign_in_5.png" width="400">
+
+5. After signing in to the new account, the profile tab should look like this:
+
+<img src="assets/screenshots/new_sign_in/sign_in_6.png" width="400">
+
+6. Make sure you see the new account here. If you see the old account, click **Sign out** and sign in with the new account. If you see the new one, just refresh the page and it should show as signed in.
+
+<img src="assets/screenshots/new_sign_in/sign_in_2.png" width="400">
+<img src="assets/screenshots/new_sign_in/sign_in_1.png" width="400">
+
+> **Important:** Go to the Rewards dashboard and accept terms and cookies for the new account to make sure it's fully set up.
+
+7. Close the browser window when done
+
+> **Note:** Repeat this to add more accounts.
 
 ---
 
@@ -73,20 +99,21 @@ First Setup creates a special profile for Microsoft Edge that AutoRewarder will 
 ### Starting a Session
 
 1. Open AutoRewarder.exe
-2. Look for the input box labeled with a number
-3. Enter a number between **1 and 99** (this is how many searches you want to perform)
-4. Click the **"Start"** button
-5. Watch the green indicator show that AutoRewarder is working
+2. Select an account from the dropdown
+3. Set PC and Mobile query counts (PC 0-130, Mobile 0-99). Set one to 0 to skip it
+4. Click the **"Start run"** button
+5. Watch the status indicator show that AutoRewarder is working
 6. The terminal-like window below shows what's happening in real-time
 
 ### What's Happening?
 
 - AutoRewarder opens Microsoft Edge (you can see it if hide-browser is off)
-- It performs random searches from a built-in list of 3,428 real search queries from google-trends dataset
+- It performs random searches from a built-in list of 8,154 real search queries from a google-trends dataset
 - Each search has human-like delays and behavior
+- It runs the PC phase first, then the Mobile phase (iPhone emulation)
 - It may occasionally switch to Images/Videos/News tabs
 - It may take short "coffee breaks" during longer sessions
-- After searches, it may run Daily Set tasks (once per day)
+- After the PC phase, it may run Daily Set tasks (once per day, per account)
 - The process continues until all searches are complete
 - You'll see updates in the log window
 
@@ -113,12 +140,11 @@ This toggle controls whether you can see Microsoft Edge while searches are happe
 - Less distracting if you're working on something else
 - Slightly faster performance since it doesn't have to render the browser window what will save system resources (RAM/CPU)
 
-### Automatic Start-Up
+### Autostart
 
-When enabled, AutoRewarder will automatically start a session when you turn on your computer.
+When enabled, AutoRewarder will launch headless runs when you sign in. On Linux (source installs), it creates a desktop autostart entry.
 
-If you want to disable this setting, simply turn it off and save settings.
-Or you can remove AutoRewarder from Windows Startup here:
+If you want to disable this setting, simply turn it off and save settings. Or remove AutoRewarder from Windows Startup here:
 
 <img src="assets/screenshots/start-up.png" width="400">
 
@@ -136,11 +162,14 @@ Since AutoRewarder can run silently in the background (when using Autostart or C
 
 > If you see the process using some CPU and Network, it means it's currently performing searches!
 
-### Advanced Scheduling
+### Scheduled runs
 
-When enabled, you can set the run duration (hours), total searches, and queries per hour. This allows you to spread out searches over a longer period of time.
+Each account has its own schedule card in the Settings window. Enable it to run that account automatically when **Start with Windows** is on (or when you run the headless CLI).
 
-It will run in the background and take breaks as needed to meet the schedule you set. Intervals are unique and randomized by +/- 25% of the base interval to mimic human behavior.
+- **Simple schedule**: runs the PC and Mobile counts once at launch
+- **Advanced scheduling**: spreads the total across the run duration using the queries-per-hour target
+
+It runs in the background and takes jittered breaks (+/- 25%) to mimic human behavior.
 
 > [!WARNING]
 > **Important:** Make sure that your PC is connected to the internet and does not go to sleep while the bot is running.
@@ -162,10 +191,10 @@ AutoRewarder keeps track of all searches it has performed.
 
 ### Where is History Saved?
 
-History is saved in your user data folder:
+History is saved per account in your user data folder:
 
 ```
-C:\Users\[YourUsername]\AppData\Local\AutoRewarder\history.json
+C:\Users\[YourUsername]\AppData\Local\AutoRewarder\accounts\<account_id>\history.json
 ```
 
 You don't need to access this directly — use the History button in the app instead.
@@ -191,7 +220,7 @@ C:\Users\[YourUsername]\AppData\Local\AutoRewarder\background_log.txt
 
 ### ❌ Don'ts
 
-- Don't manually interact with Clone Edge (you still can use your main profile) while AutoRewarder is running
+- Don't manually interact with the AutoRewarder Edge profile while it is running (you can still use your main profile)
 - Don't use Bing while AutoRewarder is performing searches (it may be detected as unusual activity)
 - Don't force-close the app while a session is running
 - Don't modify files in `AppData\Local\AutoRewarder` manually
@@ -200,7 +229,7 @@ C:\Users\[YourUsername]\AppData\Local\AutoRewarder\background_log.txt
 ### Recommended Usage
 
 For best results:
-1. Run 30 searches per session
+1. Run 30 PC searches and 30 Mobile searches per session
 2. Vary the number of searches each time
 3. Run sessions at different times of the day
 4. Use hide-browser mode if you want to do other work while it runs
@@ -222,24 +251,26 @@ If your issue isn't listed, please open an issue on GitHub or [contact me](mailt
 - Ensure Microsoft Edge is installed
 - Try restarting the application (Selenium Manager will auto-download driver)
 - Check that Edge version is up to date
-- Delete `%USERPROFILE%\AppData\Local\AutoRewarder\EdgeProfile` and retry
+- In **Manage accounts**, choose **Re-run setup** for the affected account
 
 **`session not created: DevToolsActivePort file doesn't exist` / Edge failed to start:**
 - Close AutoRewarder and any Edge windows
 - Open Windows Task Manager and kill all `msedge.exe` processes (and `msedgedriver.exe` if present)
 - Open Edge normally and complete any pending updates at `edge://settings/help`
 - Re-run AutoRewarder
-- If it still fails, delete `%USERPROFILE%\AppData\Local\AutoRewarder\EdgeProfile` and run First Setup again
+- If it still fails, use **Manage accounts** -> **Re-run setup** for the account
 
 **Application crashes on startup:**
-- Delete `EdgeProfile/` folder in `%USERPROFILE%\AppData\Local\AutoRewarder`
-- Run First Setup again
+- In **Manage accounts**, delete or re-run setup for the affected account
 - Verify dependencies: `pip install -r requirements.txt` if running from source
 - Check Windows Event Viewer for error details
 
 **Searches not completing:**
 - Verify internet connection
 - Check that Edge is not blocked by antivirus/firewall
+
+**"No account selected" or "Setup pending":**
+- Add an account and complete First Setup before starting
 
 ## FAQ
 
@@ -255,10 +286,10 @@ But AutoRewarder is designed to mimic human behavior with randomized delays and 
 Personaly I have been using it for almost 7 months without any issues.
 
 **Q: How many searches can I do per day?**  
-A: You can run as many sessions as you want (1-99 searches each). However, Microsoft may have daily limits on rewards earned which depend on your account's activity and region.
+A: You can run as many sessions as you want. The UI allows PC (0-130) and Mobile (0-99) per run, but Microsoft Rewards limits depend on region and account status.
 
 **Q: Why does it ask me to do First Setup?**  
-A: First Setup creates a separate browser profile that doesn't interfere with your personal Edge settings. It only needs to run once.
+A: First Setup creates a separate browser profile for each account. You only need to run it once per account.
 
 **Q: What if the app freezes?**  
 A: You can force-close it (Ctrl+Alt+Delete → Task Manager → AutoRewarder → End Task). Your history/settings will be preserved.
@@ -268,7 +299,7 @@ A: Currently, the pre-built installer and standalone executable are only availab
 
 ---
 
-**Last Updated**: April 2026  
-**Version**: 3.1
+**Last Updated**: May 2026  
+**Version**: 3.2
 
 Enjoy using AutoRewarder! 🎉
