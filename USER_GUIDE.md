@@ -55,7 +55,7 @@ First Setup creates a dedicated Edge profile for each account. This keeps it sep
 
 1. Click **Create your first account** (or **Add account**)
 2. Enter a name for the account
-3. Microsoft Edge opens. Sign in to the Rewards account for this profile. 
+3. Microsoft Edge opens. Sign in to the Rewards account for this profile.
 
 <img src="assets/screenshots/new_sign_in/sign_in_2.png" width="400">
 
@@ -274,24 +274,24 @@ If your issue isn't listed, please open an issue on GitHub or [contact me](mailt
 
 ## FAQ
 
-**Q: Is AutoRewarder safe?**  
+**Q: Is AutoRewarder safe?**
 A: AutoRewarder is safe to use on your computer. It uses a separate browser profile so your personal data is not affected.
 
-**Q: Why does it need Microsoft account authorization?**  
+**Q: Why does it need Microsoft account authorization?**
 A: AutoRewarder uses Edge to perform searches. Selenium WebDriver (the automation tool) requires a real browser to work with Microsoft Rewards.
 
-**Q: Will this ban my Microsoft Rewards account?**  
+**Q: Will this ban my Microsoft Rewards account?**
 A: Microsoft Rewards' Terms of Service prohibit automation. Use at your own risk.
 But AutoRewarder is designed to mimic human behavior with randomized delays and real search queries to reduce the risk of detection. However, there is always a possibility of account suspension if detected such as searching with Bing while AutoRewarder is running or running multiple sessions at the same time.
 Personaly I have been using it for almost 7 months without any issues.
 
-**Q: How many searches can I do per day?**  
+**Q: How many searches can I do per day?**
 A: You can run as many sessions as you want. The UI allows PC (0-130) and Mobile (0-99) per run, but Microsoft Rewards limits depend on region and account status.
 
-**Q: Why does it ask me to do First Setup?**  
+**Q: Why does it ask me to do First Setup?**
 A: First Setup creates a separate browser profile for each account. You only need to run it once per account.
 
-**Q: What if the app freezes?**  
+**Q: What if the app freezes?**
 A: You can force-close it (Ctrl+Alt+Delete → Task Manager → AutoRewarder → End Task). Your history/settings will be preserved.
 
 **Q: Can I run this on Mac or Linux?** <br>
@@ -299,7 +299,7 @@ A: Currently, the pre-built installer and standalone executable are only availab
 
 ---
 
-**Last Updated**: May 2026  
+**Last Updated**: May 2026
 **Version**: 3.2
 
 Enjoy using AutoRewarder! 🎉

@@ -71,10 +71,20 @@ function isVisible(el) {
 
 // Broad completion-class fragments. MS varies these by SPA version, so we
 // accept multiple substrings, word-bounded, and explicitly skip "incomplete".
-var COMPLETED_RE =
-    /(?:^|[ -])(?:mee-icon-completedsolid|mee-icon-skypecheck|mee-icon-skypecirclecheck|mee-icon-checkmark|mee-icon-completed|mee-icon-accept|completedsolid|skypecheck|checkmark|completed)(?:$|[ -])/i;
-var INCOMPLETE_RE =
-    /(?:^|[ -])(?:mee-icon-addmedium|addmedium|mee-icon-add)(?:$|[ -])/i;
+// Built via new RegExp(...) so the alternation can wrap across lines (a
+// regex literal /.../ would have to live on a single line).
+var COMPLETED_RE = new RegExp(
+    "(?:^|[ -])(?:" +
+    "mee-icon-completedsolid|mee-icon-skypecheck|mee-icon-skypecirclecheck|" +
+    "mee-icon-checkmark|mee-icon-completed|mee-icon-accept|" +
+    "completedsolid|skypecheck|checkmark|completed" +
+    ")(?:$|[ -])",
+    "i"
+);
+var INCOMPLETE_RE = new RegExp(
+    "(?:^|[ -])(?:mee-icon-addmedium|addmedium|mee-icon-add)(?:$|[ -])",
+    "i"
+);
 
 var nodes = card.querySelectorAll('[class*="icon"], [class*="Icon"]');
 var foundComplete = false;
@@ -183,8 +193,19 @@ for (var i = 0; i < classCandidates.length; i++) {
 
 // 4. Visible "available later" hint text. Word-boundary so we don't
 //    misfire on prose that contains the word inside a longer sentence.
+// Built via new RegExp(...) so the alternation can wrap across lines.
+// Note: \b/\s/\d become \\b/\\s/\\d in the string form (one backslash
+// escapes for the JS string lexer, the other reaches the regex engine).
 var bannerText = (card.innerText || card.textContent || '').toLowerCase();
-if (/\b(available\s+(?:tomorrow|in\s+\d|later)|disponible\s+demain|unlocks?\s+(?:tomorrow|in)|d[ée]bloqu[eé][a-z]*\s+(?:demain|le))\b/.test(bannerText)) {
+var LATER_RE = new RegExp(
+    "\\b(" +
+    "available\\s+(?:tomorrow|in\\s+\\d|later)" +
+    "|disponible\\s+demain" +
+    "|unlocks?\\s+(?:tomorrow|in)" +
+    "|d[ée]bloqu[eé][a-z]*\\s+(?:demain|le)" +
+    ")\\b"
+);
+if (LATER_RE.test(bannerText)) {
     return true;
 }
 

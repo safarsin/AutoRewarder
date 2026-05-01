@@ -58,7 +58,7 @@ begin
     begin
       Result := True;
     end;
-    
+
     { Also check for .NET 6+ }
     if not Result then
       Result := RegKeyExists(HKLM, 'SOFTWARE\dotnet\Setup\InstalledVersions\x64');
@@ -95,7 +95,7 @@ begin
 
   if not Result then
   begin
-    ExitSetupWithError('AutoRewarder requires the following:' + #13#10#13#10 + ErrorMsg + #13#10 + 
+    ExitSetupWithError('AutoRewarder requires the following:' + #13#10#13#10 + ErrorMsg + #13#10 +
                        'Please install the required software and try again.');
   end;
 end;
@@ -104,8 +104,8 @@ procedure InitializeWizard;
 begin
   if not CheckDependencies then
     Abort;
-    
-  MsgBox('AutoRewarder will be installed.' + #13#10#13#10 + 
+
+  MsgBox('AutoRewarder will be installed.' + #13#10#13#10 +
          'System Requirements:' + #13#10 +
          '• Windows 10 or later' + #13#10 +
          '• Microsoft Edge' + #13#10 +

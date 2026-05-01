@@ -111,7 +111,7 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 **Developer & Code Quality:**
 - Advanced documentation (comprehensive docstrings and detailed guides)
-- Strict code formatting and static type checking (Black, Flake8, MyPy) 
+- Strict code formatting and static type checking (Black, Flake8, MyPy)
 
 ---
 
@@ -170,7 +170,7 @@ python AutoRewarder.py --headless
 
 # Run a single account once with overrides
 python AutoRewarder.py --headless --account "Main" --pc 30 --mobile 20
-    
+
 # Force a re-run the same day
 python AutoRewarder.py --headless --account "Main" --pc 30 --force
 ```
@@ -212,7 +212,7 @@ AutoRewarder/
 ├── src/
 │   ├── __init__.py       # Python package initialization
 │   ├── account_manager.py # Multi-account CRUD + migration
-│   ├── api.py            # Centralizes all main operations (bridge API exposed to JS)        
+│   ├── api.py            # Centralizes all main operations (bridge API exposed to JS)
 │   ├── config.py         # Configuration constants/platform and file paths
 │   ├── daily_set.py      # Rewards Daily Set collection logic
 │   ├── driver_manager.py # WebDriver setup and management
@@ -226,17 +226,17 @@ AutoRewarder/
 ├── AutoRewarder_CLI.py   # Headless runner (multi-account aware)
 ├── AutoRewarder.spec     # PyInstaller build spec
 ├── AutoRewarder.iss      # Inno Setup installer script
-├── LICENSE              
-├── README.md 
-├── USER_GUIDE.md          
-└── requirements.txt      
+├── LICENSE
+├── README.md
+├── USER_GUIDE.md
+└── requirements.txt
 ```
 
 ---
 
 ## Runtime Data
 
-The application stores its runtime files (profiles, history, logs, and settings) in a dedicated folder separate from your main browser. 
+The application stores its runtime files (profiles, history, logs, and settings) in a dedicated folder separate from your main browser.
 
 **On Windows:**
 ```text
@@ -280,7 +280,7 @@ For common issues and solutions, see the [Troubleshooting](USER_GUIDE.md#trouble
 - [x] Advanced "coffee" breaks during long sessions
 - [x] Navigation flow: sometimes switch result tabs (Images/Videos/News)
 - [x] Script-only version (CLI tool without GUI)
-- [x] Automatic start-up 
+- [x] Automatic start-up
 - [x] Query pacing over a specified duration (rate-based scheduling)
 - [x] Multi-account support (manage multiple Rewards accounts)
 - [x] Mobile support
