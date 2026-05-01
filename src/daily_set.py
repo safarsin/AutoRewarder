@@ -535,14 +535,6 @@ class DailySet:
             return ""
         return (t or "").strip()
 
-    def _count_completed(self, driver, cards):
-        """Tally how many cards in the given list look completed."""
-        count = 0
-        for c in cards:
-            if self._is_card_completed(driver, c):
-                count += 1
-        return count
-
     def _pick_click_target(self, driver, card):
         """
         Pick the most appropriate click target for a given card.
@@ -747,9 +739,15 @@ class DailySet:
 
         if not incomplete_indices:
             if total_actionable == 0:
-                self._log(
-                    f"{section_name}: all {len(cards)} cards locked, nothing to do."
-                )
+                # Cards are entirely locked / excluded (or a mix). The counts
+                # are already logged individually above; this is just the
+                # per-section summary line.
+                parts = []
+                if locked_count:
+                    parts.append(f"{locked_count} locked")
+                if excluded_count:
+                    parts.append(f"{excluded_count} promo/sweepstake")
+                self._log(f"{section_name}: nothing actionable ({' + '.join(parts)}).")
             else:
                 self._log(
                     f"{section_name}: {already_complete}/{total_actionable} already complete."
@@ -772,7 +770,13 @@ class DailySet:
                 self._log(f"Stop requested — halting {section_name} loop.")
                 break
 
-            current = driver.find_elements(By.CSS_SELECTOR, selector)
+            # Re-fetch dodges StaleElementReferenceException after the SPA
+            # re-renders following the previous click. Apply the SAME visibility
+            # filter we used to build `cards` (and therefore `incomplete_indices`)
+            # — otherwise hidden phantoms (e.g. tomorrow's ng-hide preview)
+            # shift the indices and we'd target the wrong card.
+            current_all = driver.find_elements(By.CSS_SELECTOR, selector)
+            current = [c for c in current_all if self._is_card_visible(driver, c)]
             if idx >= len(current):
                 self._log(
                     f"[WARNING] {section_name} card #{idx + 1} disappeared between "

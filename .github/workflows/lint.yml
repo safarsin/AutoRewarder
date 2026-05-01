@@ -21,8 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install black flake8 mypy
+        pip install -r requirements-dev.txt
 
     # pep8, code formatting, and type checking
     - name: Run Black
@@ -38,5 +37,4 @@ jobs:
     # Add --ignore-missing-imports if you want to ignore missing type hints in third-party/old libraries
     - name: Run MyPy
       run: |
-        pip install types-requests
         mypy .

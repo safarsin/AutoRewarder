@@ -1,9 +1,10 @@
 -r requirements.txt
 
-# Development tooling. Versions match .pre-commit-config.yaml and
-# .github/workflows/lint.yml so local runs match CI.
-pre-commit
+# Development tooling. Single source of truth for local + CI versions:
+# .github/workflows/lint.yml installs from this file, and the pinned mypy
+# version matches .pre-commit-config.yaml's mirrors-mypy rev.
+pre-commit==4.6.0
 black==26.3.1
 flake8==7.3.0
-mypy
+mypy==1.9.0
 types-requests
