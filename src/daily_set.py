@@ -9,7 +9,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-
 # The Rewards dashboard groups click-through tasks into two sections we can
 # automate: the Daily Set (3 cards, refreshed each day) and "More Activities"
 # / "Plus d'activité" (variable). Each section has its own wrapper element;
@@ -623,7 +622,9 @@ class DailySet:
                 # Stop in flight: driver was force-quit, swallow follow-up errors.
                 return False
             short_error = str(e).split("\n")[0][:160]
-            self._log(f"[WARNING] Daily Set task #{label_idx + 1} failed: {short_error}")
+            self._log(
+                f"[WARNING] Daily Set task #{label_idx + 1} failed: {short_error}"
+            )
 
             # Close any extra tabs, switch back to the main tab.
             try:
@@ -793,7 +794,8 @@ class DailySet:
         time.sleep(random.uniform(2.5, 4))
 
         final_cards = [
-            c for c in driver.find_elements(By.CSS_SELECTOR, selector)
+            c
+            for c in driver.find_elements(By.CSS_SELECTOR, selector)
             if self._is_card_visible(driver, c)
         ]
         if not final_cards:
@@ -890,7 +892,11 @@ class DailySet:
                     self._log("Stop requested — skipping remaining sections.")
                     break
                 section_result = self._process_section(
-                    driver, human, section_name, selector, main_tab,
+                    driver,
+                    human,
+                    section_name,
+                    selector,
+                    main_tab,
                     stop_event=stop_event,
                 )
                 for k in totals:
