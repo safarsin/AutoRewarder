@@ -3,7 +3,7 @@
 ![Stars](https://img.shields.io/github/stars/safarsin/AutoRewarder?style=for-the-badge)
 ![Downloads](https://img.shields.io/github/downloads/safarsin/AutoRewarder/total?style=for-the-badge&color=007ac)
 
-An advanced, set-and-forget automation tool for Microsoft Rewards. AutoRewarder performs Bing searches for PC and mobile profiles, collects Daily Sets, and uses mathematically driven, human-like input simulation (W3C Actions, Bezier curves, and smart scrolling).
+An advanced, set-and-forget automation tool for Microsoft Rewards. AutoRewarder performs Bing searches for PC and mobile point collection, collects Daily Sets, and uses mathematically driven, human-like input simulation (W3C Actions, Bezier curves, and smart scrolling).
 
 Built with a robust Python/Selenium backend, it offers two modes of operation: a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview, and a headless runner (CLI) for scheduled background runs and automation scripts. Packaged as an executable Windows app (via Inno Setup) for a seamless, plug-and-play experience.
 
@@ -45,9 +45,9 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 ## Screenshots & Demo
 
-| Perform Searches | Driver Preparation |
+| Perform Searches | App Demo |
 | :---: | :---: |
-|<img src="assets/screenshots/preform.gif">|<img src="assets/screenshots/warm_up.gif">|
+|<img src="assets/screenshots/perform_demo.gif">|<img src="assets/screenshots/main_demo.gif">|
 
 |Daily Sets| Tab Switching |
 | :---: | :---: |
@@ -57,8 +57,8 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 | Main Window | Settings & History |
 | :---: | :---: |
-| <img src="assets/screenshots/main1.png"> | <img src="assets/screenshots/settings.gif"> |
-| <img src="assets/screenshots/main2.png"> | <img src="assets/screenshots/history_window1.png"> |
+| <img src="assets/screenshots/main_2.png"> | <img src="assets/screenshots/history_window.png"> |
+| <img src="assets/screenshots/main_1.png"> | <img src="assets/screenshots/settings.jpg"> |
 
 ---
 
