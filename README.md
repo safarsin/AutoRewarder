@@ -3,9 +3,9 @@
 ![Stars](https://img.shields.io/github/stars/safarsin/AutoRewarder?style=for-the-badge)
 ![Downloads](https://img.shields.io/github/downloads/safarsin/AutoRewarder/total?style=for-the-badge&color=007ac)
 
-An advanced, set-and-forget automation tool for Microsoft Rewards. AutoRewarder performs Bing searches and collects Daily Sets using mathematically driven, human-like input simulation (W3C Actions, Bezier curves, and smart scrolling).
+An advanced, set-and-forget automation tool for Microsoft Rewards. AutoRewarder performs Bing searches for PC and mobile profiles, collects Daily Sets, and uses mathematically driven, human-like input simulation (W3C Actions, Bezier curves, and smart scrolling).
 
-Built with a robust Python/Selenium backend, it offers two modes of operation: a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview, and a script-only version (CLI tool) for running without GUI. Packaged as an executable Windows app (via Inno Setup) for a seamless, plug-and-play experience.
+Built with a robust Python/Selenium backend, it offers two modes of operation: a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview, and a headless runner (CLI) for scheduled background runs and automation scripts. Packaged as an executable Windows app (via Inno Setup) for a seamless, plug-and-play experience.
 
 > **Ready to start? Check out the complete [USER GUIDE](USER_GUIDE.md)**
 
@@ -75,7 +75,7 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 ## System Requirements
 
-- **OS**: Windows 10 or later (can also work on Linux but it is not downloadable as an executable)
+- **OS**: Windows 10 or later (installer), or Linux via source setup (no prebuilt executable)
 - **Browser**: Microsoft Edge (driver managed by Selenium Manager)
 - **.NET Framework**: 4.8 or higher (automatically checked by installer)
 - **RAM**: Minimum 512 MB (1 GB recommended)
@@ -86,27 +86,28 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 ## Features
 
 **User Experience & Interface:**
-- First Setup flow with dedicated Edge profile for isolation
-- Comprehensive settings section
-- Optional hide-browser mode (headless automation toggle)
-- Live terminal-like logs with real-time updates
-- Script-only version (CLI tool) for running without GUI
-- Update available notifications (GitHub Releases)
-- Local history view with date, time, query, and execution status
-- One-click start automation (1-99 searches per session)
+- Multi-account management (add, rename, delete, per-account profiles)
+- First Setup per account with a dedicated Edge profile
+- PC and Mobile query controls (0-130 / 0-99)
+- Optional hide-browser mode (headless UI toggle)
+- Per-account scheduled runs (simple or advanced)
+- Start with Windows/Linux toggle (autostart)
+- Live terminal-like logs with update notifications (GitHub Releases)
+- Local history view per account (date, time, query, status)
 - Safe recovery for corrupted settings/history files
 
 **Automation & Core Logic:**
-- Automatic start-up (launches the app silently in the background on system boot)
-- Configurable run pacing (run duration, total searches, and queries-per-hour distribution during a session)
+- Automatic start-up (launches headless runs on sign-in)
+- Configurable run pacing (advanced scheduling with run duration and queries per hour)
 - Background WebDriver warmup at startup for faster execution
 - Human-like search behavior (typing delays, random pauses, smooth scrolling)
+- Mobile emulation for Rewards credit (iPhone UA and touch)
 - Uses real-world queries from assets/queries.json (8154 unique entries from google-trends dataset)
 - Randomized delays to reduce repetitive patterns
 - Optional tab switching between result categories (Images/Videos/News)
 - Natural mouse movement/clicking (W3C Actions)
-- Daily Set task collection (runs once per day)
-- Separate browser thread isolation
+- Daily Set task collection (runs once per day, per account)
+- Separate browser profile per account
 
 **Developer & Code Quality:**
 - Advanced documentation (comprehensive docstrings and detailed guides)
@@ -120,8 +121,8 @@ You do not need Python to use release builds.
 
 1. Download `AutoRewarder-Setup.exe` from the latest release
 2. Install and run the app
-3. Complete First Setup
-4. Start automation
+3. Add your first account and complete setup
+4. Set PC/Mobile counts and start a run
 
 For detailed guide, see [USER_GUIDE.md](USER_GUIDE.md)
 
@@ -144,35 +145,34 @@ python AutoRewarder.py
 
 ## CLI Usage
 
-For users who prefer the terminal or want to integrate the bot into custom scripts, a headless CLI version is available.
+For users who prefer the terminal or want to integrate the bot into custom scripts, a headless runner is available. It is the same engine used by the Start with Windows setting. You can call `AutoRewarder.py --headless` or run `AutoRewarder_CLI.py` directly (arguments are the same).
 
 ### Available CLI Arguments
 
-These arguments can be combined. If you run the script without any arguments (`python AutoRewarder_CLI.py`), it will automatically read your last saved settings from the GUI.
+These arguments can be combined. Without `--account`, it runs every enabled schedule sequentially.
 
 | Argument | Type | Description | Default / Fallback |
 | :--- | :--- | :--- | :--- |
-| `--once` | Flag | Runs the bot in a single immediate batch. It will perform all queries at once without scheduling. | Uses Advanced Scheduling if it is enabled in your settings. |
-| `--count` | Integer | Number of search queries for a single run. (Only used if `--once` is provided). | Reads `totalQueries` from settings (or defaults to 30). |
-| `--duration` | Float | Run duration in hours for scheduled mode. The bot will distribute queries into small batches over this time. | Reads `runDuration` from settings (default is 3 hours). |
-| `--total-queries` | Integer | Total number of queries to perform during the scheduled `--duration`. | Reads `totalQueries` from settings. |
-| `--queries-per-hour` | Integer | Target number of searches per hour. If provided, the script can calculate total queries automatically. | Reads `queriesPerHour` from settings. |
+| `--account` | String | Run only this account (by id or label). | Runs all enabled schedules. |
+| `--pc` | Integer | Override PC queries for this run (requires `--account`). | Uses the account schedule. |
+| `--mobile` | Integer | Override Mobile queries for this run (requires `--account`). | Uses the account schedule. |
+| `--force` | Flag | Run even if already triggered today. | Skips accounts already triggered today. |
 
-> **Note:** The `headless` mode is **forced permanently** within this CLI script to ensure silent background execution.
+> **Note:** Headless mode is forced in the CLI and does not change the GUI Hide Browser preference.
 
 ---
 
-### Example CLI scheduling commands:
+### Example CLI commands:
 
 ```bash
-# One-off run (execute immediately and exit)
-python AutoRewarder_CLI.py --once --count 30
+# Run every enabled schedule (same as autostart)
+python AutoRewarder.py --headless
 
-# Scheduled distribution: run 30 queries over 3 hours
-python AutoRewarder_CLI.py --duration 3 --total-queries 30
-
-# Use saved GUI settings (no args)
-python AutoRewarder_CLI.py
+# Run a single account once with overrides
+python AutoRewarder.py --headless --account "Main" --pc 30 --mobile 20
+    
+# Force a re-run the same day
+python AutoRewarder.py --headless --account "Main" --pc 30 --force
 ```
 
 ---
@@ -202,9 +202,8 @@ AutoRewarder/
 │   ├── history.html      # History view UI
 │   ├── history.css       # History view styling
 │   ├── script.js         # Frontend logic and bridge calls
-│   ├── styles.css        # App styling
 │   ├── settings.js       # Settings page logic and bridge calls
-│   ├── settings.css      # Settings page styling
+│   ├── styles.css        # App styling
 │   └── normalize.css     # CSS reset
 ├── assets/
 │   ├── icon.ico          # App icon
@@ -212,17 +211,19 @@ AutoRewarder/
 │   └── screenshots/      # Screenshots and GIFs for documentation
 ├── src/
 │   ├── __init__.py       # Python package initialization
+│   ├── account_manager.py # Multi-account CRUD + migration
 │   ├── api.py            # Centralizes all main operations (bridge API exposed to JS)        
 │   ├── config.py         # Configuration constants/platform and file paths
 │   ├── daily_set.py      # Rewards Daily Set collection logic
 │   ├── driver_manager.py # WebDriver setup and management
+│   ├── edge_policy.py    # Edge sign-in policy helpers (Windows)
 │   ├── history.py        # Manages search history storage and retrieval
 │   ├── human_behavior.py # Human-like mouse movement/clicks/scrolling
 │   ├── search_engine.py  # Handles search logic and interactions
 │   ├── settings_manager.py # Manages user settings storage and retrieval
 │   └── utils.py          # Utility functions(human-typing, update checks)
 ├── AutoRewarder.py       # Python backend and webview window
-├── AutoRewarder_CLI.py   # Script-only version without GUI (for advanced users)
+├── AutoRewarder_CLI.py   # Headless runner (multi-account aware)
 ├── AutoRewarder.spec     # PyInstaller build spec
 ├── AutoRewarder.iss      # Inno Setup installer script
 ├── LICENSE              
@@ -249,11 +250,15 @@ The application stores its runtime files (profiles, history, logs, and settings)
 
 Created files and folders:
 ```text
-EdgeProfile/   # Separate Edge profile for WebDriver
-settings.json  # User settings (first_setup_done, hide_browser)
-history.json   # Search history (date, time, query, status)
-status.json    # Daily Set completion status (per-day)
-background_log.txt # Logs from the background performance (for debugging)
+settings.json      # Global settings (hide_browser, current_account_id, autoStartUp)
+accounts.json      # Account index
+accounts/
+	<account_id>/
+		EdgeProfile/   # Separate Edge profile for WebDriver
+		history.json   # Search history (date, time, query, status)
+		status.json    # Daily Set completion status (per-day)
+		meta.json      # Per-account metadata (first_setup_done, schedule)
+background_log.txt # Logs from the background runner (for debugging)
 ```
 
 ---
@@ -277,13 +282,14 @@ For common issues and solutions, see the [Troubleshooting](USER_GUIDE.md#trouble
 - [x] Script-only version (CLI tool without GUI)
 - [x] Automatic start-up 
 - [x] Query pacing over a specified duration (rate-based scheduling)
+- [x] Multi-account support (manage multiple Rewards accounts)
+- [x] Mobile support
+- [x] Per-Account Scheduling
+- [x] Brand New UI
 - [ ] Statistics dashboard (points tracking, session summaries)
 - [ ] Browser choice (Chrome, Firefox support in addition to Edge)
-- [ ] Multi-account support (manage multiple Rewards accounts)
-- [ ] Mobile support
 - [ ] Daily "Claim" actions
 - [ ] Keyboard shortcuts
-- [ ] UI themes (dark/light mode)
 
 ---
 
