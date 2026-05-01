@@ -55,16 +55,42 @@ First Setup creates a dedicated Edge profile for each account. This keeps it sep
 
 1. Click **Create your first account** (or **Add account**)
 2. Enter a name for the account
-3. Microsoft Edge opens. Sign in to the Rewards account for this profile (do not enable sync)
-<img src="assets/screenshots/sing_in.png" alt="Sign in screenshot" width="400">
+3. Microsoft Edge opens. Sign in to the Rewards account for this profile. 
 
-> [!WARNING]
-> **Important:** Do not enable browser sync
+<img src="assets/screenshots/new_sign_in/sign_in_2.png" width="400">
 
 4. Close the browser window when done
 5. The account will show as **Ready**
 
-You can repeat this to add more accounts. If a profile gets corrupted, open **Manage accounts** and choose **Re-run setup**.
+### Multiple Accounts
+
+Adding another account is slightly different, so please follow these steps:
+
+1. Click **Add account**
+2. Enter a name for the new account
+3. Microsoft Edge opens again, but this time it will suggest you automatically sign in. Do NOT accept the sign-in prompt. Instead, click **No, thanks** or **x**.
+
+<img src="assets/screenshots/new_sign_in/sign_in_3.png" width="400">
+
+4. Then click the profile icon in the top right corner of Edge and choose **Add new account**.
+
+<img src="assets/screenshots/new_sign_in/sign_in_4.png" width="400">
+<img src="assets/screenshots/new_sign_in/sign_in_5.png" width="400">
+
+5. After signing in to the new account, the profile tab should look like this:
+
+<img src="assets/screenshots/new_sign_in/sign_in_6.png" width="400">
+
+6. Make sure you see the new account here. If you see the old account, click **Sign out** and sign in with the new account. If you see the new one, just refresh the page and it should show as signed in.
+
+<img src="assets/screenshots/new_sign_in/sign_in_2.png" width="400">
+<img src="assets/screenshots/new_sign_in/sign_in_1.png" width="400">
+
+> **Important:** Go to the Rewards dashboard and accept terms and cookies for the new account to make sure it's fully set up.
+
+7. Close the browser window when done
+
+> **Note:** Repeat this to add more accounts.
 
 ---
 
