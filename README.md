@@ -26,6 +26,9 @@ Built with a robust Python/Selenium backend, it offers two modes of operation: a
 - [Runtime Data](#runtime-data)
 - [Troubleshooting](#troubleshooting)
 - [Roadmap](#roadmap)
+- [Disclaimer](#disclaimer)
+- [Contact](#contact)
+- [Support](#support)
 
 ---
 
