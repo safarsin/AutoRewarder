@@ -1,0 +1,10 @@
+-r requirements.txt
+
+# Development tooling. Single source of truth for local + CI versions:
+# .github/workflows/lint.yml installs from this file, and the pinned mypy
+# version matches .pre-commit-config.yaml's mirrors-mypy rev.
+pre-commit==4.6.0
+black==26.3.1
+flake8==7.3.0
+mypy==1.9.0
+types-requests

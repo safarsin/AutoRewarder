@@ -236,22 +236,28 @@ function start_bot() {
     return;
   }
 
-  const pc = parseInt(document.getElementById('count_pc').value, 10);
-  const mobile = parseInt(document.getElementById('count_mobile').value, 10);
+  const dailyOnly = Boolean(document.getElementById('dailyOnlyToggle')?.checked);
 
-  const pcValid = !isNaN(pc) && pc >= 0 && pc <= 130;
-  const mobileValid = !isNaN(mobile) && mobile >= 0 && mobile <= 99;
-  if (!pcValid) {
-    show_toast('PC must be between 0 and 130.', 'warning');
-    return;
-  }
-  if (!mobileValid) {
-    show_toast('Mobile must be between 0 and 99.', 'warning');
-    return;
-  }
-  if (pc + mobile === 0) {
-    show_toast('Set at least one of PC or Mobile above 0.', 'warning');
-    return;
+  let pc = 0;
+  let mobile = 0;
+  if (!dailyOnly) {
+    pc = parseInt(document.getElementById('count_pc').value, 10);
+    mobile = parseInt(document.getElementById('count_mobile').value, 10);
+
+    const pcValid = !isNaN(pc) && pc >= 0 && pc <= 130;
+    const mobileValid = !isNaN(mobile) && mobile >= 0 && mobile <= 99;
+    if (!pcValid) {
+      show_toast('PC must be between 0 and 130.', 'warning');
+      return;
+    }
+    if (!mobileValid) {
+      show_toast('Mobile must be between 0 and 99.', 'warning');
+      return;
+    }
+    if (pc + mobile === 0) {
+      show_toast('Set at least one of PC or Mobile above 0.', 'warning');
+      return;
+    }
   }
 
   const btn = document.getElementById('start_btn');
@@ -259,9 +265,28 @@ function start_bot() {
   const label = btn.querySelector('.btn-label');
   if (label) label.textContent = 'Running…';
 
+  const stopBtn = document.getElementById('stop_btn');
+  if (stopBtn) stopBtn.disabled = false;
+
   update_status_indicator('executing');
-  pywebview.api.main(pc, mobile);
+  pywebview.api.main(pc, mobile, dailyOnly);
 }
+
+function _sync_daily_only_ui() {
+  const toggle = document.getElementById('dailyOnlyToggle');
+  const pcField = document.getElementById('count_pc');
+  const mobileField = document.getElementById('count_mobile');
+  if (!toggle) return;
+  const off = toggle.checked;
+  if (pcField) pcField.disabled = off;
+  if (mobileField) mobileField.disabled = off;
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const toggle = document.getElementById('dailyOnlyToggle');
+  if (toggle) toggle.addEventListener('change', _sync_daily_only_ui);
+  _sync_daily_only_ui();
+});
 
 function enable_start_button() {
   const btn = document.getElementById('start_btn');
@@ -269,7 +294,26 @@ function enable_start_button() {
   if (label) label.textContent = 'Start run';
   const current = accountsCache.find(a => a.id === currentAccountId);
   btn.disabled = !(current && current.first_setup_done);
+
+  // Stop button is meaningful only while a run is in progress.
+  const stopBtn = document.getElementById('stop_btn');
+  if (stopBtn) {
+    stopBtn.disabled = true;
+    const stopLabel = stopBtn.querySelector('.stop-label');
+    if (stopLabel) stopLabel.textContent = 'Stop';
+  }
   update_status_indicator();
+}
+
+function stop_bot() {
+  if (!window.pywebview || !pywebview.api || !pywebview.api.stop) return;
+  const stopBtn = document.getElementById('stop_btn');
+  if (stopBtn) {
+    stopBtn.disabled = true;
+    const stopLabel = stopBtn.querySelector('.stop-label');
+    if (stopLabel) stopLabel.textContent = 'Stopping…';
+  }
+  pywebview.api.stop().catch(err => console.error('stop failed:', err));
 }
 
 function update_status_indicator(forceState) {

@@ -55,7 +55,7 @@ First Setup creates a dedicated Edge profile for each account. This keeps it sep
 
 1. Click **Create your first account** (or **Add account**)
 2. Enter a name for the account
-3. Microsoft Edge opens. Sign in to the Rewards account for this profile. 
+3. Microsoft Edge opens. Sign in to the Rewards account for this profile.
 
 <img src="assets/screenshots/new_sign_in/sign_in_2.png" width="400">
 
@@ -101,9 +101,11 @@ Adding another account is slightly different, so please follow these steps:
 1. Open AutoRewarder.exe
 2. Select an account from the dropdown
 3. Set PC and Mobile query counts (PC 0-130, Mobile 0-99). Set one to 0 to skip it
-4. Click the **"Start run"** button
-5. Watch the status indicator show that AutoRewarder is working
-6. The terminal-like window below shows what's happening in real-time
+4. *(Optional)* Toggle **"Daily tasks only"** to skip searches and only collect dashboard click-through tasks
+5. Click the **"Start run"** button
+6. Watch the status indicator show that AutoRewarder is working
+7. The terminal-like window below shows what's happening in real-time
+8. To interrupt the run at any time, click the **"Stop"** button — the browser will close cleanly and no orphan processes are left behind
 
 ### What's Happening?
 
@@ -113,17 +115,22 @@ Adding another account is slightly different, so please follow these steps:
 - It runs the PC phase first, then the Mobile phase (iPhone emulation)
 - It may occasionally switch to Images/Videos/News tabs
 - It may take short "coffee breaks" during longer sessions
-- After the PC phase, it may run Daily Set tasks (once per day, per account)
-- The process continues until all searches are complete
+- After the PC phase, it collects Daily Set + "More Activities" click-through tasks (once per day, per account). Locked cards, sweepstakes and promo banners are automatically skipped — only point-earning tasks are clicked
+- The process continues until all searches are complete, or until you click **Stop**
 - You'll see updates in the log window
 
 If a new version is available, AutoRewarder can show an update notification and a download link.
+
+#### Daily tasks only
+
+If you've already done your searches manually (or just want to clean up the dashboard quickly), enable the **"Daily tasks only"** toggle before starting. The run skips both Bing search phases and goes straight to the Rewards dashboard to harvest the Daily Set + More Activities cards.
 
 ### After Completion
 
 - The **"Start"** button will become enabled again
 - You can start another session or close the app
 - Your search history is saved automatically
+- If you stopped the run via **Stop**, partial progress is kept (whatever searches and daily-task clicks already happened are credited as usual)
 
 ---
 
@@ -150,7 +157,9 @@ If you want to disable this setting, simply turn it off and save settings. Or re
 
 ### How to check if it's running or stop it (Task Manager)
 
-Since AutoRewarder can run silently in the background (when using Autostart or CLI mode), you might not see an open window. Here is how to manage it:
+If the AutoRewarder window is open, the in-app **Stop** button is the cleanest way to halt a run — it closes the browser, kills the WebDriver, and leaves no orphan Edge processes behind.
+
+For background runs (Autostart or CLI mode) where there's no visible window, use Task Manager:
 
 **To check status or force stop:**
 1. Open **Task Manager** (`Ctrl + Shift + Esc`).
@@ -274,24 +283,24 @@ If your issue isn't listed, please open an issue on GitHub or [contact me](mailt
 
 ## FAQ
 
-**Q: Is AutoRewarder safe?**  
+**Q: Is AutoRewarder safe?**
 A: AutoRewarder is safe to use on your computer. It uses a separate browser profile so your personal data is not affected.
 
-**Q: Why does it need Microsoft account authorization?**  
+**Q: Why does it need Microsoft account authorization?**
 A: AutoRewarder uses Edge to perform searches. Selenium WebDriver (the automation tool) requires a real browser to work with Microsoft Rewards.
 
-**Q: Will this ban my Microsoft Rewards account?**  
+**Q: Will this ban my Microsoft Rewards account?**
 A: Microsoft Rewards' Terms of Service prohibit automation. Use at your own risk.
 But AutoRewarder is designed to mimic human behavior with randomized delays and real search queries to reduce the risk of detection. However, there is always a possibility of account suspension if detected such as searching with Bing while AutoRewarder is running or running multiple sessions at the same time.
 Personaly I have been using it for almost 7 months without any issues.
 
-**Q: How many searches can I do per day?**  
+**Q: How many searches can I do per day?**
 A: You can run as many sessions as you want. The UI allows PC (0-130) and Mobile (0-99) per run, but Microsoft Rewards limits depend on region and account status.
 
-**Q: Why does it ask me to do First Setup?**  
+**Q: Why does it ask me to do First Setup?**
 A: First Setup creates a separate browser profile for each account. You only need to run it once per account.
 
-**Q: What if the app freezes?**  
+**Q: What if the app freezes?**
 A: You can force-close it (Ctrl+Alt+Delete → Task Manager → AutoRewarder → End Task). Your history/settings will be preserved.
 
 **Q: Can I run this on Mac or Linux?** <br>
@@ -299,7 +308,7 @@ A: Currently, the pre-built installer and standalone executable are only availab
 
 ---
 
-**Last Updated**: May 2026  
+**Last Updated**: May 2026
 **Version**: 3.2
 
 Enjoy using AutoRewarder! 🎉

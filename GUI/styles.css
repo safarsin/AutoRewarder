@@ -374,7 +374,23 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
+}
+
+.queries-panel {
+  background-color: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+}
+
+input[type="number"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.queries-panel:has(input[type="number"]:disabled) {
+  opacity: 0.55;
 }
 
 .field-inline {
@@ -507,6 +523,7 @@ input[type="number"]:focus {
 .toggle-label {
   font-size: 13px;
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
 /* Primary large button */
@@ -541,6 +558,47 @@ input[type="number"]:focus {
   color: var(--text-dim);
   cursor: not-allowed;
   box-shadow: none;
+}
+
+/* Run actions row: Start button (flex grow) + Stop button (fixed) */
+
+.run-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+
+.run-actions .primary-btn-lg {
+  flex: 1;
+  width: auto;
+}
+
+.stop-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
+  background-color: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger-soft);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.stop-btn:hover:not(:disabled) {
+  background-color: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+.stop-btn:disabled {
+  color: var(--text-dim);
+  border-color: var(--border-soft);
+  cursor: not-allowed;
 }
 
 /* Status row */
