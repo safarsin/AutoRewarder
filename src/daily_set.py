@@ -223,9 +223,9 @@ return false;
 #
 # Aria-label was tempting as a fallback ("Gagnez 10 points" framing), but
 # promo cards like the refer-a-friend banner inline phrases like "Gagnez
-# 7 500 points quand vos amis cherchent" inside the description, which
-# false-positives any "earn N" regex. Sticking to the rendered span keeps
-# the signal trustworthy.
+# 7 500 points quand vos amis cherchent" (Earn 7,500 points when your friends 
+# search) inside the description, which false-positives any "earn N" regex. 
+# Sticking to the rendered span keeps the signal trustworthy.
 _CARD_HAS_POINTS_JS = r"""
 var card = arguments[0];
 if (!card) return false;
