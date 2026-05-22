@@ -1040,11 +1040,22 @@ class AutoRewarderAPI:
             except Exception:
                 schedule = {}
 
+        schedule_enabled = isinstance(schedule, dict) and bool(schedule.get("enabled"))
         use_advanced = (
+            not daily_only
+            and schedule_enabled
+            and bool(schedule.get("advancedScheduling"))
+        )
+
+        if (
             not daily_only
             and isinstance(schedule, dict)
             and bool(schedule.get("advancedScheduling"))
-        )
+            and not schedule_enabled
+        ):
+            self.log(
+                "[WARNING] Advanced scheduling is enabled, but Schedule is off. Running normal pace."
+            )
 
         if not self._run_lock.acquire(blocking=False):
             self.log("[WARNING] A run is already in progress.")
