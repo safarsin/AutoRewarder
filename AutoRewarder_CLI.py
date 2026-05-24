@@ -36,11 +36,20 @@ from src.config import LOG_FILE_PATH, LOG_MAX_SIZE
 
 
 def _iso_now():
+    """
+    Return current time as an ISO string with seconds precision.
+    Example: "2024-06-01T14:23:45"
+    """
     return datetime.now().isoformat(timespec="seconds")
 
 
 def console_log(message):
-    """Print to stdout AND append to the rotating background log file."""
+    """
+    Print to stdout and append to the rotating background log file.
+
+    Args:
+        message (str): The message to log.
+    """
     line = f"[{_iso_now()}] {message}"
     print(line)
     try:
@@ -64,7 +73,14 @@ def console_log(message):
 
 
 def _run_once(api, pc, mobile):
-    """Single burst: PC then Mobile, all in one go."""
+    """
+    Single burst: PC then Mobile, all in one go.
+
+    Args:
+        api: AutoRewarderAPI instance (must already be headless-configured)
+        pc: number of PC queries to run
+        mobile: number of Mobile queries to run
+    """
     console_log(f"Single run: PC={pc}, Mobile={mobile}")
     try:
         api.main(int(pc), int(mobile))
@@ -80,6 +96,13 @@ def _run_scheduled(api, pc, mobile, duration_hours, queries_per_hour):
     on the PC phase inside api.main via its run_phase logic). The schedule
     repeats very small batches (≤ 10 queries) with jittered sleeps so the
     pattern doesn't look scripted.
+
+    Args:
+        api: AutoRewarderAPI instance (must already be headless-configured)
+        pc: total PC queries to run
+        mobile: total Mobile queries to run
+        duration_hours: how many hours to spread the queries across
+        queries_per_hour: target queries per hour (overrides duration_hours if > 0)
     """
     pc = int(pc)
     mobile = int(mobile)
@@ -153,7 +176,12 @@ def _run_scheduled(api, pc, mobile, duration_hours, queries_per_hour):
 
 
 def _create_headless_api():
-    """Build an AutoRewarderAPI bound to the console logger and force hide_browser."""
+    """
+    Build an AutoRewarderAPI bound to the console logger and force hide_browser.
+
+    Returns:
+        AutoRewarderAPI: a ready-to-run API instance with no GUI
+    """
     api = AutoRewarderAPI()
     # Replace the GUI-bound logger with our console one.
     api.log = console_log
@@ -178,7 +206,16 @@ def _create_headless_api():
 
 
 def _resolve_account(api, token):
-    """Resolve an --account argument (id or label) to an account entry, or None."""
+    """
+    Resolve an --account argument (id or label) to an account entry, or None.
+
+    Args:
+        api: AutoRewarderAPI instance (must already be headless-configured)
+        token: the --account argument to resolve
+
+    Returns:
+        dict: the matching account entry, or None if no match
+    """
     if not token:
         return None
     for acc in api.account_manager.list():
@@ -188,7 +225,12 @@ def _resolve_account(api, token):
 
 
 def _mark_triggered_today(account_id):
-    """Set `last_triggered_date` on the account's schedule to today."""
+    """
+    Set `last_triggered_date` on the account's schedule to today.
+
+    Args:
+        account_id: the id of the account to mark
+    """
     meta = AccountMetaManager(account_id)
     sched = meta.get_schedule()
     sched["last_triggered_date"] = date.today().isoformat()
@@ -206,6 +248,16 @@ def _run_account(api, acc, pc_override=None, mobile_override=None, force=False):
 
     Respects the per-account schedule unless overrides are supplied. Skips if
     already triggered today unless `force=True`.
+
+    Args:
+        api: AutoRewarderAPI instance (must already be headless-configured)
+        acc: account dict from api.account_manager.list()
+        pc_override: if not None, ignore schedule and run this many PC queries
+        mobile_override: if not None, ignore schedule and run this many Mobile queries
+        force: if True, ignore "already triggered today" and run anyway
+
+    Returns:
+        bool: True if the account was run, False if skipped
     """
     aid = acc["id"]
     label = acc["label"]
@@ -271,6 +323,7 @@ def _run_account(api, acc, pc_override=None, mobile_override=None, force=False):
 
 
 def main():
+    """Parse CLI args and run scheduled or targeted accounts."""
     parser = argparse.ArgumentParser(
         description="AutoRewarder headless / scheduled runner (multi-account aware)"
     )

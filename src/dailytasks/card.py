@@ -169,6 +169,16 @@ class RewardsCard:
         considered a side-effect of the user stopping the run and not logged
         as a warning (the driver was force-quit, every Selenium call from
         here on will throw HTTPConnectionPool errors).
+
+        Args:
+            card: Selenium WebElement representing the Rewards card to click.
+            human: An instance of HumanBehavior for performing human-like interactions.
+            main_tab: The handle of the main browser tab to return to after clicking.
+            label: Optional short label for logging.
+            stop_event: Optional threading.Event that signals if the run has been stopped by the user.
+
+        Returns:
+            bool: True if the card was clicked and handled successfully, False if an exception occurred.
         """
         click_target = self.pick_click_target(card)
 

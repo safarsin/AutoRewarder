@@ -22,6 +22,7 @@ _VALUE_NAME = "BrowserSignin"
 
 
 def is_supported():
+    """Return True on Windows where Edge policy edits are supported."""
     return platform.system() == "Windows"
 
 
@@ -46,7 +47,15 @@ def get_current_value():
 
 
 def set_browser_signin_disabled(disabled):
-    """Set BrowserSignin=0 (disable) or delete the value (restore default behaviour)."""
+    """
+    Set BrowserSignin=0 (disable) or delete the value (restore default behaviour).
+
+    Args:
+        disabled (bool): True to disable browser sign-in, False to restore default behaviour.
+
+    Returns:
+        bool: True if the operation was successful, False otherwise.
+    """
     if not is_supported():
         return False
     try:
@@ -70,7 +79,12 @@ def set_browser_signin_disabled(disabled):
 
 
 def restore_value(previous_value):
-    """Restore a previously-captured value (or delete the entry if it was unset)."""
+    """
+    Restore a previously-captured value (or delete the entry if it was unset).
+
+    Args:
+        previous_value (int or None): The value to restore, or None to delete the entry.
+    """
     if not is_supported():
         return False
     try:

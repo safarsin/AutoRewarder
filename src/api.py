@@ -1,3 +1,5 @@
+"""Core API for bridging the GUI and automation routines."""
+
 import os
 import sys
 import time
@@ -115,6 +117,12 @@ class AutoRewarderAPI:
     # ------------------------------------------------------------------
 
     def set_window(self, window):
+        """
+        Attach the webview window and start background tasks.
+
+        Args:
+            window: The webview window to attach.
+        """
         self._webview_window = window
         self.start_update_check()
 
@@ -123,13 +131,19 @@ class AutoRewarderAPI:
             threading.Thread(target=self.load_driver_in_background, daemon=True).start()
 
     def _safe_log(self, message):
-        """Log wrapper usable before the webview window is attached."""
+        """
+        Log wrapper usable before the webview window is attached.
+
+        Args:
+            message (str): The message to log.
+        """
         if self._webview_window:
             self.log(message)
         else:
             print(message)
 
     def open_history_window(self):
+        """Open the history viewer window."""
         # Local import: pywebview is a GUI-only dependency, kept out of the
         # headless CLI import chain (see comment at top of this module).
         import webview
@@ -146,12 +160,14 @@ class AutoRewarderAPI:
         )
 
     def start_update_check(self):
+        """Start a one-time background update check."""
         if self._update_check_started:
             return
         self._update_check_started = True
         threading.Thread(target=self.run_update_check, daemon=True).start()
 
     def run_update_check(self):
+        """Check for updates and notify the UI when a newer version exists."""
         try:
             needs_update, latest_version = check_for_updates(logger=self.log)
         except Exception as e:
@@ -191,6 +207,7 @@ class AutoRewarderAPI:
             self.log(f"[ERROR] Error displaying update alert: {e}")
 
     def open_link(self, url):
+        """Open a URL in the system default browser."""
         webbrowser.open(url)
 
     def load_driver_in_background(self):
@@ -213,6 +230,7 @@ class AutoRewarderAPI:
                 self._webview_window.evaluate_js("stop_loader()")
 
     def check_driver_status(self):
+        """Return True while the driver warmup thread is active."""
         return self.is_driver_loading
 
     # ------------------------------------------------------------------
@@ -224,6 +242,15 @@ class AutoRewarderAPI:
         return self.global_settings.get_settings()
 
     def set_hide_browser(self, is_hide):
+        """
+        Persist and apply the hide-browser setting.
+
+        Args:
+            is_hide (bool): True to hide the browser, False to show it.
+
+        Returns:
+            bool: True if the setting was successfully updated, False otherwise.
+        """
         self.hide_browser = bool(is_hide)
         if self.driver_manager is not None:
             self.driver_manager.hide_browser = bool(is_hide)
@@ -286,6 +313,13 @@ class AutoRewarderAPI:
         `payload` accepts: enabled, advancedScheduling, runDuration (1..24),
         queriesPerHour (1..99), queries_pc (0..130), queries_mobile (0..99).
         Unknown keys are ignored.
+
+        Args:
+            account_id (str): The ID of the account to set the schedule for.
+            payload (dict): The schedule settings to persist.
+
+        Returns:
+            bool: True if the schedule was successfully updated, False otherwise.
         """
         if not account_id or not self.account_manager.exists(account_id):
             return False
@@ -348,7 +382,13 @@ class AutoRewarderAPI:
     # ---- Autostart (OS-level) — ported from v3.1 main -----------------
 
     def _autostart_command(self):
-        """Command string registered for autostart."""
+        """
+        Command string registered for autostart.
+
+        Returns:
+            str: The command to execute for autostart, which varies based on
+                whether the app is frozen (packaged) or running in development mode.
+        """
         # Frozen build: call the bundled exe with --headless.
         if getattr(sys, "frozen", False):
             return f'"{sys.executable}" --headless'
@@ -358,12 +398,21 @@ class AutoRewarderAPI:
         return f'"{sys.executable}" "{entry}" --headless'
 
     def _linux_autostart_path(self):
+        """Return the path to the Linux .desktop autostart entry."""
         return os.path.join(
             os.path.expanduser("~"), ".config", "autostart", "AutoRewarder.desktop"
         )
 
     def _set_autostart_linux(self, enable):
-        """Create or remove the Linux .desktop autostart entry."""
+        """
+        Create or remove the Linux .desktop autostart entry.
+
+        Args:
+            enable (bool): True to enable autostart, False to disable.
+
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
         try:
             desktop_path = self._linux_autostart_path()
             if enable:
@@ -392,7 +441,15 @@ class AutoRewarderAPI:
             return False
 
     def _set_autostart_registry(self, enable):
-        """Platform-agnostic entry point. Windows → HKCU Run, Linux → .desktop."""
+        """
+        Platform-agnostic entry point. Windows → HKCU Run, Linux → .desktop.
+
+        Args:
+            enable (bool): True to enable autostart, False to disable.
+
+        Returns:
+            bool: True if the operation was successful, False otherwise.
+        """
         try:
             system_name = platform.system()
             if system_name == "Linux":
@@ -463,7 +520,15 @@ class AutoRewarderAPI:
         }
 
     def set_launch_on_startup(self, enabled):
-        """Register or unregister the OS autostart entry. Called from JS."""
+        """
+        Register or unregister the OS autostart entry. Called from JS.
+
+        Args:
+            enabled (bool): True to enable autostart, False to disable.
+
+        Returns:
+            bool: True if the operation succeeded, False otherwise.
+        """
         ok = self._set_autostart_registry(bool(enabled))
         if ok:
             # Mirror the state into global settings.json for the UI.
@@ -477,9 +542,11 @@ class AutoRewarderAPI:
     # ------------------------------------------------------------------
 
     def list_accounts(self):
+        """Return accounts for UI display."""
         return self.account_manager.list()
 
     def get_current_account(self):
+        """Return the currently selected account, or None."""
         return self.account_manager.get_current()
 
     def create_account(self, label):
@@ -487,6 +554,12 @@ class AutoRewarderAPI:
         Create a new account, select it, and run First Setup against it.
         On setup failure (user closes browser without logging in), rolls back
         and restores the previously-selected account.
+
+        Args:
+            label (str): The user-friendly label for the new account.
+
+        Returns:
+            dict: {ok (bool), id (str), label (str)} on success, or {ok: False, error: str} on failure.
         """
         if self._run_lock.locked():
             self.log("[WARNING] Cannot add an account while the bot is running.")
@@ -513,6 +586,15 @@ class AutoRewarderAPI:
         return {"ok": True, "id": new_id, "label": new_account["label"]}
 
     def switch_account(self, account_id):
+        """
+        Switch to the specified account if possible.
+
+        Args:
+            account_id (str): The ID of the account to switch to.
+
+        Returns:
+            bool: True if switching succeeded, False otherwise.
+        """
         if self._run_lock.locked():
             self.log("[WARNING] Cannot switch account while the bot is running.")
             return False
@@ -529,6 +611,16 @@ class AutoRewarderAPI:
         return True
 
     def rename_account(self, account_id, new_label):
+        """
+        Rename an account label.
+
+        Args:
+            account_id (str): The ID of the account to rename.
+            new_label (str): The new label for the account.
+
+        Returns:
+            bool: True if renaming succeeded, False otherwise.
+        """
         try:
             self.account_manager.rename(account_id, new_label)
         except ValueError as e:
@@ -538,6 +630,15 @@ class AutoRewarderAPI:
         return True
 
     def delete_account(self, account_id):
+        """
+        Delete an account and refresh the UI.
+
+        Args:
+            account_id (str): The ID of the account to delete.
+
+        Returns:
+            bool: True if deletion succeeded, False if the account is active or on error.
+        """
         if self._run_lock.locked() and account_id == self.account_manager.current_id():
             self.log(
                 "[WARNING] Cannot delete the active account while the bot is running."
@@ -557,6 +658,12 @@ class AutoRewarderAPI:
         """
         Re-run First Setup for an existing account (e.g. profile got corrupted).
         Temporarily switches to it if not current, then restores previous.
+
+        Args:
+            account_id (str): The ID of the account to run setup for.
+
+        Returns:
+            bool: True if setup succeeded, False on failure or if the bot is running.
         """
         if self._run_lock.locked():
             self.log("[WARNING] Cannot re-run setup while the bot is running.")
@@ -726,6 +833,7 @@ class AutoRewarderAPI:
     # ------------------------------------------------------------------
 
     def get_history(self):
+        """Return the current account query history."""
         if self.history is None:
             return []
         return self.history.get_history()
@@ -735,6 +843,12 @@ class AutoRewarderAPI:
     # ------------------------------------------------------------------
 
     def log(self, message):
+        """
+        Log to the GUI when attached; otherwise to stdout.
+
+        Args:
+            message (str): The message to log.
+        """
         if self._webview_window:
             try:
                 safe_message = json.dumps(message)
@@ -887,6 +1001,11 @@ class AutoRewarderAPI:
         opens a desktop driver to run the Daily Set + More Activities. Both
         count arguments are ignored. Useful when the user just wants to
         collect today's daily-task points without churning searches.
+
+        Args:
+            pc_count (int): how many searches to do in the PC phase (ignored if daily_only)
+            mobile_count (int): how many searches to do in the Mobile phase (ignored if daily_only)
+            daily_only (bool): whether to skip searches and just run the Daily Set
         """
         if self.account_manager.current_id() is None:
             self.log("[ERROR] No account selected. Add one via the dropdown.")
@@ -1038,6 +1157,11 @@ class AutoRewarderAPI:
         """
         Open a driver for a single phase (PC or Mobile), do `count` searches,
         optionally run the Daily Set, then quit.
+
+        Args:
+            mobile (bool): whether this is the Mobile phase (True) or PC phase (False)
+            count (int): how many searches to perform in this phase
+            do_daily_set (bool): whether to run the Daily Set after searches (PC phase only)
         """
         label = "Mobile" if mobile else "PC"
         self.log(

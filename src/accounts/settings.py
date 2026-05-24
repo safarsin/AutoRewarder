@@ -1,3 +1,5 @@
+"""App-wide global settings persistence."""
+
 import json
 import os
 
@@ -35,6 +37,13 @@ def _write_json(path, data):
     tolerates transient Windows locks (Defender, indexer, another instance
     briefly holding the file). A stale `.tmp` from a previous crashed write
     is removed before the write so its file attributes don't block us.
+
+    Args:
+        path: target file path to write
+        data: JSON-serializable data to write
+
+    Raises:
+        OSError: If the file cannot be written.
     """
     import time as _time
 
@@ -73,6 +82,7 @@ class GlobalSettingsManager:
         self.path = GLOBAL_SETTINGS_PATH
 
     def get_settings(self):
+        """Return settings merged with defaults."""
         defaults = {
             "hide_browser": False,
             "current_account_id": None,
@@ -114,17 +124,21 @@ class GlobalSettingsManager:
         return merged
 
     def save_settings(self, settings):
+        """Persist settings to disk."""
         _write_json(self.path, settings)
 
     def set_hide_browser(self, is_hide):
+        """Update the hide_browser flag in settings."""
         settings = self.get_settings()
         settings["hide_browser"] = bool(is_hide)
         self.save_settings(settings)
 
     def get_current_account_id(self):
+        """Return the current account id from settings."""
         return self.get_settings().get("current_account_id")
 
     def set_current_account_id(self, account_id):
+        """Persist the current account id in settings."""
         settings = self.get_settings()
         settings["current_account_id"] = account_id
         self.save_settings(settings)

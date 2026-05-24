@@ -66,8 +66,10 @@ class DailySet:
 
     def should_perform_daily_set(self):
         """
+        Check if the Daily Set has already been completed today.
+
         Returns:
-            bool: True if the daily set should be performed, False if it has
+            bool: True if the Daily Set should be performed, False if it has
                   already been completed today.
         """
         today = str(date.today())
@@ -113,6 +115,24 @@ class DailySet:
         Process one card section (Daily Set or More Activities). Returns a
         dict {already, newly, final, total, attempted} so the caller can
         aggregate stats across sections and make the mark-as-done decision.
+
+        Args:
+            driver: Selenium WebDriver instance.
+            human: An instance of HumanBehavior for performing human-like interactions.
+            section_name: The name of the section being processed (e.g. "Daily Set", "More Activities"), used for logging.
+            selector: The CSS selector to find cards within this section.
+            main_tab: The handle of the main browser tab to return to after processing.
+            stop_event: Optional threading.Event that signals if the run has been stopped by the user.
+
+        Returns:
+            dict: A dictionary containing counts of card statuses:
+                {
+                    "already": int,  # Number of cards already completed before processing.
+                    "newly": int,    # Number of cards newly completed during processing.
+                    "final": int,    # Total number of cards completed after processing.
+                    "total": int,    # Total number of actionable cards (excluding locked/excluded).
+                    "attempted": int # Number of cards that the bot attempted to click.
+                }
         """
         all_cards = driver.find_elements(By.CSS_SELECTOR, selector)
         if not all_cards:
@@ -299,6 +319,8 @@ class DailySet:
         card's status is re-checked after the run to validate progress.
 
         Args:
+            driver: Selenium WebDriver instance.
+            human: An instance of HumanBehavior for performing human-like interactions.
             stop_event (threading.Event, optional): When set, the per-section
                 card loop breaks at the next iteration so the run aborts
                 cleanly without re-clicking remaining cards.

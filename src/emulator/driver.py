@@ -1,3 +1,5 @@
+"""Edge WebDriver setup for per-account profiles."""
+
 from selenium import webdriver
 from selenium.webdriver.edge.options import Options
 

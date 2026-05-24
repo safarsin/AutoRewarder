@@ -1,3 +1,5 @@
+"""Search automation helpers for Bing queries."""
+
 import json
 import random
 import time

@@ -1,3 +1,5 @@
+"""Shared utility helpers for AutoRewarder."""
+
 import time
 import random
 import requests

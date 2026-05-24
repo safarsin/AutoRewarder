@@ -1,3 +1,5 @@
+"""History storage and retrieval for per-account searches."""
+
 import os
 import json
 from datetime import datetime
@@ -63,6 +65,9 @@ class HistoryManager:
     def save_history(self, history_list):
         """
         Save the search history to a JSON file atomically via a temp file.
+
+        Args:
+            history_list (list): The list of search records to save.
         """
 
         os.makedirs(os.path.dirname(self.history_file), exist_ok=True)
@@ -77,6 +82,10 @@ class HistoryManager:
     def add_to_history(self, query_text, status):
         """
         Append a search record with the current date, time, query, and status.
+
+        Args:
+            query_text (str): The search query text.
+            status (str): The status of the search.
         """
 
         now = datetime.now()

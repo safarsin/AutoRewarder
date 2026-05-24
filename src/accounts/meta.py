@@ -1,3 +1,5 @@
+"""Per-account metadata persistence (first_setup_done, schedule)."""
+
 import json
 import os
 
@@ -18,6 +20,7 @@ DEFAULT_ACCOUNT_SCHEDULE = {
 
 
 def default_account_schedule():
+    """Return a fresh copy of the default per-account schedule."""
     return dict(DEFAULT_ACCOUNT_SCHEDULE)
 
 
@@ -50,6 +53,13 @@ def _write_json(path, data):
     tolerates transient Windows locks (Defender, indexer, another instance
     briefly holding the file). A stale `.tmp` from a previous crashed write
     is removed before the write so its file attributes don't block us.
+
+    Args:
+        path: target file path to write
+        data: JSON-serializable data to write
+
+    Raises:
+        OSError: If the file cannot be written.
     """
     import time as _time
 
@@ -85,10 +95,15 @@ class AccountMetaManager:
     """
 
     def __init__(self, account_id):
+        """
+        Args:
+            account_id: the ID of the account this manager handles (string)
+        """
         self.account_id = account_id
         self.path = account_meta_path(account_id)
 
     def get_meta(self):
+        """Return per-account meta merged with defaults."""
         defaults = {"first_setup_done": False}
 
         if not os.path.exists(account_dir(self.account_id)):
@@ -115,12 +130,15 @@ class AccountMetaManager:
         return {**defaults, **meta}
 
     def save_meta(self, meta):
+        """Persist per-account meta to disk."""
         _write_json(self.path, meta)
 
     def is_first_setup_done(self):
+        """Return True if first setup is marked complete."""
         return bool(self.get_meta().get("first_setup_done"))
 
     def mark_up_as_done(self):
+        """Mark first setup as completed."""
         meta = self.get_meta()
         meta["first_setup_done"] = True
         self.save_meta(meta)
@@ -135,7 +153,14 @@ class AccountMetaManager:
         return merged
 
     def set_schedule(self, sched):
-        """Persist this account's schedule. `sched` should be a dict."""
+        """
+        Persist this account's schedule. `sched` should be a dict.
+
+        Args:
+            sched: dict with keys matching default_account_schedule.
+                Missing keys will fall back to default values.
+                Example: {"enabled": True, "queriesPerHour": 15}
+        """
         meta = self.get_meta()
         meta["schedule"] = sched
         self.save_meta(meta)

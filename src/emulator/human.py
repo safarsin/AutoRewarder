@@ -1,3 +1,5 @@
+"""Human-like interaction helpers for Selenium-driven browsing."""
+
 import random
 import time
 from selenium.common.exceptions import WebDriverException
@@ -423,6 +425,11 @@ class HumanBehavior:
         Tap an element with a real touch gesture: touchstart at a jittered
         point within the element's rect, a natural hold (50-150 ms), then
         touchend. No Bezier travel — a finger doesn't hover before landing.
+
+        Args:
+            element (WebElement): The target element to tap.
+            scroll_into_view (bool): Whether to scroll the element into view
+                if it's outside the viewport. Default is True.
         """
         if scroll_into_view:
             try:
