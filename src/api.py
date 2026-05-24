@@ -2,6 +2,8 @@ import os
 import sys
 import time
 import json
+import math
+import random
 import platform
 import threading
 import webbrowser
@@ -754,6 +756,124 @@ class AutoRewarderAPI:
     # Main run
     # ------------------------------------------------------------------
 
+    def _sleep_with_stop(self, seconds):
+        """
+        Sleep up to `seconds`, but return early if Stop was requested.
+
+        Args:
+            seconds (float): The number of seconds to sleep.
+
+        Returns:
+            bool: True if stop was requested during the wait, else False.
+        """
+        try:
+            return self._stop_event.wait(timeout=float(seconds))
+        except Exception:
+            time.sleep(seconds)
+            return self._stop_event.is_set()
+
+    def _run_advanced_schedule(
+        self, pc_count, mobile_count, duration_hours, queries_per_hour
+    ):
+        """
+        Drip-feed queries across a duration using the GUI run pipeline.
+
+        Args:
+            pc_count (int): total PC queries to run
+            mobile_count (int): total Mobile queries to run
+            duration_hours (float|int): how many hours to spread the queries across
+            queries_per_hour (int): target queries per hour (overrides duration_hours if > 0)
+        """
+        try:
+            pc = max(0, int(pc_count or 0))
+        except (TypeError, ValueError):
+            pc = 0
+        try:
+            mobile = max(0, int(mobile_count or 0))
+        except (TypeError, ValueError):
+            mobile = 0
+
+        try:
+            duration_hours = float(duration_hours)
+        except (TypeError, ValueError):
+            duration_hours = 3.0
+
+        duration_hours = max(1.0, duration_hours)
+
+        try:
+            qph = int(queries_per_hour or 0)
+        except (TypeError, ValueError):
+            qph = 0
+
+        if qph < 0:
+            qph = 0
+
+        total = pc + mobile
+        self.log(
+            f"Advanced scheduling: PC={pc}, Mobile={mobile} over {duration_hours}h (qph={qph})"
+        )
+
+        if total <= 0:
+            self.log("[WARNING] Nothing to do (PC and Mobile counts are both 0).")
+            return
+
+        if qph > 0:
+            raw_batch = qph // 6  # ~10-minute batches
+        else:
+            raw_batch = total // max(1, int(duration_hours * 2))
+        per_batch = max(1, min(10, raw_batch))
+
+        num_batches = math.ceil(total / per_batch)
+        total_seconds = duration_hours * 3600
+        interval = total_seconds / max(num_batches, 1)
+
+        self.log(
+            f"Planning {num_batches} batches of ~{per_batch} queries, interval ~{interval:.1f}s"
+        )
+
+        pc_left = pc
+        mobile_left = mobile
+
+        for i in range(num_batches):
+            if self._stop_event.is_set():
+                break
+
+            if pc_left > 0:
+                batch_pc = min(per_batch, pc_left)
+                batch_mobile = 0
+            else:
+                batch_pc = 0
+                batch_mobile = min(per_batch, mobile_left)
+
+            if batch_pc == 0 and batch_mobile == 0:
+                break
+
+            self.log(
+                f"Batch {i+1}/{num_batches}: PC={batch_pc}, Mobile={batch_mobile} "
+                f"(PC left {pc_left}, Mobile left {mobile_left})"
+            )
+
+            if batch_pc > 0 and not self._stop_event.is_set():
+                self._run_phase(mobile=False, count=batch_pc, do_daily_set=True)
+
+            if batch_mobile > 0 and not self._stop_event.is_set():
+                self._run_phase(mobile=True, count=batch_mobile, do_daily_set=False)
+
+            pc_left -= batch_pc
+            mobile_left -= batch_mobile
+
+            if pc_left <= 0 and mobile_left <= 0:
+                break
+            if self._stop_event.is_set():
+                break
+
+            sleep_time = max(5.0, interval * random.uniform(0.75, 1.25))
+            self.log(f"Sleeping {sleep_time:.1f}s until next batch")
+            if self._sleep_with_stop(sleep_time):
+                break
+
+        self.log("Advanced scheduled run complete.")
+
     def main(self, pc_count, mobile_count=0, daily_only=False):
         """
         Run the bot against the currently-selected account.
@@ -794,6 +914,30 @@ class AutoRewarderAPI:
                 self._webview_window.evaluate_js("enable_start_button()")
             return
 
+        schedule = {}
+        if not daily_only and self.account_meta is not None:
+            try:
+                schedule = self.account_meta.get_schedule() or {}
+            except Exception:
+                schedule = {}
+
+        schedule_enabled = isinstance(schedule, dict) and bool(schedule.get("enabled"))
+        use_advanced = (
+            not daily_only
+            and schedule_enabled
+            and bool(schedule.get("advancedScheduling"))
+        )
+
+        if (
+            not daily_only
+            and isinstance(schedule, dict)
+            and bool(schedule.get("advancedScheduling"))
+            and not schedule_enabled
+        ):
+            self.log(
+                "[WARNING] Advanced scheduling is enabled, but Schedule is off. Running normal pace."
+            )
+
         if not self._run_lock.acquire(blocking=False):
             self.log("[WARNING] A run is already in progress.")
             return
@@ -817,11 +961,19 @@ class AutoRewarderAPI:
             if daily_only:
                 self._run_daily_only()
             else:
-                if pc_count > 0 and not self._stop_event.is_set():
-                    self._run_phase(mobile=False, count=pc_count, do_daily_set=True)
+                if use_advanced:
+                    duration = schedule.get("runDuration", 3)
+                    qph = schedule.get("queriesPerHour", 10)
+                    self.log("Advanced scheduling enabled. Using scheduled pacing.")
+                    self._run_advanced_schedule(pc_count, mobile_count, duration, qph)
+                else:
+                    if pc_count > 0 and not self._stop_event.is_set():
+                        self._run_phase(mobile=False, count=pc_count, do_daily_set=True)
 
-                if mobile_count > 0 and not self._stop_event.is_set():
-                    self._run_phase(mobile=True, count=mobile_count, do_daily_set=False)
+                    if mobile_count > 0 and not self._stop_event.is_set():
+                        self._run_phase(
+                            mobile=True, count=mobile_count, do_daily_set=False
+                        )
 
             if self._stop_event.is_set():
                 self.log("Stopped.")
