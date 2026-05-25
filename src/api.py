@@ -425,41 +425,20 @@ class AutoRewarderAPI:
             settings.pop("schedule", None)
             self.global_settings.save_settings(settings)
 
-    def _migrate_legacy_autostart(self):
+    def _detect_legacy_autostart(self):
         """
-        Detect any pre-per-account autostart artifact and migrate to the
-        new model (per-account daily tasks).
+        Return True if any pre-per-account autostart artifact exists on
+        this system. Used both by the migration path and by every
+        startup so stale legacy entries get cleaned up even when the
+        user has already moved to the per-account model.
 
-        Sources we recognise as "user previously had autostart on":
+        Recognised sources:
           * Fire-on-login: HKCU Run (Windows) / .desktop (Linux)
           * Single-task daily scheduler: schtasks `AutoRewarder` /
-            systemd `autorewarder.timer` (v3.3 design — single task that
-            iterated every account)
-
-        On detection:
-          1. Persist the user's intent (`autoStartUp = True` in global
-             settings) so `_sync_account_autostart` knows to register.
-          2. Call _set_autostart_registry(True), which cleans up legacy
-             and creates a per-account task for every account whose
-             schedule.enabled = True.
-
-        No-op if no legacy markers are found OR if autoStartUp is already
-        True (the user already migrated). Failures swallowed — a stale
-        legacy entry is not worth crashing startup.
+            systemd `autorewarder.timer` (v3.3 single-task design)
         """
-        try:
-            if bool(self.global_settings.get_settings().get("autoStartUp", False)):
-                # User intent already recorded — sync runs separately
-                # if any account schedule changes.
-                return
-        except Exception:
-            return
-
         system = platform.system()
-        legacy = False
-
         if system == "Windows":
-            # HKCU Run entry?
             try:
                 import winreg
 
@@ -468,36 +447,69 @@ class AutoRewarderAPI:
                     winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_READ
                 ) as key:
                     winreg.QueryValueEx(key, _AUTOSTART_TASK_NAME)
-                    legacy = True
+                    return True
             except Exception:
                 pass
-            # Single-task `AutoRewarder` schtasks entry?
-            if not legacy:
-                try:
-                    result = subprocess.run(
-                        ["schtasks", "/Query", "/TN", _AUTOSTART_TASK_NAME],
-                        capture_output=True,
-                    )
-                    legacy = result.returncode == 0
-                except Exception:
-                    pass
+            try:
+                result = subprocess.run(
+                    ["schtasks", "/Query", "/TN", _AUTOSTART_TASK_NAME],
+                    capture_output=True,
+                )
+                if result.returncode == 0:
+                    return True
+            except Exception:
+                pass
         elif system == "Linux":
             try:
-                legacy = os.path.exists(self._legacy_linux_autostart_path())
+                if os.path.exists(self._legacy_linux_autostart_path()):
+                    return True
             except Exception:
                 pass
-            # Single-task `autorewarder.timer`?
-            if not legacy:
-                try:
-                    timer_path = os.path.join(
-                        self._systemd_user_dir(),
-                        f"{_SYSTEMD_UNIT_NAME}.timer",
-                    )
-                    legacy = os.path.exists(timer_path)
-                except Exception:
-                    pass
+            try:
+                timer_path = os.path.join(
+                    self._systemd_user_dir(),
+                    f"{_SYSTEMD_UNIT_NAME}.timer",
+                )
+                if os.path.exists(timer_path):
+                    return True
+            except Exception:
+                pass
+        return False
 
-        if not legacy:
+    def _migrate_legacy_autostart(self):
+        """
+        Detect any pre-per-account autostart artifact and clean it up.
+
+        Two situations:
+          * `autoStartUp` is False AND legacy detected → the user had
+            autostart on under the old model; persist intent, run
+            cleanup, and register per-account tasks for every enabled
+            account.
+          * `autoStartUp` is True AND legacy detected → the user is
+            already on the per-account model but a stale legacy entry
+            survived a previous migration (e.g. a silently-failed
+            schtasks delete). Just run cleanup; don't touch per-account
+            tasks.
+
+        Failures are logged but swallowed — a stale legacy entry is
+        not worth crashing app startup.
+        """
+        if not self._detect_legacy_autostart():
+            return
+
+        try:
+            already_on_new_model = bool(
+                self.global_settings.get_settings().get("autoStartUp", False)
+            )
+        except Exception:
+            already_on_new_model = False
+
+        if already_on_new_model:
+            self._safe_log("Cleaning up stale legacy autostart entries...")
+            try:
+                self._cleanup_legacy_autostart()
+            except Exception as e:
+                self._safe_log(f"[WARNING] Legacy cleanup failed: {e}")
             return
 
         self._safe_log("Migrating legacy autostart entry to per-account daily tasks...")
@@ -561,12 +573,13 @@ class AutoRewarderAPI:
           * Single-task `AutoRewarder` schtasks / `autorewarder.timer`
             systemd unit (the v3.3 single-task daily scheduler)
 
-        Idempotent — safe to call whenever we touch the new per-account
-        scheduler so users transitioning from an older AutoRewarder don't
-        end up with both fires.
+        Idempotent — safe to call on every startup. Outcomes are logged
+        so that a silent failure can be diagnosed instead of leaving a
+        stale task to fire alongside the new per-account ones.
         """
         system = platform.system()
         if system == "Windows":
+            # HKCU Run value.
             try:
                 import winreg
 
@@ -581,23 +594,50 @@ class AutoRewarderAPI:
                         pass
             except Exception:
                 pass
-            # Remove the single-task daily scheduler from the previous version.
+            # Single-task daily scheduler from the v3.3 design.
+            # Only attempt delete if it actually exists, so failures are
+            # always meaningful (don't log "delete failed" for tasks
+            # that were never there).
             try:
-                subprocess.run(
-                    ["schtasks", "/Delete", "/TN", _AUTOSTART_TASK_NAME, "/F"],
+                q = subprocess.run(
+                    ["schtasks", "/Query", "/TN", _AUTOSTART_TASK_NAME],
                     capture_output=True,
+                    text=True,
                 )
-            except Exception:
+                if q.returncode == 0:
+                    d = subprocess.run(
+                        [
+                            "schtasks",
+                            "/Delete",
+                            "/TN",
+                            _AUTOSTART_TASK_NAME,
+                            "/F",
+                        ],
+                        capture_output=True,
+                        text=True,
+                    )
+                    if d.returncode == 0:
+                        self.log("Removed legacy single-task scheduler")
+                    else:
+                        msg = (d.stderr or d.stdout or "").strip()
+                        self.log(
+                            f"[WARNING] Could not delete legacy task "
+                            f"'{_AUTOSTART_TASK_NAME}': {msg}"
+                        )
+            except FileNotFoundError:
+                # schtasks not on PATH — nothing we can do.
                 pass
+            except Exception as e:
+                self.log(f"[WARNING] Legacy schtasks cleanup error: {e}")
         elif system == "Linux":
             old_desktop = self._legacy_linux_autostart_path()
             if os.path.exists(old_desktop):
                 try:
                     os.remove(old_desktop)
                     self.log("Removed legacy .desktop autostart entry")
-                except OSError:
-                    pass
-            # Remove the single-task systemd timer from the previous version.
+                except OSError as e:
+                    self.log(f"[WARNING] Could not remove .desktop: {e}")
+            # Single-task systemd timer from the v3.3 design.
             base = self._systemd_user_dir()
             old_service = os.path.join(base, f"{_SYSTEMD_UNIT_NAME}.service")
             old_timer = os.path.join(base, f"{_SYSTEMD_UNIT_NAME}.timer")
@@ -615,12 +655,16 @@ class AutoRewarderAPI:
                     )
                 except Exception:
                     pass
+                removed = False
                 for path in (old_service, old_timer):
                     if os.path.exists(path):
                         try:
                             os.remove(path)
-                        except OSError:
-                            pass
+                            removed = True
+                        except OSError as e:
+                            self.log(f"[WARNING] Could not remove {path}: {e}")
+                if removed:
+                    self.log("Removed legacy single-task systemd timer")
                 try:
                     subprocess.run(
                         ["systemctl", "--user", "daemon-reload"],
