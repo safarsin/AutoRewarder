@@ -1735,6 +1735,19 @@ class AutoRewarderAPI:
                 self.log("Stopped.")
             else:
                 self.log("Done!")
+
+                if self.account_meta is not None:
+                    try:
+                        from datetime import date
+
+                        current_schedule = self.account_meta.get_schedule()
+                        if isinstance(current_schedule, dict):
+                            current_schedule["last_triggered_date"] = (
+                                date.today().isoformat()
+                            )
+                            self.account_meta.set_schedule(current_schedule)
+                    except Exception as e:
+                        self.log(f"[WARNING] Failed to update deduplication date: {e}")
         finally:
             try:
                 if self._webview_window:
