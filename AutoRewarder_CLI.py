@@ -352,6 +352,11 @@ def main():
         action="store_true",
         help="Show the browser window (non-headless mode).",
     )
+    parser.add_argument(
+        "--daily-first",
+        action="store_true",
+        help="Run the Daily Set tasks first before executing search queries.",
+    )
     args = parser.parse_args()
 
     if args.pc is not None and args.pc < 0:
@@ -360,6 +365,11 @@ def main():
         parser.error("--mobile must be >= 0")
 
     api = _create_headless_api(visible=args.visible)
+
+    if args.daily_first:
+        settings = api.global_settings.get_settings()
+        settings["daily_first"] = True
+        api.global_settings.save_settings(settings)
 
     accounts = api.account_manager.list()
     if not accounts:
