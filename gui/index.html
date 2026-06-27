@@ -194,6 +194,33 @@
               <span class="toggle-pill"></span>
             </span>
           </label>
+          <label class="settings-row">
+            <div class="settings-row-text">
+              <div class="settings-row-label">Perform Daily Set first</div>
+              <div class="settings-row-hint">Run the Daily Set tasks first before executing search queries.</div>
+            </div>
+            <span class="toggle-compact">
+              <input type="checkbox" id="dailyFirstToggle">
+              <span class="toggle-pill"></span>
+            </span>
+          </label>
+        </section>
+
+        <section class="settings-group">
+          <div class="settings-group-title">Gemini LLM Integration (Explore on Bing)</div>
+          <p class="settings-group-hint">
+            To automatically complete "Explore on Bing" search tasks, configure a free API key from Google AI Studio.
+          </p>
+          <div class="form-grid-2" style="margin-top: 10px;">
+            <div class="form-field">
+              <label for="geminiApiKeyInput">Gemini API Key</label>
+              <input type="password" id="geminiApiKeyInput" placeholder="AIzaSy...">
+            </div>
+            <div class="form-field">
+              <label for="geminiModelInput">Gemini Model</label>
+              <input type="text" id="geminiModelInput" placeholder="gemini-3.1-flash-lite">
+            </div>
+          </div>
         </section>
 
         <section class="settings-group">

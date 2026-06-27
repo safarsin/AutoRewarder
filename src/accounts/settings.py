@@ -100,6 +100,10 @@ class GlobalSettingsManager:
             # Default query counts.
             "queries_pc": 30,
             "queries_mobile": 20,
+            # Gemini LLM Integration settings.
+            "gemini_api_key": "",
+            "gemini_model": "gemini-3.1-flash-lite",
+            "daily_first": False,
         }
 
         if APP_DIR and not os.path.exists(APP_DIR):
