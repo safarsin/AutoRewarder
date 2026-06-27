@@ -317,7 +317,7 @@ class DailySet:
 
     # -- Top-level entry point -------------------------------------------------
 
-    def perform_daily_set(self, driver, human, stop_event=None):
+    def perform_daily_set(self, driver, human, stop_event=None, gemini_api_key=None, gemini_model=None):
         """
         Visit the Rewards dashboard and process every click-through task we
         know about: the Daily Set and the "More Activities" / "Plus d'activité"
@@ -330,6 +330,8 @@ class DailySet:
             stop_event (threading.Event, optional): When set, the per-section
                 card loop breaks at the next iteration so the run aborts
                 cleanly without re-clicking remaining cards.
+            gemini_api_key (str, optional): Google AI Studio Gemini API key.
+            gemini_model (str, optional): Gemini model to use.
 
         Returns:
             bool: True if it's reasonable to mark today as done — either all
@@ -366,7 +368,12 @@ class DailySet:
             except Exception:
                 pass
 
-            self.cards = RewardsCard(driver, logger=self.logger)
+            self.cards = RewardsCard(
+                driver,
+                logger=self.logger,
+                gemini_api_key=gemini_api_key,
+                gemini_model=gemini_model,
+            )
             main_tab = driver.current_window_handle
 
             totals = {"already": 0, "newly": 0, "final": 0, "total": 0, "attempted": 0}

@@ -1323,6 +1323,8 @@ input[type="number"]:focus {
   letter-spacing: 0.4px;
 }
 
+.form-field input[type="text"],
+.form-field input[type="password"],
 .form-field input[type="time"],
 .form-field input[type="number"],
 .form-field select {

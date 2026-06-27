@@ -594,7 +594,8 @@ function open_settings_modal() {
     pywebview.api.get_all_schedules(),
     pywebview.api.get_launch_on_startup(),
     pywebview.api.get_close_to_tray(),
-  ]).then(([schedules, startup, closeToTray]) => {
+    pywebview.api.get_settings(),
+  ]).then(([schedules, startup, closeToTray, settings]) => {
     render_schedule_cards(schedules || []);
 
     // Start-with-Windows toggle — disable row on unsupported OS.
@@ -616,6 +617,22 @@ function open_settings_modal() {
     const trayToggle = document.getElementById('closeToTrayToggle');
     if (trayToggle) {
       trayToggle.checked = closeToTray !== false;
+    }
+
+    // Daily first toggle
+    const dailyFirstToggle = document.getElementById('dailyFirstToggle');
+    if (dailyFirstToggle) {
+      dailyFirstToggle.checked = Boolean(settings && settings.daily_first);
+    }
+
+    // Populate Gemini LLM fields.
+    const keyField = document.getElementById('geminiApiKeyInput');
+    const modelField = document.getElementById('geminiModelInput');
+    if (keyField) {
+      keyField.value = (settings && settings.gemini_api_key) || '';
+    }
+    if (modelField) {
+      modelField.value = (settings && settings.gemini_model) || 'gemini-3.1-flash-lite';
     }
   }).catch(err => {
     console.error('Failed to load settings:', err);
@@ -857,6 +874,9 @@ async function save_settings() {
   const cards = Array.from(document.querySelectorAll('#schedule_accounts_list .schedule-card'));
   const closeToTrayWanted = document.getElementById('closeToTrayToggle').checked;
   const startupWanted = document.getElementById('startupToggle').checked;
+  const dailyFirstWanted = document.getElementById('dailyFirstToggle').checked;
+  const geminiApiKey = document.getElementById('geminiApiKeyInput').value || '';
+  const geminiModel = document.getElementById('geminiModelInput').value || '';
 
   // Validate + collect payloads per account.
   const payloads = [];
@@ -928,9 +948,12 @@ async function save_settings() {
     // app launch, so saving each time is cheap and avoids a stale state.
     const closeToTrayCall = pywebview.api.set_close_to_tray(closeToTrayWanted);
 
-    const results = await Promise.all([...scheduleCalls, startupCall, closeToTrayCall]);
-    const startupOk = results[results.length - 2];
-    const scheduleResults = results.slice(0, -2);
+    // Save Gemini settings.
+    const geminiCall = pywebview.api.set_gemini_settings(geminiApiKey, geminiModel, dailyFirstWanted);
+
+    const results = await Promise.all([...scheduleCalls, startupCall, closeToTrayCall, geminiCall]);
+    const startupOk = results[results.length - 3];
+    const scheduleResults = results.slice(0, -3);
     const failures = scheduleResults.filter(ok => !ok).length;
 
     if (failures > 0) {

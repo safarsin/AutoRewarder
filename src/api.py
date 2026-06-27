@@ -272,6 +272,18 @@ class AutoRewarderAPI:
         """Return global settings (hide_browser, current_account_id, schema_version)."""
         return self.global_settings.get_settings()
 
+    def set_gemini_settings(self, api_key, model, daily_first=False):
+        """
+        Persist Gemini API settings.
+        """
+        settings = self.global_settings.get_settings()
+        settings["gemini_api_key"] = api_key.strip()
+        settings["gemini_model"] = model.strip() or "gemini-3.1-flash-lite"
+        settings["daily_first"] = bool(daily_first)
+        self.global_settings.save_settings(settings)
+        self.log("Gemini API settings updated.")
+        return True
+
     def set_hide_browser(self, is_hide):
         """
         Persist and apply the hide-browser setting.
@@ -1782,9 +1794,17 @@ class AutoRewarderAPI:
 
         self._driver = self.driver_manager.setup_driver(mobile=False)
         try:
+            settings = self.global_settings.get_settings()
+            gemini_key = settings.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY")
+            gemini_model = settings.get("gemini_model") or "gemini-3.1-flash-lite"
+
             human = HumanBehavior(self._driver, show_cursor=True, mobile=False)
             success = self.daily_set.perform_daily_set(
-                self._driver, human, stop_event=self._stop_event
+                self._driver,
+                human,
+                stop_event=self._stop_event,
+                gemini_api_key=gemini_key,
+                gemini_model=gemini_model
             )
             if self._stop_event.is_set():
                 self.log("Daily tasks aborted by Stop.")
@@ -1831,32 +1851,50 @@ class AutoRewarderAPI:
 
         self._driver = self.driver_manager.setup_driver(mobile=mobile)
         try:
-            self.search_engine.perform_searches(
-                self._driver,
-                queries_to_search,
-                mobile=mobile,
-                stop_event=self._stop_event,
-            )
+            settings = self.global_settings.get_settings()
+            daily_first = settings.get("daily_first", False)
 
-            if (
-                do_daily_set
-                and not self._stop_event.is_set()
-                and self.daily_set.should_perform_daily_set()
-            ):
-                self.log("Daily Set not completed today. Starting Daily Set tasks...")
-                human = HumanBehavior(self._driver, show_cursor=True, mobile=mobile)
-                success = self.daily_set.perform_daily_set(
-                    self._driver, human, stop_event=self._stop_event
-                )
+            def run_daily_set_block():
+                if (
+                    do_daily_set
+                    and not self._stop_event.is_set()
+                    and self.daily_set.should_perform_daily_set()
+                ):
+                    gemini_key = settings.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY")
+                    gemini_model = settings.get("gemini_model") or "gemini-3.1-flash-lite"
+
+                    human = HumanBehavior(self._driver, show_cursor=True, mobile=mobile)
+                    success = self.daily_set.perform_daily_set(
+                        self._driver,
+                        human,
+                        stop_event=self._stop_event,
+                        gemini_api_key=gemini_key,
+                        gemini_model=gemini_model
+                    )
+                    if not self._stop_event.is_set():
+                        if success:
+                            self.daily_set.mark_as_completed()
+                            self.log(
+                                "Daily Set tasks completed and marked as done for today."
+                            )
+                        else:
+                            self.log("Daily Set failed. Not marked as done for today.")
+
+            def run_searches_block():
                 if not self._stop_event.is_set():
-                    if success:
-                        self.daily_set.mark_as_completed()
-                        self.log(
-                            "Daily Set tasks completed and marked as done for today."
-                        )
-                    else:
-                        self.log("Daily Set failed. Not marked as done for today.")
+                    self.search_engine.perform_searches(
+                        self._driver,
+                        queries_to_search,
+                        mobile=mobile,
+                        stop_event=self._stop_event,
+                    )
 
+            if daily_first:
+                run_daily_set_block()
+                run_searches_block()
+            else:
+                run_searches_block()
+                run_daily_set_block()
         finally:
             try:
                 self._driver.quit()

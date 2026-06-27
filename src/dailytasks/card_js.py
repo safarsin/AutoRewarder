@@ -134,6 +134,18 @@ _CARD_LOCKED_BODY_JS = r"""
 var card = arguments[0];
 if (!card) return false;
 
+// Check for explicit "unlocked" signals first.
+var unlockedCandidates = card.querySelectorAll('[class*="unlocked"], [id*="unlocked"], img[src*="unlocked"], img[alt*="unlocked"]');
+var isUnlocked = false;
+for (var j = 0; j < unlockedCandidates.length; j++) {
+    var el = unlockedCandidates[j];
+    if (isVisible(el) || (el.tagName === 'IMG' && isVisible(el.parentElement))) {
+        isUnlocked = true;
+        break;
+    }
+}
+if (isUnlocked) return false;
+
 // 1. Card-level attributes — fast wins.
 if ((card.getAttribute('data-locked') || '').toLowerCase() === 'true') return true;
 if ((card.getAttribute('aria-disabled') || '').toLowerCase() === 'true') return true;
