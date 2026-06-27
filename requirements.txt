@@ -3,3 +3,4 @@ pywebview==6.1
 requests==2.33.1
 pystray==0.19.5
 Pillow==10.4.0
+google-genai
