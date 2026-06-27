@@ -17,7 +17,9 @@ import random
 import time
 
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 
+from ..search import generate_search_query
 from .card_js import (
     CARD_COMPLETED_JS,
     CARD_DIAGNOSE_JS,
@@ -41,9 +43,11 @@ class RewardsCard:
     session (driver).
     """
 
-    def __init__(self, driver, logger=None):
+    def __init__(self, driver, logger=None, gemini_api_key=None, gemini_model=None):
         self.driver = driver
         self.logger = logger
+        self.gemini_api_key = gemini_api_key
+        self.gemini_model = gemini_model or "gemini-3.1-flash-lite"
 
     def _log(self, message):
         if self.logger:
@@ -180,6 +184,33 @@ class RewardsCard:
         Returns:
             bool: True if the card was clicked and handled successfully, False if an exception occurred.
         """
+        card_text = ""
+        try:
+            card_text = card.text
+        except Exception:
+            pass
+
+        title = label or self.get_title(card)
+        is_explore_search = False
+        if card_text and "search on bing" in card_text.lower():
+            is_explore_search = True
+        elif title and "search on bing" in title.lower():
+            is_explore_search = True
+        elif title and any(keyword in title.lower() for keyword in ["vocabulary", "what time is it", "economy", "sleep better", "mattress", "stock"]):
+            is_explore_search = True
+
+        generated_query = None
+        if is_explore_search:
+            if self.gemini_api_key:
+                self._log(f"[INFO] Generating search query via Gemini for Explore card: '{title}'...")
+                try:
+                    generated_query = self._generate_gemini_search_query(title, card_text)
+                    self._log(f"[INFO] Gemini generated query: '{generated_query}'")
+                except Exception as ex:
+                    self._log(f"[WARNING] Gemini query generation failed: {ex}. Will click but not search.")
+            else:
+                self._log(f"[INFO] Explore card '{title}' detected, but no Gemini API key configured. Will click but not search.")
+
         click_target = self.pick_click_target(card)
 
         try:
@@ -231,6 +262,48 @@ class RewardsCard:
             for tab in new_tabs:
                 self.driver.switch_to.window(tab)
                 time.sleep(random.uniform(2, 4))
+
+                if generated_query:
+                    try:
+                        from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+                        from selenium.webdriver.support.ui import WebDriverWait
+                        from selenium.webdriver.support import expected_conditions as EC
+
+                        landing_url = self.driver.current_url
+                        if "bing.com" in landing_url:
+                            # Preserve all original tracking parameters (like filters=BTFLIP, FORM=R5FD, etc.)
+                            parsed = urlparse(landing_url)
+                            params = parse_qs(parsed.query)
+                            params['q'] = [generated_query]
+                            new_query = urlencode(params, doseq=True)
+                            
+                            path = parsed.path
+                            if path == "/" or not path:
+                                path = "/search"
+                                
+                            new_url = urlunparse((
+                                parsed.scheme,
+                                parsed.netloc,
+                                path,
+                                parsed.params,
+                                new_query,
+                                parsed.fragment
+                            ))
+                            self.driver.get(new_url)
+                            time.sleep(random.uniform(2, 4))
+                        else:
+                            # Fallback if the landing page is not a standard Bing search page
+                            wait = WebDriverWait(self.driver, 10)
+                            search_box = wait.until(EC.presence_of_element_located((By.NAME, "q")))
+                            search_box.clear()
+                            search_box.send_keys(generated_query)
+                            search_box.send_keys(Keys.RETURN)
+                            time.sleep(random.uniform(2, 4))
+                        
+                    except Exception as search_ex:
+                        short_err = str(search_ex).split("\n")[0][:120]
+                        self._log(f"[WARNING] Failed to perform search on new tab: {short_err}")
+
                 human.scroll_page()
                 self.driver.close()
 
@@ -260,3 +333,12 @@ class RewardsCard:
                 pass
             time.sleep(random.uniform(0.5, 1.0))
             return False
+
+    def _generate_gemini_search_query(self, title, description):
+        return generate_search_query(
+            title,
+            description,
+            self.gemini_model,
+            self.gemini_api_key,
+            logger=self._log
+        )
