@@ -82,6 +82,11 @@ class AutoRewarderAPI:
         self._webview_window = None
         self._driver_loader_thread_started = False
         self._update_check_started = False
+        # Single-instance secondary windows: reused (and reloaded) instead of
+        # stacking a new window on every open, which can leave the webview
+        # backend rendering a blank window after a few opens.
+        self._stats_window = None
+        self._history_window = None
         self._driver = None
         self.is_driver_loading = False
         self._run_lock = threading.Lock()
@@ -191,15 +196,39 @@ class AutoRewarderAPI:
         else:
             print(message)
 
+    def _reuse_window(self, window, url):
+        """
+        If `window` is still open, reload it (so it re-fetches fresh data) and
+        bring it forward, returning True. Otherwise return False so the caller
+        creates a new one. Guards against stacking duplicate / blank windows.
+        """
+        import webview
+
+        if window is None or window not in webview.windows:
+            return False
+        try:
+            window.load_url(url)
+        except Exception:
+            return False
+        try:
+            window.show()
+        except Exception:
+            pass
+        return True
+
     def open_history_window(self):
-        """Open the history viewer window."""
+        """Open (or refocus + reload) the history viewer window."""
         # Local import: pywebview is a GUI-only dependency, kept out of the
         # headless CLI import chain (see comment at top of this module).
         import webview
 
-        webview.create_window(
+        url = os.path.join(GUI_DIR, "history.html")
+        if self._reuse_window(self._history_window, url):
+            return
+
+        self._history_window = webview.create_window(
             title="Query History",
-            url=os.path.join(GUI_DIR, "history.html"),
+            url=url,
             js_api=self,
             width=700,
             height=500,
@@ -210,17 +239,22 @@ class AutoRewarderAPI:
 
     def open_stats_window(self):
         """
-        Open the statistics dashboard window, docked to the right edge of the
-        main window so it sits beside it instead of covering it. Falls back to
-        the OS default position if the main window's geometry can't be read.
+        Open (or refocus + reload) the statistics dashboard window, docked to
+        the right edge of the main window so it sits beside it instead of
+        covering it. Falls back to the OS default position if the main window's
+        geometry can't be read.
         """
         # Local import: pywebview is a GUI-only dependency, kept out of the
         # headless CLI import chain (see comment at top of this module).
         import webview
 
+        url = os.path.join(GUI_DIR, "dashboard.html")
+        if self._reuse_window(self._stats_window, url):
+            return
+
         kwargs = {
             "title": "Statistics",
-            "url": os.path.join(GUI_DIR, "dashboard.html"),
+            "url": url,
             "js_api": self,
             "width": 760,
             "height": 620,
@@ -233,7 +267,7 @@ class AutoRewarderAPI:
         if pos is not None:
             kwargs["x"], kwargs["y"] = pos
 
-        webview.create_window(**kwargs)
+        self._stats_window = webview.create_window(**kwargs)
 
     def _main_window_right_edge(self):
         """
@@ -1639,8 +1673,8 @@ class AutoRewarderAPI:
             int | None: the scraped balance, or None if it never appeared.
         """
         # Cap the page load so a stuck/headless navigation can't hang forever
-        # (which would leave the browser open with no diagnostic). On timeout we
-        # still try to scrape whatever rendered.
+        # (which would leave the browser open with nothing to read). On timeout
+        # we still try to scrape whatever rendered.
         from selenium.common.exceptions import TimeoutException
 
         try:
@@ -1651,9 +1685,8 @@ class AutoRewarderAPI:
         try:
             driver.get("https://rewards.bing.com")
         except TimeoutException:
-            self.log("[DIAG] rewards page load timed out — scraping what rendered.")
+            pass  # scrape whatever managed to render
         except Exception as e:
-            self.log(f"[WARNING] Could not open the rewards page for balance: {e}")
             self._last_balance_debug = {"error": str(e)[:120]}
             return None
 
@@ -1671,18 +1704,8 @@ class AutoRewarderAPI:
                 return value
             time.sleep(1.5)
 
-        # Exhausted — log a rich diagnostic so we can see what the headless
-        # session actually landed on (login wall? wrong page? empty SPA?).
-        info = self._last_balance_debug or {}
-        if info.get("error"):
-            self.log(f"[DIAG] Balance scrape error: {info['error']}")
-        else:
-            cands = " | ".join(info.get("candidates") or []) or "none"
-            self.log(
-                f"[DIAG] Balance not found after {attempts} tries — "
-                f"url={info.get('url')} title={info.get('title')}"
-            )
-            self.log(f"[DIAG] selector matches: {cands}")
+        # Not found. Details are kept in _last_balance_debug for the dashboard's
+        # on-demand refresh diagnostic; nothing is logged to the activity feed.
         return None
 
     def _refresh_balance_on_launch(self, driver):

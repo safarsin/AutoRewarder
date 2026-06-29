@@ -122,9 +122,9 @@ def scrape_points_balance(driver, logger=None):
     the driver is currently on (expected to be rewards.bing.com or a Bing
     results page where the rewards counter is visible).
 
-    On failure, logs a one-line diagnostic of what the candidate selectors
-    matched (when a logger is given), so the right selector can be pinned
-    against the live DOM.
+    Logs the value on success; stays silent on failure (raw debug details are
+    available via scrape_points_balance_debug for the dashboard's on-demand
+    refresh diagnostic).
 
     Args:
         driver: Selenium WebDriver, already navigated to a page that shows the
@@ -143,15 +143,9 @@ def scrape_points_balance(driver, logger=None):
             logger(f"Points balance scraped: {balance:,}")
         return balance
 
-    if logger:
-        if info.get("error"):
-            logger(f"[WARNING] Could not scrape points balance: {info['error']}")
-        else:
-            url = info.get("url")
-            title = info.get("title")
-            cands = " | ".join(info.get("candidates") or []) or "none"
-            logger(f"[DIAG] Balance not found. url={url} title={title}")
-            logger(f"[DIAG] selector matches: {cands}")
+    # Not found: stay silent in the activity feed. The raw debug info is
+    # available via scrape_points_balance_debug() for the dashboard's on-demand
+    # refresh diagnostic.
     return None
 
 

@@ -197,18 +197,6 @@ class DailySet:
                 f"{section_name}: {excluded_count} promo/sweepstake card(s) — skipped (no per-click points)."
             )
 
-        # Diagnostic when detection looks off — only fires on sections with
-        # actionable cards (excluding locked) where the all-or-nothing pattern
-        # is suspicious.
-        if total_actionable >= 2 and (
-            already_complete == 0 or already_complete == total_actionable
-        ):
-            sample = self.cards.diagnose(cards[0])
-            if sample:
-                self._log(
-                    f"[DIAG] {section_name} card #1 visible icon classes: {sample}"
-                )
-
         if not incomplete_indices:
             if total_actionable == 0:
                 self._log(

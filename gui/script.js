@@ -381,75 +381,8 @@ function update_status_indicator(forceState) {
   }
 }
 
-// Toggle the Activity card between the live log feed and the execution
-// history table, in place (no separate window).
-let _historyShown = false;
-function toggle_history_view() {
-  _historyShown = !_historyShown;
-  const log = document.getElementById('log_area');
-  const view = document.getElementById('history_view');
-  const label = document.getElementById('history_btn_label');
-  const cardLabel = document.getElementById('activity_label');
-
-  if (log) log.hidden = _historyShown;
-  if (view) view.hidden = !_historyShown;
-  if (label) label.textContent = _historyShown ? 'View activity' : 'View history';
-  if (cardLabel) cardLabel.textContent = _historyShown ? 'History' : 'Activity';
-
-  if (_historyShown) load_history_inline();
-}
-
-function load_history_inline() {
-  if (!window.pywebview || !pywebview.api || !pywebview.api.get_history) return;
-  const body = document.getElementById('history_body');
-  if (!body) return;
-
-  pywebview.api.get_history().then(function (data) {
-    while (body.firstChild) body.removeChild(body.firstChild);
-
-    if (!data || data.length === 0) {
-      const tr = document.createElement('tr');
-      const td = document.createElement('td');
-      td.colSpan = 4;
-      td.className = 'history-inline-empty';
-      td.textContent = 'No runs yet. Start one above.';
-      tr.appendChild(td);
-      body.appendChild(tr);
-      return;
-    }
-
-    // Newest first. Build every cell with textContent so query/status values
-    // (ultimately user-controlled) can't be interpreted as HTML.
-    const rows = data.slice().reverse();
-    for (const item of rows) {
-      const statusClass =
-        String(item.status).includes('ERROR') ? 'status-error' : 'status-success';
-      const tr = document.createElement('tr');
-
-      const dateTd = document.createElement('td');
-      dateTd.className = 'cell-meta';
-      dateTd.textContent = item.date;
-
-      const timeTd = document.createElement('td');
-      timeTd.className = 'cell-meta';
-      timeTd.textContent = item.time;
-
-      const queryTd = document.createElement('td');
-      queryTd.textContent = item.query;
-
-      const statusTd = document.createElement('td');
-      statusTd.className = statusClass;
-      statusTd.textContent = item.status;
-
-      tr.appendChild(dateTd);
-      tr.appendChild(timeTd);
-      tr.appendChild(queryTd);
-      tr.appendChild(statusTd);
-      body.appendChild(tr);
-    }
-  }).catch(function (err) {
-    console.error('load_history_inline failed:', err);
-  });
+function show_history() {
+  pywebview.api.open_history_window();
 }
 
 function show_stats() {

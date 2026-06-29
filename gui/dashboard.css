@@ -16,6 +16,10 @@ body {
   gap: 18px;
   max-width: 720px;
   margin: 0 auto;
+  /* Bottom breathing room. A scroll container's own padding-bottom is dropped
+     by several webview engines when scrolled to the end, so put it here, in
+     the flow, instead of relying on the body padding. */
+  padding-bottom: 22px;
 }
 
 /* ---- Header ---- */

@@ -141,34 +141,16 @@
     <!-- ==================== Activity card ==================== -->
     <section class="card activity-card">
       <div class="card-header">
-        <div class="card-label" id="activity_label">Activity</div>
-        <button id="history_btn" class="ghost-link" type="button" onclick="toggle_history_view()">
-          <svg id="history_btn_icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <div class="card-label">Activity</div>
+        <button id="history_btn" class="ghost-link" type="button" onclick="show_history()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="10"></circle>
             <polyline points="12 6 12 12 16 14"></polyline>
           </svg>
-          <span id="history_btn_label">View history</span>
+          View history
         </button>
       </div>
-
       <div id="log_area" class="activity-feed"></div>
-
-      <!-- Inline execution history (toggled in place by the button above) -->
-      <div id="history_view" class="history-inline" hidden>
-        <table class="history-inline-table">
-          <thead>
-            <tr>
-              <th class="col-date">Date</th>
-              <th class="col-time">Time</th>
-              <th class="col-query">Query</th>
-              <th class="col-status">Status</th>
-            </tr>
-          </thead>
-          <tbody id="history_body">
-            <tr><td colspan="4" class="history-inline-empty">Loading…</td></tr>
-          </tbody>
-        </table>
-      </div>
     </section>
 
     <footer class="app-footer">
