@@ -4,6 +4,10 @@
 
 let accountsCache = [];
 let currentAccountId = null;
+// True while the background WebDriver warmup (which also refreshes the balance)
+// is running at launch. Start must stay disabled until it finishes, so a run
+// can't open a second driver on the same Edge profile.
+let driverWarmingUp = false;
 
 // =========================================================================
 // Toasts
@@ -321,7 +325,7 @@ function enable_start_button() {
   const label = btn.querySelector('.btn-label');
   if (label) label.textContent = 'Start run';
   const current = accountsCache.find(a => a.id === currentAccountId);
-  btn.disabled = !(current && current.first_setup_done);
+  btn.disabled = !(current && current.first_setup_done) || driverWarmingUp;
 
   // Stop button is meaningful only while a run is in progress.
   const stopBtn = document.getElementById('stop_btn');
@@ -1037,11 +1041,11 @@ function refresh_account_ui() {
     // Start button.
     const startBtn = document.getElementById('start_btn');
     const current = accountsCache.find(a => a.id === currentAccountId);
-    const shouldEnable = Boolean(current && current.first_setup_done);
+    const shouldEnable = Boolean(current && current.first_setup_done) && !driverWarmingUp;
     const label = startBtn.querySelector('.btn-label');
     if (!label || label.textContent === 'Start run' || label.textContent === 'Loading…') {
       startBtn.disabled = !shouldEnable;
-      if (label) label.textContent = 'Start run';
+      if (label) label.textContent = driverWarmingUp ? 'Loading…' : 'Start run';
     }
 
     update_status_indicator();
@@ -1067,6 +1071,17 @@ let loaderInterval;
 function start_loader() {
   clearInterval(loaderInterval);
 
+  // Block Start until the warmup finishes.
+  driverWarmingUp = true;
+  const startBtn = document.getElementById('start_btn');
+  if (startBtn) {
+    startBtn.disabled = true;
+    const label = startBtn.querySelector('.btn-label');
+    if (label && (label.textContent === 'Start run' || label.textContent === 'Loading…')) {
+      label.textContent = 'Loading…';
+    }
+  }
+
   const tryShowLoader = () => {
     pywebview.api.check_driver_status().then(isLoading => {
       if (isLoading === true && !document.getElementById('inline_loader')) {
@@ -1091,6 +1106,7 @@ function start_loader() {
 
 function stop_loader() {
   clearInterval(loaderInterval);
+  driverWarmingUp = false;
 
   const inline = document.getElementById('inline_loader');
   if (inline) inline.remove();
