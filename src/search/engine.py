@@ -181,14 +181,28 @@ class SearchEngine:
                 chosen_tab = random.choices(tabs_config, weights=weights, k=1)[0]
 
                 if chosen_tab["name"] != "All":
+                    tab_element = None
+
+                    # Check if news tab exists, if it doesn't choose Images or Videos
+                    if chosen_tab["name"] == "News":
+                        try:
+                            xpath = f"//nav/ul/li[@id='{chosen_tab['id']}']/a"
+                            tab_element = driver.find_element(By.XPATH, xpath)
+                        except NoSuchElementException:
+                            chosen_tab = random.choice(tabs_config[1:3])
+
                     self._log(f"Chosen behavior: Switch to {chosen_tab['name']}")
                     try:
+                        main_tab = driver.current_window_handle
+
                         # Find the tab element using its id
-                        xpath = f"//li[@id='{chosen_tab['id']}']//a"
-                        tab_element = driver.find_element(By.XPATH, xpath)
+                        if not tab_element:
+                            xpath = f"//nav/ul/li[@id='{chosen_tab['id']}']/a"
+                            tab_element = driver.find_element(By.XPATH, xpath)
 
                         # Move mouse and click the tab
                         human.click_element(tab_element)
+
                         time.sleep(random.uniform(3, 6))
 
                     except NoSuchElementException:
@@ -220,6 +234,22 @@ class SearchEngine:
 
                 # Pause after scrolling
                 time.sleep(random.uniform(2, 4))
+
+                # Close all tabs other than main
+                if chosen_tab["name"] != "All":
+                    new_tabs = [tab for tab in driver.window_handles if tab != main_tab]
+                    for tab in new_tabs:
+                        try:
+                            driver.switch_to.window(tab)
+                            driver.close()
+                        except WebDriverException as e:
+                            short_error = str(e).split("\n")[0][:28]
+                            self._log(
+                                f"[WARNING] WebDriver error when closing tab: {short_error}. Continuing."
+                            )
+
+                    if main_tab in driver.window_handles:
+                        driver.switch_to.window(main_tab)
 
                 # Add to history.json
                 self._add_to_history(query, "Success")
