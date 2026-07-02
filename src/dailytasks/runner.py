@@ -57,6 +57,16 @@ class DailySet:
         self.logger = logger
         # Filled in on each `perform_daily_set` call after the driver is ready.
         self.cards = None
+        # Aggregated card counts from the most recent perform_daily_set call,
+        # so the caller (api) can record `newly` completed cards in the stats
+        # layer without changing this method's bool return contract.
+        self.last_totals = {
+            "already": 0,
+            "newly": 0,
+            "final": 0,
+            "total": 0,
+            "attempted": 0,
+        }
 
     def _log(self, message):
         if self.logger:
@@ -186,18 +196,6 @@ class DailySet:
             self._log(
                 f"{section_name}: {excluded_count} promo/sweepstake card(s) — skipped (no per-click points)."
             )
-
-        # Diagnostic when detection looks off — only fires on sections with
-        # actionable cards (excluding locked) where the all-or-nothing pattern
-        # is suspicious.
-        if total_actionable >= 2 and (
-            already_complete == 0 or already_complete == total_actionable
-        ):
-            sample = self.cards.diagnose(cards[0])
-            if sample:
-                self._log(
-                    f"[DIAG] {section_name} card #1 visible icon classes: {sample}"
-                )
 
         if not incomplete_indices:
             if total_actionable == 0:
@@ -341,6 +339,16 @@ class DailySet:
         """
         self._log("Performing daily Rewards tasks")
 
+        # Reset so an early return (timeout, no cards) reports zeros rather
+        # than counts left over from a previous run.
+        self.last_totals = {
+            "already": 0,
+            "newly": 0,
+            "final": 0,
+            "total": 0,
+            "attempted": 0,
+        }
+
         try:
             driver.get("https://rewards.bing.com")
 
@@ -384,6 +392,9 @@ class DailySet:
                 )
                 for k in totals:
                     totals[k] += section_result[k]
+
+            # Expose the run's aggregated counts for the stats layer.
+            self.last_totals = dict(totals)
 
             if totals["total"] == 0:
                 self._log("[WARNING] No Rewards cards found across any section.")

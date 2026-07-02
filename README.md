@@ -103,6 +103,7 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 - Start with Windows/Linux toggle (autostart)
 - Live terminal-like logs with update notifications (GitHub Releases)
 - Local history view per account (date, time, query, status)
+- Statistics dashboard: real scraped points balance, per-run earnings, lifetime activity counters, and a multi-account recap
 - Safe recovery for corrupted settings/history files
 
 **Automation & Core Logic:**
@@ -212,6 +213,8 @@ AutoRewarder/
 │   ├── index.html             # Main window UI
 │   ├── history.html           # History view UI
 │   ├── history.css            # History view styling
+│   ├── dashboard.html         # Statistics dashboard UI
+│   ├── dashboard.css          # Statistics dashboard styling
 │   ├── script.js              # Frontend logic and bridge calls
 │   ├── settings.js            # Settings page logic and bridge calls
 │   ├── styles.css             # App styling
@@ -236,10 +239,12 @@ AutoRewarder/
 │   ├── search/                # Bing query execution + history
 │   │   ├── engine.py          # Search loop with human-like delays
 │   │   └── history.py         # Per-account search history JSON
-│   └── dailytasks/            # Rewards daily-set + more-activities automation
-│       ├── runner.py          # DailySet orchestrator + status persistence
-│       ├── card.py            # RewardsCard: DOM checks + click + tab dance
-│       └── card_js.py         # JS heuristics + CardStatus enum
+│   ├── dailytasks/            # Rewards daily-set + more-activities automation
+│   │   ├── runner.py          # DailySet orchestrator + status persistence
+│   │   ├── card.py            # RewardsCard: DOM checks + click + tab dance
+│   │   └── card_js.py         # JS heuristics + CardStatus enum
+│   └── stats/                 # Per-account statistics
+│       └── manager.py         # StatsManager + points-balance scraper
 ├── AutoRewarder.py            # Python backend and webview window
 ├── AutoRewarder_CLI.py        # Headless runner (multi-account aware)
 ├── AutoRewarder.spec          # PyInstaller build spec
@@ -277,6 +282,7 @@ accounts/
 		EdgeProfile/   # Separate Edge profile for WebDriver
 		history.json   # Search history (date, time, query, status)
 		status.json    # Daily Set completion status (per-day)
+		stats.json     # Statistics: scraped points balance + activity counters
 		meta.json      # Per-account metadata (first_setup_done, schedule)
 background_log.txt # Logs from the background runner (for debugging)
 ```
@@ -310,7 +316,7 @@ For common issues and solutions, see the [Troubleshooting](USER_GUIDE.md#trouble
 - [x] Hide browser mode (headless UI)
 - [ ] Simulated human typos during search input
 - [ ] Region-specific search query datasets (US, UK, CA, AU, IN, etc.)
-- [ ] Statistics dashboard (points tracking, session summaries)
+- [x] Statistics dashboard (points tracking, session summaries)
 - [ ] Browser choice (Chrome, Firefox support in addition to Edge)
 - [ ] Daily "Claim" actions
 - [ ] Keyboard shortcuts

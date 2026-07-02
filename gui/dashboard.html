@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Statistics</title>
+
+  <link rel="stylesheet" href="normalize.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+  <div class="dash">
+
+    <header class="dash-header">
+      <h2 class="dash-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"></line>
+          <line x1="12" y1="20" x2="12" y2="4"></line>
+          <line x1="6" y1="20" x2="6" y2="14"></line>
+        </svg>
+        Statistics
+      </h2>
+      <span id="account_pill" class="account-pill" hidden></span>
+    </header>
+
+    <!-- Hero: headline points -->
+    <section class="dash-hero">
+      <div class="hero-card hero-primary">
+        <span class="hero-value" id="total_points">—</span>
+        <span class="hero-label" id="total_label">Total points</span>
+        <span class="hero-sub" id="total_sub"></span>
+        <button id="refresh_btn" class="refresh-btn" type="button" title="Open a headless browser to read your current balance">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          <span class="refresh-label">Refresh balance</span>
+        </button>
+      </div>
+      <div class="hero-card">
+        <span class="hero-value" id="session_points">—</span>
+        <span class="hero-label">Earned last run</span>
+        <span class="hero-sub" id="session_sub"></span>
+      </div>
+    </section>
+
+    <!-- Balance-scrape diagnostic (shown only when a refresh can't read it) -->
+    <section id="diag_box" class="diag-box" hidden>
+      <div class="diag-title">Balance not found — diagnostic</div>
+      <div class="diag-line"><b>Landed page:</b> <span id="diag_url"></span></div>
+      <div class="diag-line"><b>Title:</b> <span id="diag_title"></span></div>
+      <div class="diag-line"><b>Selector matches:</b></div>
+      <ul id="diag_candidates" class="diag-list"></ul>
+    </section>
+
+    <!-- Lifetime activity counters -->
+    <section class="dash-section">
+      <div class="dash-section-title">Lifetime activity</div>
+      <div class="metric-grid">
+        <div class="metric">
+          <span class="metric-value" id="m_pc">0</span>
+          <span class="metric-label">PC searches</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value" id="m_mobile">0</span>
+          <span class="metric-label">Mobile searches</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value" id="m_cards">0</span>
+          <span class="metric-label">Daily cards</span>
+        </div>
+        <div class="metric">
+          <span class="metric-value" id="m_runs">0</span>
+          <span class="metric-label">Runs</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recent activity bar chart (per day, stacked by type) -->
+    <section class="dash-section">
+      <div class="dash-section-head">
+        <div class="dash-section-title">Recent activity (estimated points / day)</div>
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-dot legend-pc"></span>PC</span>
+          <span class="legend-item"><span class="legend-dot legend-mobile"></span>Mobile</span>
+          <span class="legend-item"><span class="legend-dot legend-daily"></span>Daily</span>
+        </div>
+      </div>
+      <div id="runs_chart" class="runs-chart"></div>
+      <div id="runs_empty" class="dash-empty" hidden>No activity recorded yet. Start a run from the main window.</div>
+    </section>
+
+    <!-- Multi-account recap -->
+    <section class="dash-section">
+      <div class="dash-section-title">All accounts</div>
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Account</th>
+            <th class="num">Total points</th>
+            <th class="num">Runs</th>
+            <th class="num">Searches</th>
+          </tr>
+        </thead>
+        <tbody id="accounts_body">
+          <tr><td colspan="4" class="dash-empty-row">Loading…</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+  </div>
+
+  <script>
+    const PALETTE = ['#5b8eff', '#e879a0', '#f59e0b', '#34d399', '#a78bfa', '#fbbf24', '#fb7185', '#22d3ee'];
+
+    function color_for(id) {
+      let h = 0;
+      const s = String(id || '');
+      for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+      return PALETTE[Math.abs(h) % PALETTE.length];
+    }
+
+    function avatar_initials(label) {
+      const s = (label || '?').trim();
+      if (!s) return '?';
+      const parts = s.split(/\s+/).filter(Boolean);
+      if (parts.length === 1) return parts[0].slice(0, 2);
+      return (parts[0][0] + parts[parts.length - 1][0]);
+    }
+
+    function fmt(n) {
+      if (n == null || isNaN(n)) return '—';
+      return Number(n).toLocaleString();
+    }
+
+    function fmt_when(iso) {
+      if (!iso) return '';
+      // Stored as "YYYY-MM-DDTHH:MM:SS" — show date + HH:MM, no parsing risk.
+      const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+      if (!m) return '';
+      return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}`;
+    }
+
+    function render_pill(account) {
+      const pill = document.getElementById('account_pill');
+      if (!pill || !account) return;
+      pill.hidden = false;
+      pill.innerHTML = '';
+      const avatar = document.createElement('span');
+      avatar.className = 'avatar avatar-sm';
+      avatar.style.backgroundColor = color_for(account.id);
+      avatar.style.color = 'white';
+      avatar.textContent = avatar_initials(account.label);
+      const text = document.createElement('span');
+      text.textContent = account.label;
+      pill.appendChild(avatar);
+      pill.appendChild(text);
+    }
+
+    function render_current_stats(stats) {
+      if (!stats || !stats.derived) return;
+      const d = stats.derived;
+      const life = stats.lifetime || {};
+
+      // A real balance is present → no diagnostic needed.
+      if (!d.is_estimate) hide_diag();
+
+      // Hero — total.
+      const totalEl = document.getElementById('total_points');
+      const totalLabel = document.getElementById('total_label');
+      const totalSub = document.getElementById('total_sub');
+      totalEl.textContent = (d.is_estimate && d.total_points > 0 ? '~' : '') + fmt(d.total_points);
+      totalLabel.textContent = d.is_estimate ? 'Total points (estimated)' : 'Total points';
+      if (d.is_estimate) {
+        totalSub.textContent = 'Estimated from activity — run with Daily tasks to capture the real balance.';
+      } else {
+        const when = fmt_when(stats.balance && stats.balance.updated_at);
+        totalSub.textContent = when ? ('Real balance · updated ' + when) : 'Real balance';
+      }
+
+      // Hero — session.
+      const sessEl = document.getElementById('session_points');
+      const sessSub = document.getElementById('session_sub');
+      const sessSign = (!d.session_is_estimate && d.session_points > 0) ? '+' : '';
+      const sessPrefix = (d.session_is_estimate && d.session_points > 0) ? '~' : sessSign;
+      sessEl.textContent = sessPrefix + fmt(d.session_points);
+      const ls = stats.last_session || {};
+      const parts = [];
+      if (ls.pc_searches) parts.push(ls.pc_searches + ' PC');
+      if (ls.mobile_searches) parts.push(ls.mobile_searches + ' mobile');
+      if (ls.daily_cards) parts.push(ls.daily_cards + ' cards');
+      sessSub.textContent = parts.length ? parts.join(' · ') : 'No activity recorded yet';
+
+      // Lifetime metrics.
+      document.getElementById('m_pc').textContent = fmt(life.pc_searches || 0);
+      document.getElementById('m_mobile').textContent = fmt(life.mobile_searches || 0);
+      document.getElementById('m_cards').textContent = fmt(life.daily_cards || 0);
+      document.getElementById('m_runs').textContent = fmt(life.runs || 0);
+
+      render_runs_chart(stats.daily || {}, stats.constants);
+    }
+
+    function day_label(isoDate) {
+      // isoDate is "YYYY-MM-DD" → "DD/MM"
+      const m = String(isoDate).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      return m ? `${m[3]}/${m[2]}` : isoDate;
+    }
+
+    // Column geometry — must match .bar-col width + .runs-chart gap/padding
+    // in dashboard.css.
+    const COL_W = 30;
+    const COL_GAP = 8;
+    const CHART_PAD = 12;
+
+    // Cached so a window resize can re-render with the new day capacity.
+    let _chartData = { daily: {}, consts: null };
+
+    // How many day-columns fit in the chart's current inner width. Returns a
+    // sane default until the element has a real laid-out width (the webview
+    // can report 0/tiny on the very first paint); the ResizeObserver set up in
+    // pywebviewready re-renders once the true width is known.
+    function chart_capacity() {
+      const chart = document.getElementById('runs_chart');
+      const avail = (chart ? chart.clientWidth : 0) - CHART_PAD * 2;
+      if (avail < COL_W) return 16;  // not laid out yet → sane default
+      return Math.max(1, Math.floor((avail + COL_GAP) / (COL_W + COL_GAP)));
+    }
+
+    // One stacked bar per day with three segments: PC searches, mobile
+    // searches (both × per-search) and daily (cards × per-card), each its own
+    // colour. Uses the estimate breakdown because the real balance delta can't
+    // be attributed to a type. Columns are fixed-width and packed from the
+    // left; only the most recent days that fit are kept (oldest drop off left).
+    function render_runs_chart(dailyData, consts) {
+      _chartData = { daily: dailyData || {}, consts: consts || null };
+      const chart = document.getElementById('runs_chart');
+      const empty = document.getElementById('runs_empty');
+      while (chart.firstChild) chart.removeChild(chart.firstChild);
+
+      const pps = (consts && consts.points_per_search) || 3;
+      const ppc = (consts && consts.points_per_card) || 10;
+
+      // dailyData is { "YYYY-MM-DD": {pc, mobile, cards, runs} } from backend.
+      const byDay = new Map();
+      for (const key of Object.keys(dailyData || {})) {
+        if (key.length !== 10) continue;
+        const v = dailyData[key] || {};
+        byDay.set(key, {
+          pc: (v.pc || 0) * pps,
+          mobile: (v.mobile || 0) * pps,
+          daily: (v.cards || 0) * ppc,
+        });
+      }
+
+      // Keep only the most recent days that fit the current width.
+      const days = Array.from(byDay.keys()).sort().slice(-chart_capacity());
+      if (days.length === 0) {
+        chart.hidden = true;
+        empty.hidden = false;
+        return;
+      }
+      chart.hidden = false;
+      empty.hidden = true;
+
+      const totals = days.map(d => {
+        const e = byDay.get(d);
+        return e.pc + e.mobile + e.daily;
+      });
+      const max = Math.max(1, ...totals);
+      const MAX_PX = 128;  // pixel height of the tallest day's bar
+
+      // bottom → top order (column-reverse appends first child at the bottom).
+      const SEGMENTS = [
+        { key: 'daily', cls: 'bar-daily', label: 'Daily' },
+        { key: 'mobile', cls: 'bar-mobile', label: 'Mobile' },
+        { key: 'pc', cls: 'bar-pc', label: 'PC' },
+      ];
+
+      days.forEach(d => {
+        const e = byDay.get(d);
+        const total = e.pc + e.mobile + e.daily;
+
+        const col = document.createElement('div');
+        col.className = 'bar-col';
+
+        const cap = document.createElement('span');
+        cap.className = 'bar-cap';
+        cap.textContent = fmt(total);
+
+        const stack = document.createElement('div');
+        stack.className = 'bar-stack';
+        stack.title = `${day_label(d)}\nPC: ${fmt(e.pc)} pts` +
+          `\nMobile: ${fmt(e.mobile)} pts\nDaily: ${fmt(e.daily)} pts` +
+          `\nTotal: ${fmt(total)} pts`;
+
+        for (const seg of SEGMENTS) {
+          const div = document.createElement('div');
+          div.className = 'bar-seg ' + seg.cls;
+          div.style.height = (e[seg.key] / max * MAX_PX) + 'px';
+          stack.appendChild(div);
+        }
+
+        const dayLbl = document.createElement('span');
+        dayLbl.className = 'bar-day';
+        dayLbl.textContent = day_label(d);
+
+        col.appendChild(cap);
+        col.appendChild(stack);
+        col.appendChild(dayLbl);
+        chart.appendChild(col);
+      });
+    }
+
+    function render_accounts(list) {
+      const body = document.getElementById('accounts_body');
+      while (body.firstChild) body.removeChild(body.firstChild);
+
+      if (!list || list.length === 0) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 4;
+        td.className = 'dash-empty-row';
+        td.textContent = 'No accounts yet.';
+        tr.appendChild(td);
+        body.appendChild(tr);
+        return;
+      }
+
+      for (const acc of list) {
+        const tr = document.createElement('tr');
+
+        const nameTd = document.createElement('td');
+        const wrap = document.createElement('span');
+        wrap.className = 'acc-cell';
+        const avatar = document.createElement('span');
+        avatar.className = 'avatar avatar-sm';
+        avatar.style.backgroundColor = color_for(acc.id);
+        avatar.style.color = 'white';
+        avatar.textContent = avatar_initials(acc.label);
+        const name = document.createElement('span');
+        name.textContent = acc.label;
+        wrap.appendChild(avatar);
+        wrap.appendChild(name);
+        nameTd.appendChild(wrap);
+
+        const totalTd = document.createElement('td');
+        totalTd.className = 'num';
+        totalTd.textContent = (acc.is_estimate && acc.total_points > 0 ? '~' : '') + fmt(acc.total_points);
+
+        const runsTd = document.createElement('td');
+        runsTd.className = 'num';
+        runsTd.textContent = fmt(acc.lifetime_runs);
+
+        const searchTd = document.createElement('td');
+        searchTd.className = 'num';
+        searchTd.textContent = fmt((acc.pc_searches || 0) + (acc.mobile_searches || 0));
+
+        tr.appendChild(nameTd);
+        tr.appendChild(totalTd);
+        tr.appendChild(runsTd);
+        tr.appendChild(searchTd);
+        body.appendChild(tr);
+      }
+    }
+
+    function set_refresh_busy(busy) {
+      const btn = document.getElementById('refresh_btn');
+      if (!btn) return;
+      btn.disabled = busy;
+      btn.classList.toggle('busy', busy);
+      const label = btn.querySelector('.refresh-label');
+      if (label) label.textContent = busy ? 'Refreshing…' : 'Refresh balance';
+    }
+
+    const REFRESH_ERRORS = {
+      no_account: 'No account selected.',
+      setup_needed: 'Complete First Setup for this account first.',
+      busy: 'Browser busy (a run or startup is using it) — try again in a moment.',
+      not_found: "Couldn't read the balance from the rewards page.",
+      driver: 'Could not open the browser to read the balance.',
+      account_changed: 'Account changed during refresh — try again.'
+    };
+
+    function hide_diag() {
+      const box = document.getElementById('diag_box');
+      if (box) box.hidden = true;
+    }
+
+    function show_diag(res) {
+      const box = document.getElementById('diag_box');
+      if (!box) return;
+      document.getElementById('diag_url').textContent = res.url || (res.diag_error ? '(error)' : '(unknown)');
+      document.getElementById('diag_title').textContent = res.title || (res.diag_error || '(none)');
+      const list = document.getElementById('diag_candidates');
+      while (list.firstChild) list.removeChild(list.firstChild);
+      const cands = (res.candidates && res.candidates.length) ? res.candidates : ['(no .pointsValue elements matched)'];
+      for (const c of cands) {
+        const li = document.createElement('li');
+        li.textContent = c;
+        list.appendChild(li);
+      }
+      box.hidden = false;
+    }
+
+    // isManual=true → user clicked the button: surface errors + the diagnostic
+    // box. isManual=false → silent best-effort auto-refresh on open: on failure
+    // just leave the estimate, no scary red box (it may simply be racing the
+    // launch-time capture for the same Edge profile).
+    function do_refresh_balance(isManual) {
+      if (isManual === undefined) isManual = true;
+      if (!window.pywebview || !pywebview.api || !pywebview.api.refresh_balance) return;
+      set_refresh_busy(true);
+      pywebview.api.refresh_balance().then(function (res) {
+        if (res && res.ok) {
+          hide_diag();
+          // Re-pull so the hero + derived fields + accounts table all update.
+          pywebview.api.get_stats().then(render_current_stats);
+          pywebview.api.get_all_stats().then(render_accounts);
+          return;
+        }
+        if (isManual) {
+          const sub = document.getElementById('total_sub');
+          if (sub) sub.textContent = (res && REFRESH_ERRORS[res.error]) || 'Refresh failed.';
+          if (res && res.error === 'not_found') show_diag(res); else hide_diag();
+        }
+      }).catch(function (err) {
+        console.error('refresh_balance failed:', err);
+      }).then(function () {
+        set_refresh_busy(false);
+      });
+    }
+
+    window.addEventListener('pywebviewready', function () {
+      pywebview.api.get_current_account().then(render_pill);
+      pywebview.api.get_all_stats().then(render_accounts);
+      const btn = document.getElementById('refresh_btn');
+      if (btn) btn.addEventListener('click', function () { do_refresh_balance(true); });
+
+      pywebview.api.get_stats().then(function (stats) {
+        render_current_stats(stats);
+        // No real balance captured yet → silently try to fetch it now, instead
+        // of leaving the user on an estimate. Silent so a transient failure
+        // (e.g. racing the launch-time capture) doesn't pop the red diagnostic.
+        if (stats && stats.derived && stats.derived.is_estimate) {
+          do_refresh_balance(false);
+        }
+
+        // Re-render the chart whenever its true width is known/changes. This
+        // fires once right after layout (correcting any 0/tiny first-paint
+        // measurement) and on every window resize, so the visible day count
+        // always tracks the actual width. Chart width comes from the parent,
+        // not its bars, so re-rendering can't feed back into a resize loop.
+        if (typeof ResizeObserver !== 'undefined') {
+          const chartEl = document.getElementById('runs_chart');
+          if (chartEl) {
+            new ResizeObserver(function () {
+              render_runs_chart(_chartData.daily, _chartData.consts);
+            }).observe(chartEl);
+          }
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>

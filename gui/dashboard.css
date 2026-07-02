@@ -1,0 +1,328 @@
+/* =========================================================================
+   Statistics dashboard — dedicated styles for gui/dashboard.html.
+   Design tokens (--text, --accent, --surface-1, etc.) come from styles.css.
+   ========================================================================= */
+
+body {
+  display: block;
+  padding: 22px;
+  overflow: auto;
+  user-select: text;
+}
+
+.dash {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 720px;
+  margin: 0 auto;
+  /* Bottom breathing room. A scroll container's own padding-bottom is dropped
+     by several webview engines when scrolled to the end, so put it here, in
+     the flow, instead of relying on the body padding. */
+  padding-bottom: 22px;
+}
+
+/* ---- Header ---- */
+.dash-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dash-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.dash-title svg { color: var(--accent); }
+
+.account-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ---- Hero ---- */
+.dash-hero {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 14px;
+}
+
+.hero-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 20px;
+  background-color: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.hero-primary {
+  background-image: linear-gradient(135deg, var(--accent-soft), transparent 70%);
+  border-color: var(--accent);
+}
+
+.hero-value {
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.05;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.hero-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+
+.hero-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.refresh-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color 0.15s, background-color 0.15s, opacity 0.15s;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background-color: var(--surface-3);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.refresh-btn svg { color: var(--accent); }
+
+/* Spin the refresh icon while a balance fetch is in flight. */
+.refresh-btn.busy svg {
+  animation: refresh-spin 0.8s linear infinite;
+}
+
+@keyframes refresh-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ---- Balance diagnostic box ---- */
+/* normalize.css forces `section { display: block }`, which overrides the bare
+   `hidden` attribute — so, like the modals/menus in styles.css, the hidden
+   state needs an explicit rule or the box would always show. */
+.diag-box[hidden] { display: none; }
+
+.diag-box {
+  padding: 12px 16px;
+  background-color: var(--danger-soft);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.diag-title {
+  font-weight: 700;
+  color: var(--danger);
+  margin-bottom: 8px;
+}
+
+.diag-line { margin: 2px 0; word-break: break-all; }
+.diag-line b { color: var(--text); font-weight: 600; }
+
+.diag-list {
+  margin: 6px 0 0 0;
+  padding-left: 18px;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.diag-list li { word-break: break-all; }
+
+/* ---- Sections ---- */
+.dash-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dash-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* ---- Lifetime metric grid ---- */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 14px 16px;
+  background-color: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.metric-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-label {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* ---- Recent-activity bar chart (per day, stacked by type) ----
+   The chart legend + segment colours (.chart-legend, .legend-*, .bar-pc /
+   .bar-mobile / .bar-daily) are shared with the main window and live in
+   styles.css, which this page also loads. */
+.dash-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.runs-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 8px;
+  height: 178px;
+  padding: 12px;
+  background-color: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* Fixed-width columns packed from the left. JS keeps only as many recent days
+   as fit (dropping the oldest), so the chart never stretches or scrolls. */
+.bar-col {
+  flex: 0 0 30px;
+  width: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  height: 100%;
+}
+
+.bar-cap {
+  font-size: 9.5px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Stacked segments grow from the bottom (daily as the base, searches on top). */
+.bar-stack {
+  width: 100%;
+  max-width: 30px;
+  display: flex;
+  flex-direction: column-reverse;
+  border-radius: 4px 4px 0 0;
+  overflow: hidden;
+  transition: filter 0.15s;
+}
+
+.bar-stack:hover { filter: brightness(1.2); }
+
+.bar-seg { width: 100%; }
+
+.bar-day {
+  font-size: 9.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* ---- Accounts table ---- */
+.dash-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+  background-color: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.dash-table th,
+.dash-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.dash-table thead th {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background-color: var(--surface-2);
+}
+
+.dash-table tbody tr:last-child td { border-bottom: none; }
+
+.dash-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.acc-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.dash-empty,
+.dash-empty-row {
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: center;
+  padding: 16px;
+}

@@ -639,6 +639,104 @@ input[type="number"]:focus {
 }
 
 /* =========================================================================
+   Stats card (compact) — opens the dashboard window on click
+   ========================================================================= */
+
+.stats-card {
+  padding: 12px 16px;
+  gap: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+
+.stats-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-soft);
+}
+
+.stats-card:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.stats-card .ghost-link {
+  pointer-events: none;
+}
+
+.stats-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  background-color: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.3px;
+}
+
+/* "Searching" state — pulses the values while Python scrapes the real balance
+   (at launch or on a manual refresh). */
+.stats-card.stats-loading .stat-value {
+  position: relative;
+  color: transparent;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--surface-3) 25%, var(--surface-2) 37%, var(--surface-3) 63%);
+  background-size: 400% 100%;
+  animation: stat-shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes stat-shimmer {
+  0%   { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+/* ---- Shared chart legend (used here and in the dashboard window) ---- */
+.chart-legend {
+  display: flex;
+  gap: 12px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+/* Shared segment / legend colours (PC, Mobile, Daily). */
+.legend-pc,     .bar-pc     { background-color: var(--accent); }
+.legend-mobile, .bar-mobile { background-color: #a78bfa; }
+.legend-daily,  .bar-daily  { background-color: var(--success); }
+
+/* =========================================================================
    Activity feed
    ========================================================================= */
 
@@ -656,6 +754,8 @@ input[type="number"]:focus {
   font-family: "JetBrains Mono", "SF Mono", "Consolas", "Courier New", monospace;
   color: var(--text-muted);
   line-height: 1.6;
+  /* Let users select/copy log lines (body sets user-select: none globally). */
+  user-select: text;
 }
 
 .log-line {

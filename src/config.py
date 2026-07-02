@@ -56,6 +56,7 @@ if not os.path.exists(APP_DIR):
 #         EdgeProfile/
 #         history.json
 #         status.json
+#         stats.json         (per-account: points balance + activity counters)
 #         meta.json          (per-account: first_setup_done)
 ACCOUNTS_DIR = os.path.join(APP_DIR, "accounts")
 GLOBAL_SETTINGS_PATH = os.path.join(APP_DIR, "settings.json")
@@ -91,6 +92,11 @@ def history_path(account_id):
 def status_path(account_id):
     """Return the daily-set status.json path for a given account."""
     return os.path.join(account_dir(account_id), "status.json")
+
+
+def stats_path(account_id):
+    """Return the statistics stats.json path for a given account."""
+    return os.path.join(account_dir(account_id), "stats.json")
 
 
 def account_meta_path(account_id):

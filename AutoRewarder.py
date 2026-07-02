@@ -50,12 +50,34 @@ if __name__ == "__main__":
         title="AutoRewarder",
         url=os.path.join(GUI_DIR, "index.html"),
         js_api=api,
-        width=640,
-        height=680,
+        width=680,
+        height=840,
         resizable=False,
         background_color="#0b0d12",
     )
     api.set_window(window)  # pass window reference to AutoRewarderAPI for logging
+
+    # Secondary windows (History, Statistics) are independent pywebview windows.
+    # pywebview keeps the process alive as long as ANY window is open, so once
+    # the main window is genuinely closed — the X with close-to-tray off, or
+    # "Exit" from the tray — we must tear the others down too, otherwise they
+    # stay on screen and the app never actually quits. The `closed` event only
+    # fires on a real close (the tray "hide" path returns from `closing`
+    # without closing), so this is the right hook.
+    def _destroy_secondary_windows(*_args):
+        for other in list(webview.windows):
+            if other is not window:
+                try:
+                    other.destroy()
+                except Exception as e:
+                    # Don't re-raise: that would abort teardown and leave the
+                    # remaining windows open. Log to stdout (the main window is
+                    # being destroyed, so evaluate_js logging isn't reliable
+                    # here) and keep closing the rest.
+                    print(f"[WARNING] Could not close secondary window: {e}")
+
+    if window is not None:
+        window.events.closed += _destroy_secondary_windows
 
     # User-controlled: when False, the X button quits the app normally and
     # we don't install the tray at all. Read once at startup — flipping the
@@ -114,5 +136,9 @@ if __name__ == "__main__":
         icon.run_detached()
         return icon
 
-    _tray_icon = _install_tray(window) if close_to_tray else None
+    # Install the tray for its side effects (closing handler + detached icon
+    # thread). The returned icon keeps itself alive via run_detached(), so we
+    # don't need to hold a reference here.
+    if close_to_tray:
+        _install_tray(window)
     webview.start(icon=os.path.join(ASSETS_DIR, "icon.ico"))

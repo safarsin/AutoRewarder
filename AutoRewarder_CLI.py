@@ -201,6 +201,8 @@ def _create_headless_api():
         api.daily_set.logger = console_log
     if api.search_engine is not None:
         api.search_engine._logger = console_log
+    if api.stats is not None:
+        api.stats._logger = console_log
 
     return api
 
@@ -301,6 +303,8 @@ def _run_account(api, acc, pc_override=None, mobile_override=None, force=False):
             api.daily_set.logger = console_log
         if api.search_engine is not None:
             api.search_engine._logger = console_log
+        if api.stats is not None:
+            api.stats._logger = console_log
 
     # Mark triggered BEFORE the run so a crash doesn't produce a second run.
     if pc_override is None and mobile_override is None:

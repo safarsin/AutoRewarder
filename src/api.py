@@ -26,6 +26,7 @@ from .config import (
     edge_profile_path,
     history_path,
     status_path,
+    stats_path,
 )
 from .utils import check_for_updates
 from .accounts import (
@@ -36,6 +37,13 @@ from .accounts import (
 from .emulator import DriverManager, HumanBehavior, edge_policy
 from .search import HistoryManager, SearchEngine
 from .dailytasks import DailySet
+from .stats import (
+    StatsManager,
+    scrape_points_balance,
+    scrape_points_balance_debug,
+    POINTS_PER_SEARCH,
+    POINTS_PER_CARD,
+)
 
 # Default wall-clock fire time (24h "HH:MM") if an account schedule does
 # not yet have a `run_time` value. Each account stores its own time in
@@ -74,9 +82,17 @@ class AutoRewarderAPI:
         self._webview_window = None
         self._driver_loader_thread_started = False
         self._update_check_started = False
+        # Single-instance secondary windows: reused (and reloaded) instead of
+        # stacking a new window on every open, which can leave the webview
+        # backend rendering a blank window after a few opens.
+        self._stats_window = None
+        self._history_window = None
         self._driver = None
         self.is_driver_loading = False
         self._run_lock = threading.Lock()
+        # Serializes ad-hoc balance scrapes so concurrent refreshes can't open
+        # two drivers on the same Edge profile at once.
+        self._balance_lock = threading.Lock()
         # Set when the user clicks Stop. Long loops in search_engine and
         # daily_set poll this between iterations and bail out cleanly.
         self._stop_event = threading.Event()
@@ -100,6 +116,14 @@ class AutoRewarderAPI:
         self.daily_set = None
         self.account_meta = None
         self.search_engine = None
+        self.stats = None
+
+        # Per-run stats accumulators, reset at the start of every main() call.
+        self._session_counts = {"pc": 0, "mobile": 0, "cards": 0}
+        self._last_scraped_balance = None
+        # Last balance-scrape diagnostic ({value, via, candidates, url, title}),
+        # surfaced to the dashboard so a failed read can be debugged in place.
+        self._last_balance_debug = {}
 
         self._rebuild_account_context()
 
@@ -130,6 +154,7 @@ class AutoRewarderAPI:
             self.account_meta = AccountMetaManager(current_id)
             self.history = HistoryManager(history_path(current_id), logger=self.log)
             self.daily_set = DailySet(status_path(current_id), logger=self.log)
+            self.stats = StatsManager(stats_path(current_id), logger=self.log)
             self.driver_manager = DriverManager(
                 profile_path=profile, hide_browser=self.hide_browser
             )
@@ -138,6 +163,7 @@ class AutoRewarderAPI:
             self.account_meta = None
             self.history = None
             self.daily_set = None
+            self.stats = None
             self.driver_manager = DriverManager(
                 profile_path=None, hide_browser=self.hide_browser
             )
@@ -173,15 +199,39 @@ class AutoRewarderAPI:
         else:
             print(message)
 
+    def _reuse_window(self, window, url):
+        """
+        If `window` is still open, reload it (so it re-fetches fresh data) and
+        bring it forward, returning True. Otherwise return False so the caller
+        creates a new one. Guards against stacking duplicate / blank windows.
+        """
+        import webview
+
+        if window is None or window not in webview.windows:
+            return False
+        try:
+            window.load_url(url)
+        except Exception:
+            return False
+        try:
+            window.show()
+        except Exception:
+            pass
+        return True
+
     def open_history_window(self):
-        """Open the history viewer window."""
+        """Open (or refocus + reload) the history viewer window."""
         # Local import: pywebview is a GUI-only dependency, kept out of the
         # headless CLI import chain (see comment at top of this module).
         import webview
 
-        webview.create_window(
+        url = os.path.join(GUI_DIR, "history.html")
+        if self._reuse_window(self._history_window, url):
+            return
+
+        self._history_window = webview.create_window(
             title="Query History",
-            url=os.path.join(GUI_DIR, "history.html"),
+            url=url,
             js_api=self,
             width=700,
             height=500,
@@ -189,6 +239,83 @@ class AutoRewarderAPI:
             background_color="#0d1117",
             text_select=True,
         )
+
+    def open_stats_window(self):
+        """
+        Open (or refocus + reload) the statistics dashboard window, docked to
+        the right edge of the main window so it sits beside it instead of
+        covering it. Falls back to the OS default position if the main window's
+        geometry can't be read.
+        """
+        # Local import: pywebview is a GUI-only dependency, kept out of the
+        # headless CLI import chain (see comment at top of this module).
+        import webview
+
+        url = os.path.join(GUI_DIR, "dashboard.html")
+        if self._reuse_window(self._stats_window, url):
+            return
+
+        kwargs = {
+            "title": "Statistics",
+            "url": url,
+            "js_api": self,
+            "width": 760,
+            "height": 620,
+            "resizable": True,
+            "background_color": "#0b0d12",
+            "text_select": True,
+        }
+
+        pos = self._dock_position(kwargs["width"], kwargs["height"])
+        if pos is not None:
+            kwargs["x"], kwargs["y"] = pos
+
+        self._stats_window = webview.create_window(**kwargs)
+
+    def _dock_position(self, win_w, win_h):
+        """
+        Compute on-screen (x, y) to dock a secondary window beside the main one:
+        to its right if there's room, otherwise to its left, otherwise clamped
+        so the window stays fully within the screen work area (never off-screen).
+        Returns None if the main window isn't attached or its geometry can't be
+        read, so the caller falls back to the OS default position.
+        """
+        if self._webview_window is None:
+            return None
+        try:
+            raw = self._webview_window.evaluate_js(
+                "JSON.stringify({"
+                "x: window.screenX, y: window.screenY, w: window.outerWidth,"
+                "sx: (screen.availLeft || 0), sy: (screen.availTop || 0),"
+                "sw: screen.availWidth, sh: screen.availHeight"
+                "})"
+            )
+            data = json.loads(raw) if raw else {}
+            main_x = int(data["x"])
+            main_y = int(data["y"])
+            main_w = int(data["w"])
+            sx = int(data["sx"])
+            sy = int(data["sy"])
+            sw = int(data["sw"])
+            sh = int(data["sh"])
+        except Exception:
+            return None
+
+        gap = 6
+        right = main_x + main_w + gap
+        left = main_x - gap - win_w
+
+        if right + win_w <= sx + sw:
+            x = right  # fits to the right of the main window
+        elif left >= sx:
+            x = left  # otherwise dock to the left
+        else:
+            # Neither side fits cleanly — clamp so it stays fully on screen.
+            x = max(sx, min(right, sx + sw - win_w))
+
+        # Align with the main window's top, clamped to the work area.
+        y = max(sy, min(main_y, sy + sh - win_h))
+        return x, y
 
     def start_update_check(self):
         """Start a one-time background update check."""
@@ -252,7 +379,14 @@ class AutoRewarderAPI:
         self.is_driver_loading = True
         try:
             warmup_driver = self.driver_manager.setup_driver(headless=True)
-            warmup_driver.quit()
+            try:
+                # Reuse the warmup driver — already open and bound to this
+                # account's logged-in profile — to refresh the real points
+                # balance on every launch, so the GUI always opens on an
+                # up-to-date total (no extra browser, no UI blocking).
+                self._refresh_balance_on_launch(warmup_driver)
+            finally:
+                warmup_driver.quit()
         except Exception as e:
             self.log(f"[ERROR] Error loading WebDriver: {e}")
         finally:
@@ -1235,7 +1369,40 @@ class AutoRewarderAPI:
         if current:
             self.log(f"Switched to account '{current['label']}'.")
         self._broadcast_account_ui()
+
+        # Refresh the new account's real balance in the background so the card
+        # shows an up-to-date total, not just the last stored one.
+        if self.account_meta is not None and self.account_meta.is_first_setup_done():
+            threading.Thread(
+                target=self._refresh_balance_async,
+                args=(account_id,),
+                daemon=True,
+            ).start()
         return True
+
+    def _refresh_balance_async(self, account_id):
+        """
+        Background balance refresh for a specific account. Only runs while that
+        account is still selected, and retries with exponential backoff if the
+        driver is momentarily busy (warmup / another refresh). A "busy" result
+        means no scrape happened, so retrying doesn't add extra hits to
+        Microsoft. Stops on success, account change, or a non-busy result.
+        """
+        retries = 3
+        delay = 0.5
+        for attempt in range(retries):
+            if self.account_manager.current_id() != account_id:
+                return  # switched away; that switch triggers its own refresh
+            try:
+                result = self.refresh_balance()
+            except Exception as e:
+                self.log(f"[WARNING] Background balance refresh failed: {e}")
+                return
+            if not isinstance(result, dict) or result.get("error") != "busy":
+                return  # succeeded, or a non-retryable outcome
+            if attempt < retries - 1:
+                time.sleep(delay)
+                delay *= 2
 
     def rename_account(self, account_id, new_label):
         """
@@ -1475,6 +1642,248 @@ class AutoRewarderAPI:
         return self.history.get_history()
 
     # ------------------------------------------------------------------
+    # Statistics (scoped to current account)
+    # ------------------------------------------------------------------
+
+    def get_stats(self):
+        """
+        Return the current account's statistics for the dashboard, augmented
+        with a couple of derived convenience fields the UI displays directly:
+
+          * total_points — the real scraped balance when available, else the
+            cumulative estimate. `is_estimate` flags which one it is.
+          * session_points — points earned in the last recorded run: the real
+            balance delta when available, otherwise the activity estimate.
+
+        Returns None when no account is selected.
+        """
+        if self.stats is None:
+            return None
+        data = self.stats.get_stats()
+
+        balance = data["balance"]["current"]
+        last = data["last_session"]
+        is_estimate = balance is None
+        estimate_total = data["lifetime"]["points_estimate"]
+        total_points = balance if balance is not None else estimate_total
+        session_delta = last.get("points_delta")
+
+        data["derived"] = {
+            "total_points": total_points,
+            "is_estimate": is_estimate,
+            "session_points": (
+                session_delta
+                if session_delta is not None
+                else last.get("points_estimate", 0)
+            ),
+            "session_is_estimate": session_delta is None,
+        }
+
+        # Per-item point values, so the dashboard can split a day's bar into
+        # searches vs daily without hard-coding the constants.
+        data["constants"] = {
+            "points_per_search": POINTS_PER_SEARCH,
+            "points_per_card": POINTS_PER_CARD,
+        }
+
+        current = self.account_manager.get_current()
+        if current:
+            data["account"] = {"id": current["id"], "label": current["label"]}
+        return data
+
+    def get_all_stats(self):
+        """
+        Return a compact per-account summary for the dashboard's multi-account
+        recap: [{id, label, total_points, is_estimate, lifetime_runs}].
+        """
+        result = []
+        for acc in self.account_manager.list():
+            stats = StatsManager(stats_path(acc["id"])).get_stats()
+            balance = stats["balance"]["current"]
+            result.append(
+                {
+                    "id": acc["id"],
+                    "label": acc["label"],
+                    "total_points": (
+                        balance
+                        if balance is not None
+                        else stats["lifetime"]["points_estimate"]
+                    ),
+                    "is_estimate": balance is None,
+                    "lifetime_runs": stats["lifetime"]["runs"],
+                    "pc_searches": stats["lifetime"]["pc_searches"],
+                    "mobile_searches": stats["lifetime"]["mobile_searches"],
+                    "daily_cards": stats["lifetime"]["daily_cards"],
+                }
+            )
+        return result
+
+    def _fetch_balance_with_driver(self, driver, attempts=8):
+        """
+        Navigate the given driver to the rewards dashboard and poll for the
+        points balance. Polls because the rewards counter is an Angular SPA
+        that hydrates / animates a moment after the page loads.
+
+        Args:
+            driver: an open Selenium WebDriver bound to a logged-in profile.
+            attempts (int): how many times to re-check before giving up.
+
+        Returns:
+            int | None: the scraped balance, or None if it never appeared.
+        """
+        # Cap the page load so a stuck/headless navigation can't hang forever
+        # (which would leave the browser open with nothing to read). On timeout
+        # we still try to scrape whatever rendered.
+        from selenium.common.exceptions import TimeoutException
+
+        try:
+            driver.set_page_load_timeout(30)
+        except Exception:
+            pass
+
+        try:
+            driver.get("https://rewards.bing.com")
+        except TimeoutException:
+            pass  # scrape whatever managed to render
+        except Exception as e:
+            self._last_balance_debug = {"error": str(e)[:120]}
+            return None
+
+        # Give the SPA a beat to mount before the first read.
+        time.sleep(2.5)
+
+        attempts = max(1, attempts)
+        self._last_balance_debug = {}
+        for _ in range(attempts):
+            info = scrape_points_balance_debug(driver)
+            self._last_balance_debug = info
+            value = info.get("value")
+            if isinstance(value, int) and value >= 0:
+                # No log here — the caller emits a single user-facing line, so
+                # a scrape+update pair doesn't read as a duplicate.
+                return value
+            time.sleep(1.5)
+
+        # Not found. Details are kept in _last_balance_debug for the dashboard's
+        # on-demand refresh diagnostic; nothing is logged to the activity feed.
+        return None
+
+    def _refresh_balance_on_launch(self, driver):
+        """
+        On-launch balance refresh: if this account is set up, scrape the real
+        balance now using the already-open warmup driver so the GUI opens on an
+        up-to-date total. Runs every launch (not just the first); a failed read
+        silently keeps the previously stored balance.
+        """
+        # Pin to the account that owns this warmup driver. The scrape runs on a
+        # background thread, so a mid-scrape account switch could otherwise save
+        # this profile's balance into another account's stats.json.
+        stats = self.stats
+        meta = self.account_meta
+        account_id = self.account_manager.current_id()
+        if stats is None or meta is None or account_id is None:
+            return
+        if not meta.is_first_setup_done():
+            return
+
+        # Only animate the card on the first launch, when there's nothing to
+        # show yet. On later launches a value is already displayed, so refresh
+        # it silently in the background — no distracting shimmer on a number
+        # that's already there.
+        animate = stats.get_stats()["balance"]["current"] is None
+
+        self.log("Refreshing your Rewards points balance…")
+        if animate:
+            self._set_stats_loading(True)
+        try:
+            balance = self._fetch_balance_with_driver(driver)
+        finally:
+            if animate:
+                self._set_stats_loading(False)
+        if balance is None:
+            self.log(
+                "[INFO] Couldn't read the points balance right now "
+                "(keeping the last known total)."
+            )
+            return
+        # Skip if the user switched accounts while we were scraping.
+        if self.account_manager.current_id() != account_id:
+            return
+        stats.update_balance(balance)
+        self._notify_stats_refresh()
+        self.log(f"Points balance updated: {balance:,}")
+
+    def refresh_balance(self):
+        """
+        Exposed to JS (dashboard 'Refresh balance' button). Open a short-lived
+        headless driver, scrape the real balance, persist it, and refresh the
+        UI without recording a run.
+
+        Returns:
+            dict: {"ok": True, "balance": int} on success, else
+                  {"ok": False, "error": <reason>}.
+        """
+        account_id = self.account_manager.current_id()
+        if account_id is None:
+            return {"ok": False, "error": "no_account"}
+        if self.account_meta is None or not self.account_meta.is_first_setup_done():
+            return {"ok": False, "error": "setup_needed"}
+        # A run or the startup warmup is already driving this profile; a second
+        # driver on the same EdgeProfile would clash, so refuse and let the
+        # caller retry once things settle.
+        if self._run_lock.locked() or self.is_driver_loading:
+            return {"ok": False, "error": "busy"}
+
+        # Atomically claim the profile: the checks above are advisory, so a
+        # dedicated lock is what actually prevents two refreshes from opening a
+        # driver on the same Edge profile at once.
+        if not self._balance_lock.acquire(blocking=False):
+            return {"ok": False, "error": "busy"}
+
+        # Pin to the account that opened the driver so a concurrent account
+        # switch can't redirect this profile's balance to another account.
+        stats = self.stats
+        driver_manager = self.driver_manager
+
+        self.log("Refreshing points balance…")
+        self._set_stats_loading(True)
+        driver = None
+        try:
+            driver = driver_manager.setup_driver(headless=True)
+            balance = self._fetch_balance_with_driver(driver)
+        except Exception as e:
+            self.log(f"[WARNING] Balance refresh failed: {e}")
+            return {"ok": False, "error": "driver"}
+        finally:
+            if driver is not None:
+                try:
+                    driver.quit()
+                except Exception:
+                    pass
+            self._set_stats_loading(False)
+            self._balance_lock.release()
+
+        if balance is None:
+            self.log("[INFO] Could not read the points balance from the rewards page.")
+            info = self._last_balance_debug or {}
+            return {
+                "ok": False,
+                "error": "not_found",
+                "url": info.get("url"),
+                "title": info.get("title"),
+                "candidates": info.get("candidates") or [],
+                "diag_error": info.get("error"),
+            }
+
+        # Only persist + refresh the UI if we're still on the same account.
+        if stats is None or self.account_manager.current_id() != account_id:
+            return {"ok": False, "error": "account_changed"}
+        stats.update_balance(balance)
+        self._notify_stats_refresh()
+        self.log(f"Points balance updated: {balance:,}")
+        return {"ok": True, "balance": balance}
+
+    # ------------------------------------------------------------------
     # Logging
     # ------------------------------------------------------------------
 
@@ -1701,6 +2110,11 @@ class AutoRewarderAPI:
         # Reset stop flag before each run so a previous Stop doesn't carry over.
         self._stop_event.clear()
 
+        # Reset per-run stats accumulators. _run_phase / _run_daily_only feed
+        # these; _record_session_stats() folds them into stats.json at the end.
+        self._session_counts = {"pc": 0, "mobile": 0, "cards": 0}
+        self._last_scraped_balance = None
+
         try:
             if daily_only:
                 self.log("Starting AutoRewarder (Daily tasks only)...")
@@ -1749,12 +2163,73 @@ class AutoRewarderAPI:
                     except Exception as e:
                         self.log(f"[WARNING] Failed to update deduplication date: {e}")
         finally:
+            # Persist this run's activity + balance before unlocking, so a
+            # GUI refresh triggered by enable_start_button() reads fresh stats.
+            self._record_session_stats()
             try:
                 if self._webview_window:
                     self._webview_window.evaluate_js("enable_start_button()")
             except Exception:
                 pass
             self._run_lock.release()
+
+    def _try_scrape_balance(self):
+        """
+        Best-effort read of the real points balance from the page the active
+        driver is currently on. Only updates `_last_scraped_balance` on a
+        successful read, so a later SERP miss never clobbers a good value
+        scraped earlier from the rewards dashboard.
+        """
+        if self._driver is None:
+            return
+        try:
+            value = scrape_points_balance(self._driver, self.log)
+        except Exception:
+            value = None
+        if value is not None:
+            self._last_scraped_balance = value
+
+    def _record_session_stats(self):
+        """
+        Fold this run's accumulated counters + scraped balance into stats.json
+        and ask the GUI (if attached) to refresh the stats card.
+        """
+        if self.stats is None:
+            return
+        try:
+            self.stats.record_session(
+                pc_searches=self._session_counts.get("pc", 0),
+                mobile_searches=self._session_counts.get("mobile", 0),
+                daily_cards=self._session_counts.get("cards", 0),
+                balance=self._last_scraped_balance,
+            )
+        except Exception as e:
+            self.log(f"[WARNING] Failed to record stats: {e}")
+            return
+
+        self._notify_stats_refresh()
+
+    def _notify_stats_refresh(self):
+        """Ask the GUI (if attached) to refresh the compact stats card."""
+        if self._webview_window:
+            try:
+                self._webview_window.evaluate_js(
+                    "typeof refresh_stats_ui === 'function' && refresh_stats_ui()"
+                )
+            except Exception:
+                pass
+
+    def _set_stats_loading(self, flag):
+        """Toggle the compact stats card's loading animation in the GUI."""
+        if self._webview_window:
+            try:
+                state = "true" if flag else "false"
+                self._webview_window.evaluate_js(
+                    f"typeof set_stats_loading === 'function' && "
+                    f"set_stats_loading({state})"
+                )
+            except Exception:
+                pass
 
     def _run_daily_only(self):
         """
@@ -1786,6 +2261,10 @@ class AutoRewarderAPI:
             success = self.daily_set.perform_daily_set(
                 self._driver, human, stop_event=self._stop_event
             )
+            # Record cards completed + scrape the balance while we're still on
+            # the rewards dashboard, before any Stop check returns early.
+            self._session_counts["cards"] += self.daily_set.last_totals.get("newly", 0)
+            self._try_scrape_balance()
             if self._stop_event.is_set():
                 self.log("Daily tasks aborted by Stop.")
                 return
@@ -1831,13 +2310,17 @@ class AutoRewarderAPI:
 
         self._driver = self.driver_manager.setup_driver(mobile=mobile)
         try:
-            self.search_engine.perform_searches(
+            done = self.search_engine.perform_searches(
                 self._driver,
                 queries_to_search,
                 mobile=mobile,
                 stop_event=self._stop_event,
             )
+            # Tally successful searches against the right platform bucket.
+            bucket = "mobile" if mobile else "pc"
+            self._session_counts[bucket] += int(done or 0)
 
+            ran_daily_set = False
             if (
                 do_daily_set
                 and not self._stop_event.is_set()
@@ -1848,6 +2331,13 @@ class AutoRewarderAPI:
                 success = self.daily_set.perform_daily_set(
                     self._driver, human, stop_event=self._stop_event
                 )
+                ran_daily_set = True
+                # Record cards + scrape the balance while still on the rewards
+                # dashboard, before the Stop check can short-circuit.
+                self._session_counts["cards"] += self.daily_set.last_totals.get(
+                    "newly", 0
+                )
+                self._try_scrape_balance()
                 if not self._stop_event.is_set():
                     if success:
                         self.daily_set.mark_as_completed()
@@ -1856,6 +2346,12 @@ class AutoRewarderAPI:
                         )
                     else:
                         self.log("Daily Set failed. Not marked as done for today.")
+
+            # When the Daily Set didn't run (mobile phase, or already done
+            # today) the rewards counter on the current Bing SERP is still a
+            # usable fallback source for the balance.
+            if not ran_daily_set and not self._stop_event.is_set():
+                self._try_scrape_balance()
 
         finally:
             try:

@@ -109,12 +109,17 @@ class SearchEngine:
             stop_event (threading.Event, optional): If provided and set, the
                 loop bails out at the next checkpoint and any in-progress
                 coffee break is interrupted immediately.
+
+        Returns:
+            int: the number of searches that completed successfully (used by
+                the stats layer to record activity for this run).
         """
 
         human = HumanBehavior(driver, show_cursor=True, mobile=mobile)
 
         next_coffee_break = self.get_coffee_break_count()
         searches_since_break = 0
+        successful = 0
 
         self._log(f"Loaded {len(queries)} queries. Starting searches...")
         self._log(f"Next coffee break after {next_coffee_break} searches.")
@@ -122,7 +127,7 @@ class SearchEngine:
         for i, query in enumerate(queries):
             if stop_event is not None and stop_event.is_set():
                 self._log("Stop requested — halting search loop.")
-                return
+                return successful
 
             try:
                 # Open Bing homepage
@@ -148,7 +153,7 @@ class SearchEngine:
                     if stop_event is not None:
                         if stop_event.wait(pause_duration):
                             self._log("Stop requested during coffee break — halting.")
-                            return
+                            return successful
                     else:
                         time.sleep(pause_duration)
 
@@ -223,22 +228,25 @@ class SearchEngine:
 
                 # Add to history.json
                 self._add_to_history(query, "Success")
+                successful += 1
 
             except NoSuchElementException:
                 if stop_event is not None and stop_event.is_set():
-                    return
+                    return successful
                 self._log(f"[ERROR] Search box not found on attempt #{i+1}")
                 self._add_to_history(query, "[ERROR] Search box not found")
 
             except WebDriverException as e:
                 if stop_event is not None and stop_event.is_set():
-                    return
+                    return successful
                 short_error = str(e).split("\n")[0][:28]
                 self._log(f"[ERROR] WebDriver error on attempt #{i+1}: {short_error}")
                 self._add_to_history(query, f"[ERROR] WebDriver Error: {short_error}")
 
             except Exception as e:
                 if stop_event is not None and stop_event.is_set():
-                    return
+                    return successful
                 self._log(f"[ERROR] Unknown error on attempt #{i+1}: {e}")
                 self._add_to_history(query, f"[ERROR] Unknown Error: {str(e)[:50]}")
+
+        return successful

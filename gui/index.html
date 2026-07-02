@@ -112,6 +112,33 @@
       </div>
     </section>
 
+    <!-- ==================== Stats card ==================== -->
+    <section class="card stats-card" id="stats_card" role="button" tabindex="0"
+             title="Open the statistics dashboard" onclick="show_stats()"
+             onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); show_stats(); }">
+      <div class="card-header">
+        <div class="card-label">Stats</div>
+        <span class="ghost-link" aria-hidden="true">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+          Dashboard
+        </span>
+      </div>
+      <div class="stats-tiles">
+        <div class="stat-tile">
+          <span class="stat-value" id="stat_total">—</span>
+          <span class="stat-label" id="stat_total_label">Total points</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-value" id="stat_session">—</span>
+          <span class="stat-label">Earned last run</span>
+        </div>
+      </div>
+    </section>
+
     <!-- ==================== Activity card ==================== -->
     <section class="card activity-card">
       <div class="card-header">
