@@ -1383,11 +1383,14 @@ class AutoRewarderAPI:
     def _refresh_balance_async(self, account_id):
         """
         Background balance refresh for a specific account. Only runs while that
-        account is still selected, and retries a few times if the driver is
-        momentarily busy (warmup / another refresh). A "busy" result means no
-        scrape happened, so retrying doesn't add extra hits to Microsoft.
+        account is still selected, and retries with exponential backoff if the
+        driver is momentarily busy (warmup / another refresh). A "busy" result
+        means no scrape happened, so retrying doesn't add extra hits to
+        Microsoft. Stops on success, account change, or a non-busy result.
         """
-        for _ in range(15):
+        retries = 3
+        delay = 0.5
+        for attempt in range(retries):
             if self.account_manager.current_id() != account_id:
                 return  # switched away; that switch triggers its own refresh
             try:
@@ -1395,9 +1398,11 @@ class AutoRewarderAPI:
             except Exception as e:
                 self.log(f"[WARNING] Background balance refresh failed: {e}")
                 return
-            if not (isinstance(result, dict) and result.get("error") == "busy"):
+            if not isinstance(result, dict) or result.get("error") != "busy":
                 return  # succeeded, or a non-retryable outcome
-            time.sleep(2)
+            if attempt < retries - 1:
+                time.sleep(delay)
+                delay *= 2
 
     def rename_account(self, account_id, new_label):
         """
