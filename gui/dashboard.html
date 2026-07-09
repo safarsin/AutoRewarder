@@ -348,7 +348,8 @@
       let left = targetRect.left + targetRect.width / 2 - tipRect.width / 2;
       left = Math.max(6, Math.min(left, window.innerWidth - tipRect.width - 6));
       tip.style.left = left + 'px';
-      tip.style.top = (targetRect.top - tipRect.height - 10) + 'px';
+      const top = Math.max(6, targetRect.top - tipRect.height - 10);
+      tip.style.top = top + 'px';
     }
 
     function hide_chart_tooltip() {
