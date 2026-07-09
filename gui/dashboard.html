@@ -25,9 +25,9 @@
     </header>
 
     <!-- Hero: headline points -->
-    <section class="dash-hero">
+    <section class="dash-hero rise-in">
       <div class="hero-card hero-primary">
-        <span class="hero-value" id="total_points">—</span>
+        <span class="hero-value skeleton skeleton-hero" id="total_points">—</span>
         <span class="hero-label" id="total_label">Total points</span>
         <span class="hero-sub" id="total_sub"></span>
         <button id="refresh_btn" class="refresh-btn" type="button" title="Open a headless browser to read your current balance">
@@ -40,7 +40,7 @@
         </button>
       </div>
       <div class="hero-card">
-        <span class="hero-value" id="session_points">—</span>
+        <span class="hero-value skeleton skeleton-hero" id="session_points">—</span>
         <span class="hero-label">Earned last run</span>
         <span class="hero-sub" id="session_sub"></span>
       </div>
@@ -56,38 +56,38 @@
     </section>
 
     <!-- Lifetime activity counters -->
-    <section class="dash-section">
+    <section class="dash-section rise-in" style="animation-delay: 0.05s;">
       <div class="dash-section-title">Lifetime activity</div>
-      <div class="metric-grid">
+      <div class="metric-grid" id="metric_grid">
         <div class="metric">
-          <span class="metric-value" id="m_pc">0</span>
+          <span class="metric-value skeleton skeleton-metric" id="m_pc">0</span>
           <span class="metric-label">PC searches</span>
         </div>
         <div class="metric">
-          <span class="metric-value" id="m_mobile">0</span>
+          <span class="metric-value skeleton skeleton-metric" id="m_mobile">0</span>
           <span class="metric-label">Mobile searches</span>
         </div>
         <div class="metric">
-          <span class="metric-value" id="m_cards">0</span>
+          <span class="metric-value skeleton skeleton-metric" id="m_cards">0</span>
           <span class="metric-label">Daily cards</span>
         </div>
         <div class="metric">
-          <span class="metric-value" id="m_earn">0</span>
+          <span class="metric-value skeleton skeleton-metric" id="m_earn">0</span>
           <span class="metric-label">Earn cards</span>
         </div>
         <div class="metric">
-          <span class="metric-value" id="m_quests">0</span>
+          <span class="metric-value skeleton skeleton-metric" id="m_quests">0</span>
           <span class="metric-label">Quest tasks</span>
         </div>
         <div class="metric">
-          <span class="metric-value" id="m_runs">0</span>
+          <span class="metric-value skeleton skeleton-metric" id="m_runs">0</span>
           <span class="metric-label">Runs</span>
         </div>
       </div>
     </section>
 
     <!-- Recent activity bar chart (per day, stacked by type) -->
-    <section class="dash-section">
+    <section class="dash-section rise-in" style="animation-delay: 0.1s;">
       <div class="dash-section-head">
         <div class="dash-section-title">Recent activity (estimated points / day)</div>
         <div class="chart-legend">
@@ -103,7 +103,7 @@
     </section>
 
     <!-- Multi-account recap -->
-    <section class="dash-section">
+    <section class="dash-section rise-in" style="animation-delay: 0.15s;">
       <div class="dash-section-title">All accounts</div>
       <table class="dash-table">
         <thead>
@@ -115,7 +115,8 @@
           </tr>
         </thead>
         <tbody id="accounts_body">
-          <tr><td colspan="4" class="dash-empty-row">Loading…</td></tr>
+          <tr class="skeleton-row"><td><span class="skeleton skeleton-text w-md"></span></td><td class="num"><span class="skeleton skeleton-text w-sm"></span></td><td class="num"><span class="skeleton skeleton-text w-sm"></span></td><td class="num"><span class="skeleton skeleton-text w-sm"></span></td></tr>
+          <tr class="skeleton-row"><td><span class="skeleton skeleton-text w-md"></span></td><td class="num"><span class="skeleton skeleton-text w-sm"></span></td><td class="num"><span class="skeleton skeleton-text w-sm"></span></td><td class="num"><span class="skeleton skeleton-text w-sm"></span></td></tr>
         </tbody>
       </table>
     </section>
@@ -181,6 +182,7 @@
       const totalEl = document.getElementById('total_points');
       const totalLabel = document.getElementById('total_label');
       const totalSub = document.getElementById('total_sub');
+      totalEl.classList.remove('skeleton', 'skeleton-hero');
       totalEl.textContent = (d.is_estimate && d.total_points > 0 ? '~' : '') + fmt(d.total_points);
       totalLabel.textContent = d.is_estimate ? 'Total points (estimated)' : 'Total points';
       if (d.is_estimate) {
@@ -195,6 +197,7 @@
       const sessSub = document.getElementById('session_sub');
       const sessSign = (!d.session_is_estimate && d.session_points > 0) ? '+' : '';
       const sessPrefix = (d.session_is_estimate && d.session_points > 0) ? '~' : sessSign;
+      sessEl.classList.remove('skeleton', 'skeleton-hero');
       sessEl.textContent = sessPrefix + fmt(d.session_points);
       const ls = stats.last_session || {};
       const parts = [];
@@ -206,12 +209,17 @@
       sessSub.textContent = parts.length ? parts.join(' · ') : 'No activity recorded yet';
 
       // Lifetime metrics.
-      document.getElementById('m_pc').textContent = fmt(life.pc_searches || 0);
-      document.getElementById('m_mobile').textContent = fmt(life.mobile_searches || 0);
-      document.getElementById('m_cards').textContent = fmt(life.daily_cards || 0);
-      document.getElementById('m_earn').textContent = fmt(life.earn_cards || 0);
-      document.getElementById('m_quests').textContent = fmt(life.quest_tasks || 0);
-      document.getElementById('m_runs').textContent = fmt(life.runs || 0);
+      const metricIds = ['m_pc', 'm_mobile', 'm_cards', 'm_earn', 'm_quests', 'm_runs'];
+      const metricValues = [
+        life.pc_searches || 0, life.mobile_searches || 0, life.daily_cards || 0,
+        life.earn_cards || 0, life.quest_tasks || 0, life.runs || 0,
+      ];
+      metricIds.forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('skeleton', 'skeleton-metric');
+        el.textContent = fmt(metricValues[i]);
+      });
 
       render_runs_chart(stats.daily || {}, stats.constants);
     }
@@ -240,6 +248,72 @@
       const avail = (chart ? chart.clientWidth : 0) - CHART_PAD * 2;
       if (avail < COL_W) return 16;  // not laid out yet → sane default
       return Math.max(1, Math.floor((avail + COL_GAP) / (COL_W + COL_GAP)));
+    }
+
+    // Custom hover tooltip for the stacked bars — replaces the native
+    // `title` attribute (which renders as an unstyled OS tooltip) with a
+    // themed box positioned above the hovered bar. Fixed-position + appended
+    // to <body> so it isn't clipped by the chart's own overflow:hidden.
+    function get_chart_tooltip() {
+      let tip = document.getElementById('chart_tooltip');
+      if (!tip) {
+        tip = document.createElement('div');
+        tip.id = 'chart_tooltip';
+        tip.className = 'chart-tooltip';
+        tip.hidden = true;
+        document.body.appendChild(tip);
+      }
+      return tip;
+    }
+
+    function show_chart_tooltip(targetEl, data) {
+      const tip = get_chart_tooltip();
+      while (tip.firstChild) tip.removeChild(tip.firstChild);
+
+      const title = document.createElement('div');
+      title.className = 'chart-tooltip-title';
+      title.textContent = data.label;
+      tip.appendChild(title);
+
+      const rows = [
+        ['PC', data.pc], ['Mobile', data.mobile], ['Daily', data.daily],
+        ['Earn', data.earn], ['Quests', data.quests],
+      ];
+      for (const [name, val] of rows) {
+        if (!val) continue;
+        const row = document.createElement('div');
+        row.className = 'chart-tooltip-row';
+        const n = document.createElement('span');
+        n.textContent = name;
+        const v = document.createElement('span');
+        v.textContent = fmt(val) + ' pts';
+        row.appendChild(n);
+        row.appendChild(v);
+        tip.appendChild(row);
+      }
+
+      const totalRow = document.createElement('div');
+      totalRow.className = 'chart-tooltip-row chart-tooltip-total';
+      const tn = document.createElement('span');
+      tn.textContent = 'Total';
+      const tv = document.createElement('span');
+      tv.textContent = fmt(data.total) + ' pts';
+      totalRow.appendChild(tn);
+      totalRow.appendChild(tv);
+      tip.appendChild(totalRow);
+
+      tip.hidden = false;
+      const targetRect = targetEl.getBoundingClientRect();
+      const tipRect = tip.getBoundingClientRect();
+      let left = targetRect.left + targetRect.width / 2 - tipRect.width / 2;
+      left = Math.max(6, Math.min(left, window.innerWidth - tipRect.width - 6));
+      tip.style.left = left + 'px';
+      tip.style.top = (targetRect.top - tipRect.height - 10) + 'px';
+    }
+
+    function hide_chart_tooltip() {
+      const tip = document.getElementById('chart_tooltip');
+      if (tip) tip.hidden = true;
     }
 
     // One stacked bar per day with three segments: PC searches, mobile
@@ -311,10 +385,11 @@
 
         const stack = document.createElement('div');
         stack.className = 'bar-stack';
-        stack.title = `${day_label(d)}\nPC: ${fmt(e.pc)} pts` +
-          `\nMobile: ${fmt(e.mobile)} pts\nDaily: ${fmt(e.daily)} pts` +
-          `\nEarn: ${fmt(e.earn)} pts\nQuests: ${fmt(e.quests)} pts` +
-          `\nTotal: ${fmt(total)} pts`;
+        stack.addEventListener('mouseenter', () => show_chart_tooltip(stack, {
+          label: day_label(d), pc: e.pc, mobile: e.mobile, daily: e.daily,
+          earn: e.earn, quests: e.quests, total: total,
+        }));
+        stack.addEventListener('mouseleave', hide_chart_tooltip);
 
         for (const seg of SEGMENTS) {
           const div = document.createElement('div');
@@ -349,8 +424,10 @@
         return;
       }
 
-      for (const acc of list) {
+      list.forEach((acc, idx) => {
         const tr = document.createElement('tr');
+        tr.className = 'rise-in';
+        tr.style.animationDelay = (idx * 0.03) + 's';
 
         const nameTd = document.createElement('td');
         const wrap = document.createElement('span');
@@ -383,7 +460,7 @@
         tr.appendChild(runsTd);
         tr.appendChild(searchTd);
         body.appendChild(tr);
-      }
+      });
     }
 
     function set_refresh_busy(busy) {

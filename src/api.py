@@ -89,6 +89,10 @@ class AutoRewarderAPI:
         self._history_window = None
         self._driver = None
         self.is_driver_loading = False
+        # Optional pystray.Icon handed in by AutoRewarder.py when the "close
+        # to tray" tray icon is installed. Reused (instead of spinning up a
+        # second icon) for end-of-run notifications when available.
+        self._tray_icon = None
         self._run_lock = threading.Lock()
         # Serializes ad-hoc balance scrapes so concurrent refreshes can't open
         # two drivers on the same Edge profile at once.
@@ -196,6 +200,69 @@ class AutoRewarderAPI:
         if not self._driver_loader_thread_started:
             self._driver_loader_thread_started = True
             threading.Thread(target=self.load_driver_in_background, daemon=True).start()
+
+    def set_tray_icon(self, icon):
+        """
+        Attach the persistent pystray.Icon installed by AutoRewarder.py (only
+        when "close to tray" is enabled), so end-of-run notifications can
+        reuse it instead of spinning up a throwaway one.
+
+        Args:
+            icon: A running pystray.Icon instance, or None.
+        """
+        self._tray_icon = icon
+
+    def _send_native_notification(self, title, message):
+        """
+        Best-effort native OS notification (Windows toast / tray balloon),
+        used at the end of a run so a scheduled background run — the whole
+        point of "set and forget" — still surfaces a result when nobody is
+        watching the window. Never raises: a notification failure must not
+        interrupt the run it's reporting on.
+
+        Reuses the persistent tray icon when `set_tray_icon` attached one;
+        otherwise spins up a short-lived pystray icon just to show the
+        balloon, then tears it down. Runs in a daemon thread so it never
+        blocks the caller (pystray.Icon.run() is blocking).
+        """
+        try:
+            import pystray
+            from PIL import Image
+            from .config import ASSETS_DIR
+        except Exception:
+            return
+
+        if self._tray_icon is not None:
+            try:
+                self._tray_icon.notify(message, title)
+            except Exception as e:
+                print(f"[WARNING] Notification failed: {e}")
+            return
+
+        def _show_transient():
+            try:
+                try:
+                    with Image.open(os.path.join(ASSETS_DIR, "icon.ico")) as img:
+                        image = img.copy()
+                except Exception:
+                    image = Image.new("RGB", (64, 64), (0, 0, 0))
+
+                icon = pystray.Icon("AutoRewarder", image, "AutoRewarder")
+
+                def _setup(ic):
+                    ic.visible = True
+                    try:
+                        ic.notify(message, title)
+                    except Exception as e:
+                        print(f"[WARNING] Notification failed: {e}")
+                    time.sleep(6)
+                    ic.stop()
+
+                icon.run(setup=_setup)
+            except Exception as e:
+                print(f"[WARNING] Could not show notification: {e}")
+
+        threading.Thread(target=_show_transient, daemon=True).start()
 
     def _safe_log(self, message):
         """
@@ -2212,6 +2279,26 @@ class AutoRewarderAPI:
                 self.log("Stopped.")
             else:
                 self.log("Done!")
+
+                current_account = self.account_manager.get_current()
+                account_label = (
+                    current_account.get("label") if current_account else "AutoRewarder"
+                )
+                summary_parts = []
+                if self._session_counts.get("pc"):
+                    summary_parts.append(f"{self._session_counts['pc']} PC")
+                if self._session_counts.get("mobile"):
+                    summary_parts.append(f"{self._session_counts['mobile']} mobile")
+                if self._session_counts.get("cards"):
+                    summary_parts.append(f"{self._session_counts['cards']} daily")
+                if self._session_counts.get("earn"):
+                    summary_parts.append(f"{self._session_counts['earn']} earn")
+                if self._session_counts.get("quests"):
+                    summary_parts.append(f"{self._session_counts['quests']} quests")
+                summary = " · ".join(summary_parts) if summary_parts else "No new activity"
+                self._send_native_notification(
+                    f"AutoRewarder — {account_label}", f"Run complete: {summary}"
+                )
 
                 if self.account_meta is not None:
                     try:

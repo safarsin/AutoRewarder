@@ -137,8 +137,10 @@ if __name__ == "__main__":
         return icon
 
     # Install the tray for its side effects (closing handler + detached icon
-    # thread). The returned icon keeps itself alive via run_detached(), so we
-    # don't need to hold a reference here.
+    # thread). Hand the icon to the API too, so end-of-run notifications can
+    # reuse it instead of spinning up a throwaway one.
     if close_to_tray:
-        _install_tray(window)
+        tray_icon = _install_tray(window)
+        if tray_icon is not None:
+            api.set_tray_icon(tray_icon)
     webview.start(icon=os.path.join(ASSETS_DIR, "icon.ico"))

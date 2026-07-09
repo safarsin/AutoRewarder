@@ -129,18 +129,28 @@ button {
 }
 
 .app-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   text-align: center;
   font-size: 11px;
   color: var(--text-dim);
-  padding: 2px 0 4px 0;
+  padding: 10px 0 4px 0;
   margin-top: -4px;
+  border-top: 1px solid var(--border-soft);
   flex-shrink: 0;
+}
+
+.app-footer svg {
+  color: var(--text-dim);
+  opacity: 0.7;
 }
 
 .app-footer a {
   color: var(--accent);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 600;
   transition: color 0.15s;
 }
 
@@ -354,6 +364,7 @@ button {
    ========================================================================= */
 
 .avatar {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -371,6 +382,30 @@ button {
 
 .avatar-sm { width: 24px; height: 24px; font-size: 10px; }
 .avatar-lg { width: 40px; height: 40px; font-size: 14px; }
+
+/* Ready / setup-pending status badge, overlaid on the avatar's corner so
+   account state is readable at a glance in the picker, dropdown and lists. */
+.avatar.status-ready::after,
+.avatar.status-pending::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--surface-2);
+}
+
+.avatar.status-ready::after   { background-color: var(--success); }
+.avatar.status-pending::after { background-color: var(--warning); }
+
+.avatar-sm.status-ready::after,
+.avatar-sm.status-pending::after {
+  width: 7px;
+  height: 7px;
+  border-width: 1.5px;
+}
 
 /* =========================================================================
    Run card — queries, toggle, big start button
@@ -636,6 +671,55 @@ input[type="number"]:focus {
 @keyframes pulse {
   0%, 100% { box-shadow: 0 0 8px var(--success); }
   50%      { box-shadow: 0 0 16px var(--success); }
+}
+
+/* =========================================================================
+   Run progress bar — shown only while a run is executing. Driven purely by
+   the client-side log parser in script.js (no dedicated backend event): the
+   fill tracks "Search #i" lines against the phase's known total, and turns
+   indeterminate for the Daily Set phase, whose total isn't known upfront.
+   ========================================================================= */
+
+.run-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: rise-in 0.2s ease-out both;
+}
+
+.run-progress[hidden] { display: none; }
+
+.run-progress-label {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+}
+
+.run-progress-track {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background-color: var(--surface-3);
+  overflow: hidden;
+}
+
+.run-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), #7a6cff);
+  transition: width 0.4s ease-out;
+}
+
+.run-progress-track.indeterminate .run-progress-fill {
+  width: 40% !important;
+  animation: progress-indeterminate 1.2s ease-in-out infinite;
+}
+
+@keyframes progress-indeterminate {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
 }
 
 /* =========================================================================
@@ -1488,6 +1572,41 @@ input[type="number"]:focus {
 ::-webkit-scrollbar-track   { background: transparent; }
 ::-webkit-scrollbar-thumb   { background: var(--surface-3); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border); }
+
+/* =========================================================================
+   Generic skeleton loader — shared by the dashboard + history windows while
+   their first pywebview.api call is in flight. Reuses the same shimmer
+   sweep as .stats-loading .stat-value above.
+   ========================================================================= */
+
+.skeleton {
+  display: inline-block;
+  color: transparent !important;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--surface-3) 25%, var(--surface-2) 37%, var(--surface-3) 63%);
+  background-size: 400% 100%;
+  animation: stat-shimmer 1.3s ease-in-out infinite;
+  vertical-align: middle;
+  pointer-events: none;
+}
+
+.skeleton-hero  { width: 96px;  height: 28px; }
+.skeleton-metric { width: 44px; height: 17px; }
+.skeleton-text  { width: 100%; max-width: 140px; height: 12px; }
+.skeleton-text.w-sm { max-width: 60px; }
+.skeleton-text.w-md { max-width: 100px; }
+
+/* =========================================================================
+   Fade-in entrance for sections that populate after an async load (dashboard
+   sections, history rows). Kept subtle — a small upward drift + fade.
+   ========================================================================= */
+
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.rise-in { animation: rise-in 0.3s ease-out both; }
 
 /* =========================================================================
    Warmup loader (used during WebDriver warmup)

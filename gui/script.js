@@ -143,6 +143,9 @@ function make_avatar(account, size) {
   el.className = 'avatar' + (size ? ' avatar-' + size : '');
   el.style.backgroundColor = avatar_color(account ? account.id : '');
   el.textContent = account ? avatar_initials(account.label) : '?';
+  if (account && typeof account.first_setup_done === 'boolean') {
+    el.classList.add(account.first_setup_done ? 'status-ready' : 'status-pending');
+  }
   return el;
 }
 
@@ -190,6 +193,8 @@ function update_log(message) {
 
   logDiv.appendChild(_new_log_line(message));
   logDiv.scrollTop = logDiv.scrollHeight;
+
+  _parse_progress_from_log(message);
 }
 
 /**
@@ -225,6 +230,77 @@ function update_log_once(message) {
   if (_loggedOnce.has(message)) return;
   _loggedOnce.add(message);
   update_log(message);
+}
+
+// =========================================================================
+// Run progress bar
+//
+// There's no dedicated progress API — this reads the same log lines already
+// streamed into the activity feed via update_log(). Phase totals come from
+// the "=== PC/Mobile phase — N queries ===" banner emitted by api.py; the
+// running count comes from each "Search #i: ..." line. The Daily Set phase
+// has no known total up front, so it renders as an indeterminate sweep
+// instead of a fabricated percentage.
+// =========================================================================
+
+let _progressTotal = 0;
+
+function _show_progress(phaseLabel, indeterminate) {
+  const wrap = document.getElementById('run_progress');
+  const track = document.getElementById('run_progress_track');
+  const phase = document.getElementById('run_progress_phase');
+  const pct = document.getElementById('run_progress_pct');
+  const fill = document.getElementById('run_progress_fill');
+  if (!wrap) return;
+  wrap.hidden = false;
+  if (phase) phase.textContent = phaseLabel;
+  if (track) track.classList.toggle('indeterminate', Boolean(indeterminate));
+  if (!indeterminate && fill) fill.style.width = '0%';
+  if (pct) pct.textContent = indeterminate ? '' : '0%';
+}
+
+function _set_progress_fraction(current, total) {
+  const fill = document.getElementById('run_progress_fill');
+  const pct = document.getElementById('run_progress_pct');
+  if (!fill || !total) return;
+  const frac = Math.max(0, Math.min(1, current / total));
+  fill.style.width = (frac * 100) + '%';
+  if (pct) pct.textContent = Math.round(frac * 100) + '%';
+}
+
+function hide_progress() {
+  const wrap = document.getElementById('run_progress');
+  const track = document.getElementById('run_progress_track');
+  if (wrap) wrap.hidden = true;
+  if (track) track.classList.remove('indeterminate');
+  _progressTotal = 0;
+}
+
+function _parse_progress_from_log(message) {
+  const s = String(message);
+
+  let m = s.match(/^=== (PC|Mobile) phase — (\d+) quer/);
+  if (m) {
+    _progressTotal = parseInt(m[2], 10) || 0;
+    _show_progress(m[1] + ' searches', false);
+    return;
+  }
+
+  m = s.match(/^Search #(\d+):/);
+  if (m && _progressTotal > 0) {
+    _set_progress_fraction(parseInt(m[1], 10), _progressTotal);
+    return;
+  }
+
+  if (/^=== Daily tasks only/.test(s) || /Starting Daily Set tasks/.test(s)) {
+    _progressTotal = 0;
+    _show_progress('Daily Set tasks', true);
+    return;
+  }
+
+  if (/^Done!$/.test(s) || /^Stopped\.$/.test(s)) {
+    hide_progress();
+  }
 }
 
 // =========================================================================
@@ -338,6 +414,11 @@ function enable_start_button() {
     if (stopLabel) stopLabel.textContent = 'Stop';
   }
   update_status_indicator();
+
+  // Safety net: an early-return error path (no account, setup missing, …)
+  // never logs "Done!"/"Stopped.", so the progress bar wouldn't otherwise
+  // clear on its own.
+  hide_progress();
 }
 
 function stop_bot() {
@@ -599,9 +680,12 @@ function render_account_trigger() {
 
   const current = accountsCache.find(a => a.id === currentAccountId);
 
+  avatarEl.classList.remove('status-ready', 'status-pending');
+
   if (current) {
     avatarEl.textContent = avatar_initials(current.label);
     avatarEl.style.backgroundColor = avatar_color(current.id);
+    avatarEl.classList.add(current.first_setup_done ? 'status-ready' : 'status-pending');
     labelEl.textContent = current.label;
     metaEl.textContent = current.first_setup_done ? 'Ready to run' : 'Setup pending';
     trigger.disabled = false;

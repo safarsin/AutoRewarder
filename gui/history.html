@@ -31,9 +31,9 @@
       </tr>
     </thead>
     <tbody id="table_body">
-      <tr>
-        <td colspan="4" class="empty-row">Loading…</td>
-      </tr>
+      <tr><td><span class="skeleton skeleton-text w-sm"></span></td><td><span class="skeleton skeleton-text w-sm"></span></td><td><span class="skeleton skeleton-text w-md"></span></td><td><span class="skeleton skeleton-text w-sm"></span></td></tr>
+      <tr><td><span class="skeleton skeleton-text w-sm"></span></td><td><span class="skeleton skeleton-text w-sm"></span></td><td><span class="skeleton skeleton-text w-md"></span></td><td><span class="skeleton skeleton-text w-sm"></span></td></tr>
+      <tr><td><span class="skeleton skeleton-text w-sm"></span></td><td><span class="skeleton skeleton-text w-sm"></span></td><td><span class="skeleton skeleton-text w-md"></span></td><td><span class="skeleton skeleton-text w-sm"></span></td></tr>
     </tbody>
   </table>
 
@@ -89,10 +89,16 @@
         // values coming from history.json (ultimately user-controlled) can't
         // be interpreted as HTML.
         const rows = data.slice().reverse();
+        let idx = 0;
         for (const item of rows) {
           const statusClass =
             String(item.status).includes('ERROR') ? 'status-error' : 'status-success';
           const tr = document.createElement('tr');
+          if (idx < 20) {
+            tr.className = 'rise-in';
+            tr.style.animationDelay = (idx * 0.02) + 's';
+          }
+          idx++;
 
           const dateTd = document.createElement('td');
           dateTd.className = 'cell-meta';

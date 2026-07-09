@@ -108,3 +108,24 @@ body {
   color: var(--text-dim);
   padding: 28px 0;
 }
+
+.history-table tr.rise-in {
+  animation-duration: 0.22s;
+}
+
+/* ---- Responsive: history window can be resized narrower ---- */
+@media (max-width: 520px) {
+  body { padding: 14px; }
+
+  .history-table th.col-time,
+  .history-table td.cell-meta:nth-child(2) {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .history-table th.col-date,
+  .history-table td.cell-meta:nth-child(1) {
+    display: none;
+  }
+}
