@@ -83,6 +83,10 @@
           <span class="metric-value skeleton skeleton-metric" id="m_runs">0</span>
           <span class="metric-label">Runs</span>
         </div>
+        <div class="metric metric-highlight">
+          <span class="metric-value skeleton skeleton-metric" id="m_streak">0</span>
+          <span class="metric-label">Day streak</span>
+        </div>
       </div>
     </section>
 
@@ -170,6 +174,41 @@
       pill.appendChild(text);
     }
 
+    // "YYYY-MM-DD" using local date parts, matching how the backend keys
+    // stats.daily (date.today().isoformat(), also local) — avoids the
+    // off-by-one that Date#toISOString() would introduce west of UTC.
+    function local_ymd(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    // Consecutive days (ending today, or yesterday if today has no activity
+    // yet) with any recorded activity in stats.daily.
+    function compute_streak(daily) {
+      const activeDays = new Set(
+        Object.keys(daily || {}).filter(k => {
+          const v = daily[k] || {};
+          return (v.pc || 0) + (v.mobile || 0) + (v.cards || 0) + (v.earn || 0) + (v.quests || 0) > 0;
+        })
+      );
+      if (activeDays.size === 0) return 0;
+
+      const cursor = new Date();
+      cursor.setHours(0, 0, 0, 0);
+      if (!activeDays.has(local_ymd(cursor))) {
+        cursor.setDate(cursor.getDate() - 1);
+      }
+
+      let streak = 0;
+      while (activeDays.has(local_ymd(cursor))) {
+        streak++;
+        cursor.setDate(cursor.getDate() - 1);
+      }
+      return streak;
+    }
+
     function render_current_stats(stats) {
       if (!stats || !stats.derived) return;
       const d = stats.derived;
@@ -209,10 +248,11 @@
       sessSub.textContent = parts.length ? parts.join(' · ') : 'No activity recorded yet';
 
       // Lifetime metrics.
-      const metricIds = ['m_pc', 'm_mobile', 'm_cards', 'm_earn', 'm_quests', 'm_runs'];
+      const metricIds = ['m_pc', 'm_mobile', 'm_cards', 'm_earn', 'm_quests', 'm_runs', 'm_streak'];
       const metricValues = [
         life.pc_searches || 0, life.mobile_searches || 0, life.daily_cards || 0,
         life.earn_cards || 0, life.quest_tasks || 0, life.runs || 0,
+        compute_streak(stats.daily || {}),
       ];
       metricIds.forEach((id, i) => {
         const el = document.getElementById(id);

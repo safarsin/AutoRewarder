@@ -207,6 +207,21 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Day-streak tile — a motivational number, called out in the accent color
+   and spanning the full row so it doesn't leave an orphaned single-column
+   cell when the grid has an odd item count. */
+.metric-highlight {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8px;
+  border-color: var(--accent);
+  background-image: linear-gradient(135deg, var(--accent-soft), transparent 70%);
+}
+
+.metric-highlight .metric-value { color: var(--accent); }
+
 .metric-label {
   font-size: 11px;
   color: var(--text-dim);

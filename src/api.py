@@ -264,6 +264,39 @@ class AutoRewarderAPI:
 
         threading.Thread(target=_show_transient, daemon=True).start()
 
+    def _set_tray_running(self, running):
+        """
+        Overlay a small status dot on the persistent tray icon while a run is
+        in progress, then restore the plain icon when it finishes — a glance
+        at the tray shows whether AutoRewarder is currently active without
+        opening the window. No-op if no persistent tray icon is attached
+        (tray disabled, or "close to tray" is off).
+        """
+        if self._tray_icon is None:
+            return
+        try:
+            from PIL import Image, ImageDraw
+            from .config import ASSETS_DIR
+
+            with Image.open(os.path.join(ASSETS_DIR, "icon.ico")) as img:
+                image = img.convert("RGBA").copy()
+
+            if running:
+                w, h = image.size
+                r = max(4, w // 5)
+                cx, cy = w - r - 1, h - r - 1
+                draw = ImageDraw.Draw(image)
+                draw.ellipse(
+                    [cx - r, cy - r, cx + r, cy + r],
+                    fill=(52, 211, 153, 255),
+                    outline=(11, 13, 18, 255),
+                    width=max(1, w // 32),
+                )
+
+            self._tray_icon.icon = image
+        except Exception as e:
+            print(f"[WARNING] Could not update tray icon: {e}")
+
     def _safe_log(self, message):
         """
         Log wrapper usable before the webview window is attached.
@@ -2231,6 +2264,8 @@ class AutoRewarderAPI:
             self.log("[WARNING] A run is already in progress.")
             return
 
+        self._set_tray_running(True)
+
         # Reset stop flag before each run so a previous Stop doesn't carry over.
         self._stop_event.clear()
 
@@ -2316,6 +2351,7 @@ class AutoRewarderAPI:
             # Persist this run's activity + balance before unlocking, so a
             # GUI refresh triggered by enable_start_button() reads fresh stats.
             self._record_session_stats()
+            self._set_tray_running(False)
             try:
                 if self._webview_window:
                     self._webview_window.evaluate_js("enable_start_button()")

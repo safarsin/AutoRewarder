@@ -244,6 +244,18 @@ function update_log_once(message) {
 // =========================================================================
 
 let _progressTotal = 0;
+// Wall-clock time the current (determinate) phase started, used to derive an
+// average per-search duration and extrapolate a "time left" estimate. Reset
+// to 0 for indeterminate phases (Daily Set), which have no known total and
+// so no meaningful ETA.
+let _progressPhaseStart = 0;
+
+function _fmt_duration(ms) {
+  const totalSec = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
 
 function _show_progress(phaseLabel, indeterminate) {
   const wrap = document.getElementById('run_progress');
@@ -257,6 +269,7 @@ function _show_progress(phaseLabel, indeterminate) {
   if (track) track.classList.toggle('indeterminate', Boolean(indeterminate));
   if (!indeterminate && fill) fill.style.width = '0%';
   if (pct) pct.textContent = indeterminate ? '' : '0%';
+  _progressPhaseStart = indeterminate ? 0 : performance.now();
 }
 
 function _set_progress_fraction(current, total) {
@@ -265,7 +278,19 @@ function _set_progress_fraction(current, total) {
   if (!fill || !total) return;
   const frac = Math.max(0, Math.min(1, current / total));
   fill.style.width = (frac * 100) + '%';
-  if (pct) pct.textContent = Math.round(frac * 100) + '%';
+  if (!pct) return;
+
+  let text = Math.round(frac * 100) + '%';
+  // A couple of samples in, extrapolate the remaining time from the average
+  // pace so far — accurate enough given the per-search delay is randomized
+  // within a fairly narrow band, and self-corrects every line.
+  if (current >= 2 && _progressPhaseStart) {
+    const elapsedMs = performance.now() - _progressPhaseStart;
+    const avgMs = elapsedMs / current;
+    const remaining = total - current;
+    if (remaining > 0) text += ' · ~' + _fmt_duration(avgMs * remaining) + ' left';
+  }
+  pct.textContent = text;
 }
 
 function hide_progress() {
@@ -274,6 +299,7 @@ function hide_progress() {
   if (wrap) wrap.hidden = true;
   if (track) track.classList.remove('indeterminate');
   _progressTotal = 0;
+  _progressPhaseStart = 0;
 }
 
 function _parse_progress_from_log(message) {
