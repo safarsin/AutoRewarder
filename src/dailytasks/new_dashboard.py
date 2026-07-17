@@ -82,9 +82,10 @@ try {
   for (var i = 0; i < links.length; i++) {
     var a = links[i];
     var href = a.href || a.getAttribute('href') || '';
-    // Only real daily-set activities point at a Bing search (this also excludes
-    // the section header's "earn more" link, whose absolute href has bing.com).
+    // Daily-set activities can be plain searches or Rewards quiz/poll links;
+    // skip the section header's "earn more" link.
     if (href.indexOf('bing.com/earn') > 0) continue;
+    if (href.indexOf('bing.com/search') < 0 && href.indexOf('bing.com/rewards') < 0) continue;
     // Title only: the card's bold title node, not the whole card text.
     var tEl = a.querySelector('.text-globalBody2Strong') || a.querySelector('p');
     var title = tEl ? (tEl.textContent || '').replace(/\s+/g, ' ').trim() : '';
