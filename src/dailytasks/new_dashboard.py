@@ -69,10 +69,10 @@ try {
 """
 
 # DOM fallback: read today's daily-set activities straight from the rendered
-# `#dailyset` section when the RSC JSON isn't available. The section holds only
-# today's cards, each an <a> pointing at the Bing search that credits it.
-# Completion is read from the green "success" badge (a design-system class),
-# which is language-independent.
+# `#dailyset` section when the RSC JSON isn't available. Microsoft changes the
+# task URL shapes; the first section link is non-task, and the remaining links
+# are today's task cards. Completion is read from the green "success" badge (a
+# design-system class), which is language-independent.
 _DOM_DAILY_SET_JS = r"""
 try {
   var out = [];
@@ -82,10 +82,8 @@ try {
   for (var i = 0; i < links.length; i++) {
     var a = links[i];
     var href = a.href || a.getAttribute('href') || '';
-    // Daily-set activities can be plain searches or Rewards quiz/poll links;
-    // skip the section header's "earn more" link.
-    if (href.indexOf('bing.com/earn') > 0) continue;
-    if (href.indexOf('bing.com/search') < 0 && href.indexOf('bing.com/rewards') < 0) continue;
+    // First link is the section/header link; subsequent links are task cards.
+    if (i === 0) continue;
     // Title only: the card's bold title node, not the whole card text.
     var tEl = a.querySelector('.text-globalBody2Strong') || a.querySelector('p');
     var title = tEl ? (tEl.textContent || '').replace(/\s+/g, ' ').trim() : '';
