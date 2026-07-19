@@ -4,7 +4,6 @@ import json
 import random
 import time
 from urllib.parse import urlparse
-
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException, WebDriverException
