@@ -35,7 +35,7 @@ from .accounts import (
     GlobalSettingsManager,
 )
 from .emulator import DriverManager, HumanBehavior, edge_policy
-from .search import HistoryManager, SearchEngine
+from .search import HistoryManager, SearchEngine, llm, resolve_search_locale
 from .dailytasks import DailySet
 from .stats import (
     StatsManager,
@@ -491,6 +491,56 @@ class AutoRewarderAPI:
             return True
         except Exception as e:
             self.log(f"[WARNING] Failed to save search counts: {e}")
+            return False
+
+    # ------------------------------------------------------------------
+    # Exposed to JS: LLM-generated search terms + locale
+    # ------------------------------------------------------------------
+
+    def get_llm_config(self):
+        """
+        Return the LLM query-generation config plus the effective locale.
+
+        Returns:
+            dict: use_llm_queries, llm_provider, llm_model, llm_api_key,
+            search_locale, detected_locale, effective_locale.
+        """
+        cfg = self.global_settings.get_llm_config()
+        cfg["effective_locale"] = self.global_settings.get_effective_locale()
+        return cfg
+
+    def set_llm_config(
+        self, use_llm_queries, provider, model, api_key, search_locale="auto"
+    ):
+        """
+        Persist the LLM query-generation config from the Settings modal.
+
+        Returns:
+            bool: True on success, False otherwise.
+        """
+        try:
+            self.global_settings.set_llm_config(
+                use_llm_queries, provider, model, api_key, search_locale
+            )
+            state = "ON" if use_llm_queries else "OFF"
+            self.log(f"LLM query generation: {state} ({provider}).")
+            return True
+        except Exception as e:
+            self.log(f"[WARNING] Failed to save LLM config: {e}")
+            return False
+
+    def set_detected_locale(self, locale):
+        """
+        Store the locale the GUI read from navigator.language.
+
+        Returns:
+            bool: True on success, False otherwise.
+        """
+        try:
+            self.global_settings.set_detected_locale(locale)
+            return True
+        except Exception as e:
+            self.log(f"[WARNING] Failed to save detected locale: {e}")
             return False
 
     # ------------------------------------------------------------------
@@ -2350,6 +2400,76 @@ class AutoRewarderAPI:
             self._driver = None
             time.sleep(0.5)
 
+    def _build_queries(self, count):
+        """
+        Build the list of queries for a phase.
+
+        When LLM generation is enabled and an API key is set, ask the chosen
+        provider for `count` fresh queries in the user's language. Any failure
+        (no key, invalid key, quota, offline, malformed answer) or a shortfall
+        is transparently topped up / replaced with a random sample from the
+        static assets/queries.json, so the daily search target is still met and
+        the run never depends on the network.
+
+        Args:
+            count (int): how many queries to produce.
+
+        Returns:
+            list: up to `count` query strings (empty only if the static file is
+            missing).
+        """
+        if count <= 0:
+            return []
+
+        queries = []
+        cfg = self.global_settings.get_llm_config()
+        if cfg["use_llm_queries"]:
+            if cfg["llm_api_key"]:
+                locale = resolve_search_locale(
+                    self.global_settings.get_settings(), self.log
+                )
+                self.log(
+                    f"Generating {count} queries via LLM "
+                    f"({cfg['llm_provider']}, {locale})…"
+                )
+                queries = llm.generate_queries(
+                    count,
+                    locale,
+                    provider=cfg["llm_provider"],
+                    model=cfg["llm_model"],
+                    api_key=cfg["llm_api_key"],
+                    logger=self.log,
+                )
+                if not queries:
+                    self.log(
+                        "[WARNING] LLM generation failed — "
+                        "falling back to static queries."
+                    )
+            else:
+                self.log(
+                    "[WARNING] LLM enabled but no API key set — "
+                    "using static queries."
+                )
+
+        if len(queries) >= count:
+            return queries[:count]
+
+        # Top up from the static file, skipping any query the LLM already
+        # produced. Request extra headroom so de-dup can't leave us short.
+        static = self.search_engine.load_queries_from_json(
+            JSON_FILE_PATH, num_needed=count + len(queries)
+        )
+        if not queries:
+            return static
+
+        seen = set(queries)
+        extra = [q for q in static if q not in seen][: count - len(queries)]
+        self.log(
+            f"LLM returned {len(queries)}/{count} queries — "
+            f"topped up with {len(extra)} static queries."
+        )
+        return queries + extra
+
     def _run_phase(self, mobile, count, do_daily_set):
         """
         Open a driver for a single phase (PC or Mobile), do `count` searches,
@@ -2365,9 +2485,7 @@ class AutoRewarderAPI:
             f"=== {label} phase — {count} {'queries' if count != 1 else 'query'} ==="
         )
 
-        queries_to_search = self.search_engine.load_queries_from_json(
-            JSON_FILE_PATH, num_needed=count
-        )
+        queries_to_search = self._build_queries(count)
         if not queries_to_search:
             self.log(f"[WARNING] {label}: no queries available. Skipping phase.")
             if self.history is not None:

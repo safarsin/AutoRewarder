@@ -224,6 +224,49 @@
         </section>
 
         <section class="settings-group">
+          <div class="settings-group-title">Search terms</div>
+          <label class="settings-row">
+            <div class="settings-row-text">
+              <div class="settings-row-label">Generate search terms with AI (LLM)</div>
+              <div class="settings-row-hint">Use your own LLM API key to generate fresh queries in your language on each run. Falls back to the built-in list if generation fails.</div>
+            </div>
+            <span class="toggle-compact">
+              <input type="checkbox" id="llmToggle">
+              <span class="toggle-pill"></span>
+            </span>
+          </label>
+
+          <div id="llm_fields" class="llm-fields">
+            <div class="form-grid-2">
+              <div class="form-field">
+                <label for="llmProvider">Provider</label>
+                <select id="llmProvider">
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="gemini">Google Gemini</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="llmModel">Model</label>
+                <input type="text" id="llmModel" placeholder="Default for provider" autocomplete="off" spellcheck="false">
+              </div>
+            </div>
+            <div class="form-grid-2">
+              <div class="form-field">
+                <label for="llmApiKey">API key</label>
+                <input type="password" id="llmApiKey" placeholder="Your own API key" autocomplete="off" spellcheck="false">
+              </div>
+              <div class="form-field">
+                <label for="llmLocale">Language</label>
+                <input type="text" id="llmLocale" placeholder="auto" autocomplete="off" spellcheck="false">
+              </div>
+            </div>
+            <p class="form-hint" id="llm_locale_hint">Leave "auto" to follow your system language, or enter a locale like fr-FR.</p>
+            <p class="form-hint">Your API key is stored locally in settings.json (plain text). Requests only send a prompt asking for queries — no personal data.</p>
+          </div>
+        </section>
+
+        <section class="settings-group">
           <div class="settings-group-title">Scheduled runs</div>
           <p class="settings-group-hint">
             One schedule per account. Each run fires at a random minute inside its window for a natural look.

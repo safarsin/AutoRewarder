@@ -163,6 +163,19 @@ This toggle controls whether you can see Microsoft Edge while searches are happe
 - Less distracting if you're working on something else
 - Slightly faster performance since it doesn't have to render the browser window what will save system resources (RAM/CPU)
 
+### AI-generated search terms (LLM)
+
+By default, AutoRewarder draws its searches from a large built-in list of English queries. If you'd prefer searches that look natural in **your own language**, enable **"Generate search terms with AI (LLM)"** in the Settings window and provide your own LLM API key (bring-your-own-key).
+
+- **Provider & model:** Choose OpenAI, Anthropic, or Google Gemini, and optionally a specific model (leave blank to use a sensible default for that provider).
+- **API key:** Paste a key from your chosen provider. It is stored locally in your `settings.json` (plain text) and is only sent to that provider to request queries — no personal data is shared.
+- **Language:** Leave **`auto`** to follow the language of the computer running AutoRewarder (detected automatically), or type a locale such as `fr-FR`, `it-IT`, or `en-US` to force one.
+
+On each run, AutoRewarder asks the provider for a fresh batch of queries in your language. If generation fails for any reason — no key, an invalid key, an exceeded quota, or no internet — it silently falls back to the built-in list, so your run always completes.
+
+> [!NOTE]
+> Using an LLM provider may incur costs on your provider account, depending on their pricing. Query generation uses very few tokens per run.
+
 ### Autostart & Daily Run Time
 When enabled, AutoRewarder uses your operating system's native task scheduler (Windows Task Scheduler or Linux systemd) to launch headless runs in the background.
 

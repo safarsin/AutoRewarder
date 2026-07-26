@@ -677,7 +677,8 @@ function open_settings_modal() {
     pywebview.api.get_all_schedules(),
     pywebview.api.get_launch_on_startup(),
     pywebview.api.get_close_to_tray(),
-  ]).then(([schedules, startup, closeToTray]) => {
+    pywebview.api.get_llm_config(),
+  ]).then(([schedules, startup, closeToTray, llmConfig]) => {
     render_schedule_cards(schedules || []);
 
     // Start-with-Windows toggle — disable row on unsupported OS.
@@ -700,6 +701,26 @@ function open_settings_modal() {
     if (trayToggle) {
       trayToggle.checked = closeToTray !== false;
     }
+
+    // LLM search-term generation.
+    const cfg = llmConfig || {};
+    const llmToggle = document.getElementById('llmToggle');
+    const providerSel = document.getElementById('llmProvider');
+    const modelInput = document.getElementById('llmModel');
+    const keyInput = document.getElementById('llmApiKey');
+    const localeInput = document.getElementById('llmLocale');
+    const localeHint = document.getElementById('llm_locale_hint');
+    if (llmToggle) llmToggle.checked = Boolean(cfg.use_llm_queries);
+    if (providerSel && cfg.llm_provider) providerSel.value = cfg.llm_provider;
+    if (modelInput) modelInput.value = cfg.llm_model || '';
+    if (keyInput) keyInput.value = cfg.llm_api_key || '';
+    if (localeInput) localeInput.value = cfg.search_locale || 'auto';
+    if (localeHint) {
+      const eff = cfg.effective_locale || 'en-US';
+      localeHint.textContent =
+        `Detected language: ${eff}. Leave "auto" to follow your system, or enter a locale like fr-FR.`;
+    }
+    apply_llm_field_state();
   }).catch(err => {
     console.error('Failed to load settings:', err);
     show_toast('Could not load settings.', 'error');
@@ -711,6 +732,14 @@ function open_settings_modal() {
 function close_settings_modal() {
   const backdrop = document.getElementById('settings_modal');
   if (backdrop) backdrop.hidden = true;
+}
+
+// Dim + disable the LLM config fields when the feature is toggled off.
+function apply_llm_field_state() {
+  const toggle = document.getElementById('llmToggle');
+  const fields = document.getElementById('llm_fields');
+  if (!fields) return;
+  fields.classList.toggle('dim', !(toggle && toggle.checked));
 }
 
 function render_schedule_cards(schedules) {
@@ -1040,6 +1069,16 @@ async function save_settings() {
       pywebview.api.set_dashboard_variant(p.id, p.dashboardVariant)
     ));
 
+    // Persist LLM search-term config (independent of the schedule slicing).
+    const llmToggleEl = document.getElementById('llmToggle');
+    await pywebview.api.set_llm_config(
+      Boolean(llmToggleEl && llmToggleEl.checked),
+      document.getElementById('llmProvider').value,
+      document.getElementById('llmModel').value,
+      document.getElementById('llmApiKey').value,
+      document.getElementById('llmLocale').value
+    );
+
     const scheduleCalls = payloads.map(p =>
       pywebview.api.set_schedule(p.id, p.payload)
     );
@@ -1235,6 +1274,10 @@ document.addEventListener('DOMContentLoaded', function() {
   if (settingsCancel) settingsCancel.addEventListener('click', close_settings_modal);
   const settingsSave = document.getElementById('settingsSave');
   if (settingsSave) settingsSave.addEventListener('click', save_settings);
+
+  // LLM feature toggle dims/undims its config fields live.
+  const llmToggle = document.getElementById('llmToggle');
+  if (llmToggle) llmToggle.addEventListener('change', apply_llm_field_state);
   const settingsModal = document.getElementById('settings_modal');
   if (settingsModal) {
     settingsModal.addEventListener('click', (e) => {
@@ -1282,6 +1325,16 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 window.addEventListener('pywebviewready', function() {
+  // Report the OS/browser language so LLM query generation can default to it.
+  try {
+    if (navigator && navigator.language &&
+        typeof pywebview.api.set_detected_locale === 'function') {
+      pywebview.api.set_detected_locale(navigator.language);
+    }
+  } catch (e) {
+    console.error('Failed to report locale:', e);
+  }
+
   pywebview.api.get_settings().then(function(settings) {
     const toggle = document.getElementById('hideBrowserToggle');
     if (toggle) toggle.checked = Boolean(settings.hide_browser);

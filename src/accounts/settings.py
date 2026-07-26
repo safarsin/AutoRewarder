@@ -100,6 +100,19 @@ class GlobalSettingsManager:
             # Default query counts.
             "queries_pc": 30,
             "queries_mobile": 20,
+            # LLM-generated search terms (bring-your-own-key). When enabled and
+            # a key is present, each phase asks the chosen provider for fresh
+            # queries in the user's language; any failure falls back to the
+            # static assets/queries.json. The key is stored in plain text here,
+            # consistent with the rest of settings.json.
+            "use_llm_queries": False,
+            "llm_provider": "openai",  # openai | anthropic | gemini
+            "llm_model": "",  # blank = provider default
+            "llm_api_key": "",
+            # Language of generated queries. "auto" resolves from
+            # detected_locale (navigator.language) or OS detection.
+            "search_locale": "auto",
+            "detected_locale": "",  # filled by the GUI from navigator.language
         }
 
         if APP_DIR and not os.path.exists(APP_DIR):
@@ -178,3 +191,56 @@ class GlobalSettingsManager:
         settings = self.get_settings()
         settings["queries_mobile"] = max(0, min(99, int(count)))
         self.save_settings(settings)
+
+    # ------------------------------------------------------------------
+    # LLM-generated search terms + locale
+    # ------------------------------------------------------------------
+
+    def get_llm_config(self):
+        """Return the LLM query-generation config from settings."""
+        s = self.get_settings()
+        return {
+            "use_llm_queries": bool(s.get("use_llm_queries", False)),
+            "llm_provider": s.get("llm_provider", "openai"),
+            "llm_model": s.get("llm_model", ""),
+            "llm_api_key": s.get("llm_api_key", ""),
+            "search_locale": s.get("search_locale", "auto"),
+            "detected_locale": s.get("detected_locale", ""),
+        }
+
+    def set_llm_config(
+        self, use_llm_queries, provider, model, api_key, search_locale="auto"
+    ):
+        """Persist the LLM query-generation config.
+
+        Unknown providers fall back to "openai"; an empty locale becomes
+        "auto". The API key is stored as-is (plain text) alongside the other
+        settings.
+        """
+        from ..search.llm import SUPPORTED_PROVIDERS
+
+        provider = str(provider or "openai").strip().lower()
+        if provider not in SUPPORTED_PROVIDERS:
+            provider = "openai"
+
+        locale = str(search_locale or "").strip() or "auto"
+
+        settings = self.get_settings()
+        settings["use_llm_queries"] = bool(use_llm_queries)
+        settings["llm_provider"] = provider
+        settings["llm_model"] = str(model or "").strip()
+        settings["llm_api_key"] = str(api_key or "").strip()
+        settings["search_locale"] = locale
+        self.save_settings(settings)
+
+    def set_detected_locale(self, locale):
+        """Persist the locale reported by the GUI (navigator.language)."""
+        settings = self.get_settings()
+        settings["detected_locale"] = str(locale or "").strip()
+        self.save_settings(settings)
+
+    def get_effective_locale(self):
+        """Return the locale that query generation will actually use."""
+        from ..search.locale import resolve_search_locale
+
+        return resolve_search_locale(self.get_settings())

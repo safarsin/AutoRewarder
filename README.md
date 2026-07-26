@@ -332,6 +332,7 @@ For common issues and solutions, see the [Troubleshooting](USER_GUIDE.md#trouble
 - [x] Statistics dashboard (points tracking, session summaries)
 - [x] Daily "Claim" actions
 - [x] The New Dashboard Support
+- [x] AI-generated search terms in your language (bring-your-own-key LLM)
 - [ ] Simulated human typos during search input
 - [ ] Region-specific search query datasets (US, UK, CA, AU, IN, etc.)
 - [ ] Browser choice (Chrome, Firefox support in addition to Edge)
