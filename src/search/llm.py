@@ -72,7 +72,8 @@ def _log_http_error(logger, provider, resp):
 def _call_openai(prompt, model, api_key, max_tokens, logger):
     """OpenAI Chat Completions. Returns the model's text answer or ''."""
     resp = requests.post(
-        "https://api.openai.com/v1/chat/completions",
+        #"https://api.openai.com/v1/chat/completions",
+        "http://192.168.50.2:20128/v1/chat/completions",
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
