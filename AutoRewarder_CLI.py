@@ -19,11 +19,8 @@ Usage examples:
 """
 
 import argparse
-import math
 import os
-import random
 import sys
-import time
 from datetime import date, datetime
 
 from src.api import AutoRewarderAPI
@@ -92,10 +89,8 @@ def _run_scheduled(api, pc, mobile, duration_hours, queries_per_hour):
     """
     Drip-feed `pc + mobile` queries across `duration_hours` at ~queries_per_hour.
 
-    Runs PC batches first, then Mobile batches (the Daily Set check piggybacks
-    on the PC phase inside api.main via its run_phase logic). The schedule
-    repeats very small batches (≤ 10 queries) with jittered sleeps so the
-    pattern doesn't look scripted.
+    Delegates to AutoRewarderAPI.main once. The API owns advanced scheduling,
+    which keeps one per-run query pool while it performs internal batches.
 
     Args:
         api: AutoRewarderAPI instance (must already be headless-configured)
@@ -118,56 +113,10 @@ def _run_scheduled(api, pc, mobile, duration_hours, queries_per_hour):
         console_log("Nothing scheduled (PC + Mobile = 0).")
         return
 
-    # Batch sizing heuristic identical to v3.1 main's runner.
-    if qph > 0:
-        raw_batch = qph // 6  # ~10-minute batches
-    else:
-        raw_batch = total // max(1, int(duration_hours * 2))
-    per_batch = max(1, min(10, raw_batch))
-
-    num_batches = math.ceil(total / per_batch)
-    total_seconds = duration_hours * 3600
-    interval = total_seconds / max(num_batches, 1)
-
-    console_log(
-        f"Planning {num_batches} batches of ~{per_batch} queries, interval ~{interval:.1f}s"
-    )
-
-    pc_left = pc
-    mobile_left = mobile
-
-    for i in range(num_batches):
-        # Take from PC first until exhausted, then switch to Mobile.
-        if pc_left > 0:
-            batch_pc = min(per_batch, pc_left)
-            batch_mobile = 0
-        else:
-            batch_pc = 0
-            batch_mobile = min(per_batch, mobile_left)
-
-        if batch_pc == 0 and batch_mobile == 0:
-            break
-
-        console_log(
-            f"Batch {i+1}/{num_batches}: PC={batch_pc}, Mobile={batch_mobile} "
-            f"(PC left {pc_left}, Mobile left {mobile_left})"
-        )
-        try:
-            api.main(batch_pc, batch_mobile)
-        except Exception as e:
-            console_log(f"[ERROR] Batch {i+1} failed: {e}")
-
-        pc_left -= batch_pc
-        mobile_left -= batch_mobile
-
-        if pc_left <= 0 and mobile_left <= 0:
-            break
-
-        sleep_time = max(5.0, interval * random.uniform(0.75, 1.25))
-        console_log(f"Sleeping {sleep_time:.1f}s until next batch")
-        time.sleep(sleep_time)
-
-    console_log("Scheduled run complete.")
+    try:
+        api.main(pc, mobile)
+    except Exception as e:
+        console_log(f"[ERROR] Scheduled run failed: {e}")
 
 
 # ---------------------------------------------------------------------------

@@ -127,6 +127,10 @@ class AutoRewarderAPI:
             "quests": 0,
         }
         self._last_scraped_balance = None
+        # Per-run search-query pool. Built once for pc+mobile and sliced by
+        # each phase/batch so LLM-backed runs make one provider call.
+        self._run_query_pool = None
+        self._run_query_cursor = 0
         # Last balance-scrape diagnostic ({value, via, candidates, url, title}),
         # surfaced to the dashboard so a failed read can be debugged in place.
         self._last_balance_debug = {}
@@ -2227,12 +2231,15 @@ class AutoRewarderAPI:
             "quests": 0,
         }
         self._last_scraped_balance = None
+        self._run_query_pool = None
+        self._run_query_cursor = 0
 
         try:
             if daily_only:
                 self.log("Starting AutoRewarder (Daily tasks only)...")
             else:
                 self.log("Starting AutoRewarder (Edge Edition)...")
+                self._prepare_run_queries(pc_count + mobile_count)
             if self._webview_window:
                 try:
                     self._webview_window.evaluate_js(
@@ -2284,6 +2291,8 @@ class AutoRewarderAPI:
                     self._webview_window.evaluate_js("enable_start_button()")
             except Exception:
                 pass
+            self._run_query_pool = None
+            self._run_query_cursor = 0
             self._run_lock.release()
 
     def _try_scrape_balance(self):
@@ -2470,6 +2479,34 @@ class AutoRewarderAPI:
         )
         return queries + extra
 
+    def _prepare_run_queries(self, count):
+        """
+        Build the whole run's query pool once.
+
+        Advanced scheduling calls `_run_phase` many times, but each phase
+        consumes from this pool instead of calling the LLM per batch.
+        """
+        self._run_query_pool = self._build_queries(count)
+        self._run_query_cursor = 0
+
+    def _take_run_queries(self, count):
+        """
+        Return the next `count` queries from the current run pool.
+
+        If `_run_phase` is ever called outside `main()`, preserve the old
+        behavior by building only that phase's queries.
+        """
+        if count <= 0:
+            return []
+
+        if self._run_query_pool is None:
+            return self._build_queries(count)
+
+        start = self._run_query_cursor
+        end = min(start + count, len(self._run_query_pool))
+        self._run_query_cursor = end
+        return self._run_query_pool[start:end]
+
     def _run_phase(self, mobile, count, do_daily_set):
         """
         Open a driver for a single phase (PC or Mobile), do `count` searches,
@@ -2485,7 +2522,7 @@ class AutoRewarderAPI:
             f"=== {label} phase — {count} {'queries' if count != 1 else 'query'} ==="
         )
 
-        queries_to_search = self._build_queries(count)
+        queries_to_search = self._take_run_queries(count)
         if not queries_to_search:
             self.log(f"[WARNING] {label}: no queries available. Skipping phase.")
             if self.history is not None:
