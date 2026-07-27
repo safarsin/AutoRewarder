@@ -239,6 +239,44 @@ def _mark_triggered_today(account_id):
     meta.set_schedule(sched)
 
 
+def _refresh_balance_before_account_run(api, label):
+    """
+    Best-effort points-balance refresh before a scripted account run.
+
+    This is intentionally opt-in for wrapper scripts. A failed scrape must not
+    block searches or daily tasks; it only leaves the previous stats balance in
+    place.
+    """
+    if os.environ.get("AUTOREWARDER_REFRESH_BALANCE_ON_SWITCH") != "1":
+        return
+
+    console_log(f"Refreshing points balance before run for '{label}'.")
+    try:
+        result = api.refresh_balance()
+    except Exception as e:
+        console_log(f"[WARNING] Points balance refresh before run failed: {e}")
+        return
+
+    if isinstance(result, dict) and result.get("ok"):
+        balance = result.get("balance")
+        if isinstance(balance, int):
+            console_log(f"Points balance updated before run for '{label}': {balance:,}")
+        else:
+            console_log(f"Points balance updated before run for '{label}'.")
+        return
+
+    if isinstance(result, dict):
+        error = result.get("error") or "unknown"
+        console_log(
+            f"[INFO] Points balance refresh before run for '{label}' skipped/failed: {error}"
+        )
+        return
+
+    console_log(
+        f"[INFO] Points balance refresh before run for '{label}' returned no result."
+    )
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -305,6 +343,8 @@ def _run_account(api, acc, pc_override=None, mobile_override=None, force=False):
             api.search_engine._logger = console_log
         if api.stats is not None:
             api.stats._logger = console_log
+
+    _refresh_balance_before_account_run(api, label)
 
     # Mark triggered BEFORE the run so a crash doesn't produce a second run.
     if pc_override is None and mobile_override is None:

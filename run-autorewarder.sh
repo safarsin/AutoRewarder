@@ -281,7 +281,7 @@ sync_fork_if_new_release() {
     log_points_report before "$POINTS_BASELINE_FILE" "$(date +%F)"
 
     echo "Running AutoRewarder..."
-    python3 -u AutoRewarder.py --headless
+    AUTOREWARDER_REFRESH_BALANCE_ON_SWITCH=1 python3 -u AutoRewarder.py --headless
     exit_code="$?"
 
     log_points_report after "$POINTS_BASELINE_FILE" "$(date +%F)"

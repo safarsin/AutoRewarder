@@ -29,6 +29,8 @@ AUTOREWARDER_SCHEDULE_DEADLINE_HOUR="${AUTOREWARDER_SCHEDULE_DEADLINE_HOUR:-24}"
 AUTOREWARDER_SCHEDULE_DEADLINE_MINUTE="${AUTOREWARDER_SCHEDULE_DEADLINE_MINUTE:-0}"
 AUTOREWARDER_SCHEDULE_SAFETY_BUFFER_MINUTES="${AUTOREWARDER_SCHEDULE_SAFETY_BUFFER_MINUTES:-180}"
 
+declare -A REFRESHED_BALANCE_ACCOUNTS=()
+
 mkdir -p "$LOG_DIR" "$STATE_DIR"
 find "$LOG_DIR" -type f -name "autorewarder-*.log" -mtime +7 -delete 2>/dev/null || true
 
@@ -320,13 +322,23 @@ run_account() {
   local account="$1"
   local pc="$2"
   local mobile="$3"
+  local refresh_env=()
+
+  if [ -z "${REFRESHED_BALANCE_ACCOUNTS[$account]+x}" ]; then
+    REFRESHED_BALANCE_ACCOUNTS["$account"]=1
+    refresh_env=(AUTOREWARDER_REFRESH_BALANCE_ON_SWITCH=1)
+  fi
 
   if [ "$DRY_RUN" = "1" ]; then
-    echo "DRY RUN: python3 -u AutoRewarder.py --headless --account \"$account\" --pc $pc --mobile $mobile"
+    if [ "${#refresh_env[@]}" -gt 0 ]; then
+      echo "DRY RUN: AUTOREWARDER_REFRESH_BALANCE_ON_SWITCH=1 python3 -u AutoRewarder.py --headless --account \"$account\" --pc $pc --mobile $mobile"
+    else
+      echo "DRY RUN: python3 -u AutoRewarder.py --headless --account \"$account\" --pc $pc --mobile $mobile"
+    fi
     return 0
   fi
 
-  python3 -u AutoRewarder.py --headless --account "$account" --pc "$pc" --mobile "$mobile"
+  env "${refresh_env[@]}" python3 -u AutoRewarder.py --headless --account "$account" --pc "$pc" --mobile "$mobile"
 }
 
 active_indices() {
