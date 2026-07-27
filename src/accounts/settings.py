@@ -106,7 +106,7 @@ class GlobalSettingsManager:
             # static assets/queries.json. The key is stored in plain text here,
             # consistent with the rest of settings.json.
             "use_llm_queries": False,
-            "llm_provider": "openai",  # openai | anthropic | gemini
+            "llm_provider": "openai",  # openai | 9router | anthropic | gemini
             "llm_model": "",  # blank = provider default
             "llm_api_key": "",
             # Language of generated queries. "auto" resolves from

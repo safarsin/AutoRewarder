@@ -167,7 +167,7 @@ This toggle controls whether you can see Microsoft Edge while searches are happe
 
 By default, AutoRewarder draws its searches from a large built-in list of English queries. If you'd prefer searches that look natural in **your own language**, enable **"Generate search terms with AI (LLM)"** in the Settings window and provide your own LLM API key (bring-your-own-key).
 
-- **Provider & model:** Choose OpenAI, Anthropic, or Google Gemini, and optionally a specific model (leave blank to use a sensible default for that provider).
+- **Provider & model:** Choose OpenAI, 9router, Anthropic, or Google Gemini, and optionally a specific model (leave blank to use a sensible default for that provider).
 - **API key:** Paste a key from your chosen provider. It is stored locally in your `settings.json` (plain text) and is only sent to that provider to request queries — no personal data is shared.
 - **Language:** Leave **`auto`** to follow the language of the computer running AutoRewarder (detected automatically), or type a locale such as `fr-FR`, `it-IT`, or `en-US` to force one.
 
