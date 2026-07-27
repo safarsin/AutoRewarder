@@ -11,7 +11,7 @@ RUN_MARKER_FILE="$STATE_DIR/last-run-started"
 START_HOUR="${START_HOUR:-4}"
 END_HOUR="${END_HOUR:-23}"
 END_MINUTE="${END_MINUTE:-59}"
-ACCOUNT_LIMIT=""
+ACCOUNT_LIMIT="${ACCOUNT_LIMIT:-}"
 
 SEARCH_TOTAL_MIN="${SEARCH_TOTAL_MIN:-40}"
 SEARCH_TOTAL_MAX="${SEARCH_TOTAL_MAX:-45}"
@@ -435,13 +435,19 @@ wait_between_chunks() {
   if [ "$target_interval" -lt "$WAIT_MIN_SECONDS" ]; then
     target_interval="$WAIT_MIN_SECONDS"
   fi
+  if [ "$target_interval" -gt "$WAIT_MAX_SECONDS" ]; then
+    target_interval="$WAIT_MAX_SECONDS"
+  fi
   
   # Add jitter: 75% to 125% of target
   local jitter_low=$(( target_interval * 75 / 100 ))
   local jitter_high=$(( target_interval * 125 / 100 ))
   
-  # Don't exceed time left
+  # Don't exceed configured max wait or time left
   max_wait="$seconds_left"
+  if [ "$max_wait" -gt "$WAIT_MAX_SECONDS" ]; then
+    max_wait="$WAIT_MAX_SECONDS"
+  fi
   if [ "$jitter_high" -gt "$max_wait" ]; then
     jitter_high="$max_wait"
   fi
@@ -468,6 +474,10 @@ wait_between_chunks() {
   echo "Chunks: ${CHUNK_MIN}-${CHUNK_MAX}; waits: ${WAIT_MIN_SECONDS}-${WAIT_MAX_SECONDS}s"
   echo "Schedule: deadline ${AUTOREWARDER_SCHEDULE_DEADLINE_HOUR}:${AUTOREWARDER_SCHEDULE_DEADLINE_MINUTE} with ${AUTOREWARDER_SCHEDULE_SAFETY_BUFFER_MINUTES}min buffer"
 
+  cd "$APP_DIR" || {
+    echo "ERROR: Cannot cd to $APP_DIR"
+    exit 1
+  }
 
   date +%F > "$RUN_MARKER_FILE"
 
@@ -508,14 +518,14 @@ wait_between_chunks() {
     echo "WARNING: Run window is very short (${window_hours}h). Reducing search targets."
     
     # Reduce to minimums and focus on daily tasks
-    SEARCH_TOTAL_MIN="${SEARCH_TOTAL_MIN:-5}"
-    SEARCH_TOTAL_MAX="${SEARCH_TOTAL_MAX:-10}"
-    CHUNK_MIN="${CHUNK_MIN:-1}"
-    CHUNK_MAX="${CHUNK_MAX:-1}"
+    SEARCH_TOTAL_MIN=5
+    SEARCH_TOTAL_MAX=10
+    CHUNK_MIN=1
+    CHUNK_MAX=1
     
     # Set minimum wait to avoid rapid execution
-    WAIT_MIN_SECONDS="${WAIT_MIN_SECONDS:-60}"
-    WAIT_MAX_SECONDS="${WAIT_MAX_SECONDS:-180}"
+    WAIT_MIN_SECONDS=60
+    WAIT_MAX_SECONDS=180
     
     echo "Adjusted: counts ${SEARCH_TOTAL_MIN}-${SEARCH_TOTAL_MAX}, chunks ${CHUNK_MIN}-${CHUNK_MAX}"
   fi

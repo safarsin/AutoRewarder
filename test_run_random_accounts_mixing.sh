@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_PATH="${1:-run-random-accounts.sh}"
+SCRIPT_PATH="${1:-run-random-autorewarder.sh}"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
