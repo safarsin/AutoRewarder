@@ -2199,21 +2199,28 @@ class AutoRewarderAPI:
                 schedule = {}
 
         schedule_enabled = isinstance(schedule, dict) and bool(schedule.get("enabled"))
+        advanced_disabled = (
+            os.environ.get("AUTOREWARDER_DISABLE_ADVANCED_SCHEDULING") == "1"
+        )
         use_advanced = (
             not daily_only
             and schedule_enabled
             and bool(schedule.get("advancedScheduling"))
+            and not advanced_disabled
         )
 
         if (
             not daily_only
             and isinstance(schedule, dict)
             and bool(schedule.get("advancedScheduling"))
-            and not schedule_enabled
+            and (not schedule_enabled or advanced_disabled)
         ):
-            self.log(
-                "[WARNING] Advanced scheduling is enabled, but Schedule is off. Running normal pace."
-            )
+            if advanced_disabled:
+                self.log("Advanced scheduling disabled for this run. Running normal pace.")
+            else:
+                self.log(
+                    "[WARNING] Advanced scheduling is enabled, but Schedule is off. Running normal pace."
+                )
 
         if not self._run_lock.acquire(blocking=False):
             self.log("[WARNING] A run is already in progress.")

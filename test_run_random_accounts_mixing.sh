@@ -21,7 +21,13 @@ output="$(
   bash "$SCRIPT_PATH"
 )"
 
-commands="$(printf '%s\n' "$output" | grep '^DRY RUN: python3 -u AutoRewarder.py')"
+commands="$(printf '%s\n' "$output" | grep 'python3 -u AutoRewarder.py')"
+
+if printf '%s\n' "$commands" | grep -v 'AUTOREWARDER_DISABLE_ADVANCED_SCHEDULING=1' >/dev/null; then
+  echo "random chunks should disable advanced scheduling"
+  echo "$output"
+  exit 1
+fi
 
 for account in Alpha Beta; do
   count="$(printf '%s\n' "$commands" | grep -c -- "--account \"$account\"")"

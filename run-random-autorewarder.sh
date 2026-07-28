@@ -25,9 +25,6 @@ WAIT_MAX_SECONDS="${WAIT_MAX_SECONDS:-1200}"
 DRY_RUN="${DRY_RUN:-0}"
 POINTS_BASELINE_FILE="${AUTOREWARDER_POINTS_BASELINE_FILE:-$LOG_DIR/points-baseline-$(date +%F).json}"
 RANDOM_WAIT_MAX_SECONDS="${AUTOREWARDER_RANDOM_WAIT_MAX_SECONDS:-5800}"
-AUTOREWARDER_SCHEDULE_DEADLINE_HOUR="${AUTOREWARDER_SCHEDULE_DEADLINE_HOUR:-24}"
-AUTOREWARDER_SCHEDULE_DEADLINE_MINUTE="${AUTOREWARDER_SCHEDULE_DEADLINE_MINUTE:-0}"
-AUTOREWARDER_SCHEDULE_SAFETY_BUFFER_MINUTES="${AUTOREWARDER_SCHEDULE_SAFETY_BUFFER_MINUTES:-180}"
 
 declare -A REFRESHED_BALANCE_ACCOUNTS=()
 
@@ -322,23 +319,19 @@ run_account() {
   local account="$1"
   local pc="$2"
   local mobile="$3"
-  local refresh_env=()
+  local run_env=(AUTOREWARDER_DISABLE_ADVANCED_SCHEDULING=1)
 
   if [ -z "${REFRESHED_BALANCE_ACCOUNTS[$account]+x}" ]; then
     REFRESHED_BALANCE_ACCOUNTS["$account"]=1
-    refresh_env=(AUTOREWARDER_REFRESH_BALANCE_ON_SWITCH=1)
+    run_env+=(AUTOREWARDER_REFRESH_BALANCE_ON_SWITCH=1)
   fi
 
   if [ "$DRY_RUN" = "1" ]; then
-    if [ "${#refresh_env[@]}" -gt 0 ]; then
-      echo "DRY RUN: AUTOREWARDER_REFRESH_BALANCE_ON_SWITCH=1 python3 -u AutoRewarder.py --headless --account \"$account\" --pc $pc --mobile $mobile"
-    else
-      echo "DRY RUN: python3 -u AutoRewarder.py --headless --account \"$account\" --pc $pc --mobile $mobile"
-    fi
+    echo "DRY RUN: ${run_env[*]} python3 -u AutoRewarder.py --headless --account \"$account\" --pc $pc --mobile $mobile"
     return 0
   fi
 
-  env "${refresh_env[@]}" python3 -u AutoRewarder.py --headless --account "$account" --pc "$pc" --mobile "$mobile"
+  env "${run_env[@]}" python3 -u AutoRewarder.py --headless --account "$account" --pc "$pc" --mobile "$mobile"
 }
 
 active_indices() {
@@ -472,7 +465,7 @@ wait_between_chunks() {
   echo "Window: ${START_HOUR}:00 through ${END_HOUR}:${END_MINUTE}"
   echo "Counts: total searches ${SEARCH_TOTAL_MIN}-${SEARCH_TOTAL_MAX}"
   echo "Chunks: ${CHUNK_MIN}-${CHUNK_MAX}; waits: ${WAIT_MIN_SECONDS}-${WAIT_MAX_SECONDS}s"
-  echo "Schedule: deadline ${AUTOREWARDER_SCHEDULE_DEADLINE_HOUR}:${AUTOREWARDER_SCHEDULE_DEADLINE_MINUTE} with ${AUTOREWARDER_SCHEDULE_SAFETY_BUFFER_MINUTES}min buffer"
+  echo "Advanced scheduling: disabled for random chunk runs"
 
   cd "$APP_DIR" || {
     echo "ERROR: Cannot cd to $APP_DIR"
@@ -542,14 +535,6 @@ wait_between_chunks() {
       sleep "$wait_seconds"
     fi
     now="$start_epoch"
-  fi
-
-  if [ "$DRY_RUN" != "1" ]; then
-    echo "Randomizing account schedules..."
-    python3 -u schedule_randomizer.py \
-      --deadline-hour "$AUTOREWARDER_SCHEDULE_DEADLINE_HOUR" \
-      --deadline-minute "$AUTOREWARDER_SCHEDULE_DEADLINE_MINUTE" \
-      --safety-buffer-minutes "$AUTOREWARDER_SCHEDULE_SAFETY_BUFFER_MINUTES"
   fi
 
   mapfile -t accounts < <(load_accounts | shuffle_and_limit_accounts)
