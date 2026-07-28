@@ -23,15 +23,24 @@ from .locale import language_name
 # code change.
 DEFAULT_MODELS = {
     "openai": "gpt-5.4-nano",
-    "9router": "gpt-5.4-nano",
+    "openrouter": "openai/gpt-5.4-nano",
     "anthropic": "claude-haiku-4-5",
     "gemini": "gemini-3.1-flash-lite",
 }
 
 SUPPORTED_PROVIDERS = tuple(DEFAULT_MODELS.keys())
+PROVIDER_ALIASES = {
+    "9router": "openrouter",
+}
 
 _TIMEOUT = 30  # seconds, per request
 _ANTHROPIC_VERSION = "2023-06-01"
+
+
+def normalize_provider(provider):
+    """Return the canonical provider id, preserving unknown values for validation."""
+    provider = (provider or "openai").strip().lower()
+    return PROVIDER_ALIASES.get(provider, provider)
 
 
 def _max_tokens(count):
@@ -107,24 +116,25 @@ def _call_openai(prompt, model, api_key, max_tokens, logger):
     return data["choices"][0]["message"]["content"] or ""
 
 
-def _call_ninerouter(prompt, model, api_key, max_tokens, logger):
-    """9router OpenAI-compatible chat API. Returns text answer or ''."""
+def _call_openrouter(prompt, model, api_key, max_tokens, logger):
+    """OpenRouter OpenAI-compatible chat API. Returns text answer or ''."""
     resp = requests.post(
-        "http://192.168.50.2:20128/v1/chat/completions",
+        "https://openrouter.ai/api/v1/chat/completions",
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "X-OpenRouter-Title": "AutoRewarder",
         },
         json={
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 1.0,
-            "max_completion_tokens": max_tokens,
+            "max_tokens": max_tokens,
         },
         timeout=_TIMEOUT,
     )
     if resp.status_code != 200:
-        _log_http_error(logger, "9router", resp)
+        _log_http_error(logger, "openrouter", resp)
         return ""
     data = resp.json()
     return data["choices"][0]["message"]["content"] or ""
@@ -185,7 +195,7 @@ def _call_gemini(prompt, model, api_key, max_tokens, logger):
 
 _DISPATCH = {
     "openai": _call_openai,
-    "9router": _call_ninerouter,
+    "openrouter": _call_openrouter,
     "anthropic": _call_anthropic,
     "gemini": _call_gemini,
 }
@@ -234,7 +244,7 @@ def generate_queries(
     Args:
         count (int): number of queries to request.
         locale (str): BCP-47 locale (e.g. ``"fr-FR"``) driving the language.
-        provider (str): one of ``openai`` / ``9router`` / ``anthropic`` / ``gemini``.
+        provider (str): one of ``openai`` / ``openrouter`` / ``anthropic`` / ``gemini``.
         model (str): model id; falls back to the provider default when blank.
         api_key (str): the user's own API key.
         logger (callable, optional): logging function.
@@ -249,7 +259,7 @@ def generate_queries(
     if count <= 0 or not api_key:
         return []
 
-    provider = (provider or "openai").strip().lower()
+    provider = normalize_provider(provider)
     caller = _DISPATCH.get(provider)
     if caller is None:
         if logger:

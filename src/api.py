@@ -526,8 +526,9 @@ class AutoRewarderAPI:
             self.global_settings.set_llm_config(
                 use_llm_queries, provider, model, api_key, search_locale
             )
+            cfg = self.global_settings.get_llm_config()
             state = "ON" if use_llm_queries else "OFF"
-            self.log(f"LLM query generation: {state} ({provider}).")
+            self.log(f"LLM query generation: {state} ({cfg['llm_provider']}).")
             return True
         except Exception as e:
             self.log(f"[WARNING] Failed to save LLM config: {e}")

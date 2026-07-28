@@ -106,7 +106,7 @@ class GlobalSettingsManager:
             # static assets/queries.json. The key is stored in plain text here,
             # consistent with the rest of settings.json.
             "use_llm_queries": False,
-            "llm_provider": "openai",  # openai | 9router | anthropic | gemini
+            "llm_provider": "openai",  # openai | openrouter | anthropic | gemini
             "llm_model": "",  # blank = provider default
             "llm_api_key": "",
             # Language of generated queries. "auto" resolves from
@@ -198,10 +198,12 @@ class GlobalSettingsManager:
 
     def get_llm_config(self):
         """Return the LLM query-generation config from settings."""
+        from ..search.llm import normalize_provider
+
         s = self.get_settings()
         return {
             "use_llm_queries": bool(s.get("use_llm_queries", False)),
-            "llm_provider": s.get("llm_provider", "openai"),
+            "llm_provider": normalize_provider(s.get("llm_provider", "openai")),
             "llm_model": s.get("llm_model", ""),
             "llm_api_key": s.get("llm_api_key", ""),
             "search_locale": s.get("search_locale", "auto"),
@@ -213,13 +215,13 @@ class GlobalSettingsManager:
     ):
         """Persist the LLM query-generation config.
 
-        Unknown providers fall back to "openai"; an empty locale becomes
-        "auto". The API key is stored as-is (plain text) alongside the other
-        settings.
+        Unknown providers fall back to "openai"; legacy "9router" becomes
+        "openrouter"; an empty locale becomes "auto". The API key is stored
+        as-is (plain text) alongside the other settings.
         """
-        from ..search.llm import SUPPORTED_PROVIDERS
+        from ..search.llm import SUPPORTED_PROVIDERS, normalize_provider
 
-        provider = str(provider or "openai").strip().lower()
+        provider = normalize_provider(str(provider or "openai"))
         if provider not in SUPPORTED_PROVIDERS:
             provider = "openai"
 
