@@ -4,7 +4,7 @@
 
 ![Downloads](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/safarsin/023d6f9c9aa602f6afbb7f5c1e2fe9ee/raw/downloads.json)
 
-An advanced, set-and-forget automation tool for Microsoft Rewards (supporting both the legacy and new dashboards). AutoRewarder performs Bing searches for PC and mobile point collection, completes Daily Sets and More Activities, and uses mathematically driven, human-like input simulation (W3C Actions, Bezier curves, and smart scrolling).
+An advanced, set-and-forget automation tool for Microsoft Rewards (supporting both the legacy and new dashboards). AutoRewarder performs Bing searches for PC and mobile point collection using a massive dataset of realistic queries (with optional, bring-your-own-key AI generation), completes Daily Sets and More Activities, and uses mathematically driven, human-like input simulation (W3C Actions, Bezier curves, smart scrolling and realistic keyboard typos).
 
 Built with a robust Python/Selenium backend, it offers two modes of operation: a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview, and a headless runner (CLI) for scheduled background runs and automation scripts. Packaged as an executable Windows app (via Inno Setup) for a seamless, plug-and-play experience.
 
@@ -51,7 +51,7 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 | Perform Searches | App Demo |
 | :---: | :---: |
-|<img src="assets/screenshots/perform_demo.gif">|<img src="assets/screenshots/app_demo_v4.0.gif">|
+|<img src="assets/screenshots/perform_demo.gif">|<img src="assets/screenshots/app_demo_v4.1.gif">|
 
 | Daily Sets (New Dashboard) & Claim action | Tab Switching |
 | :---: | :---: |
@@ -72,8 +72,8 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 | Main Window & Account Management | Settings |
 | :---: | :---: |
-| <img src="assets/screenshots/main_window_v4.0.jpg"> | <img src="assets/screenshots/settings_1_v4.0.jpg"> |
-| <img src="assets/screenshots/account_management_v4.0.jpg"> | <img src="assets/screenshots/settings_2_v4.0.jpg"> |
+| <img src="assets/screenshots/main_window_v4.0.jpg"> | <img src="assets/screenshots/settings_1_v4.1.jpg"> |
+| <img src="assets/screenshots/account_management_v4.0.jpg"> | <img src="assets/screenshots/settings_2_v4.1.jpg"> |
 
 | History | Statistics Dashboard |
 | :---: | :---: |
@@ -85,7 +85,7 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 | Layer | Technology |
 |-------|------------|
-| Backend | Python 3.12, [selenium](https://www.selenium.dev/), [pywebview](https://pywebview.flowrl.com/), pystray, Pillow |
+| Backend | Python 3.12, [selenium](https://www.selenium.dev/), [pywebview](https://pywebview.flowrl.com/), pystray, Pillow, [nlpaug](https://github.com/makcedward/nlpaug/tree/master) |
 | Frontend | HTML, CSS, JavaScript |
 | Bridge | pywebview JS API (pywebview.api) |
 | Build | [PyInstaller](https://pyinstaller.org/), [Inno Setup](https://jrsoftware.org/isinfo.php) |
@@ -131,6 +131,9 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 - Natural mouse movement/clicking (W3C Actions)
 - Daily Set task collection (runs once per day, per account)
 - Separate browser profile per account
+- AI-generated search queries in your language (bring-your-own-key LLM)
+- Localization detection (language, region)
+- Simulated human typos in search queries (via nlpaug)
 - Smart dashboard selection (automatic detection and switching between legacy and new versions at runtime)
 
 **Developer & Code Quality:**
@@ -252,7 +255,9 @@ AutoRewarder/
 │   │   └── edge_policy.py     # Windows-only Edge auto-signin opt-out
 │   ├── search/                # Bing query execution + history
 │   │   ├── engine.py          # Search loop with human-like delays
-│   │   └── history.py         # Per-account search history JSON
+│   │   ├── history.py         # Per-account search history JSON
+│   │   ├── llm.py             # LLM-based query generation
+│   │   └── locale.py          # Localization detection (language, region)
 │   ├── dailytasks/            # Rewards daily-set + more-activities automation
 │   │   ├── runner.py          # DailySet orchestrator + status persistence
 │   │   ├── new_dashboard.py   # The New Dashboard support
@@ -332,8 +337,8 @@ For common issues and solutions, see the [Troubleshooting](USER_GUIDE.md#trouble
 - [x] Statistics dashboard (points tracking, session summaries)
 - [x] Daily "Claim" actions
 - [x] The New Dashboard Support
-- [x] AI-generated search terms in your language (bring-your-own-key LLM)
-- [ ] Simulated human typos during search input
+- [x] AI-generated search queries in your language (bring-your-own-key LLM)
+- [x] Simulated human typos in search queries (via nlpaug)
 - [ ] Region-specific search query datasets (US, UK, CA, AU, IN, etc.)
 - [ ] Browser choice (Chrome, Firefox support in addition to Edge)
 - [ ] Keyboard shortcuts

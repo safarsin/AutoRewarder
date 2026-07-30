@@ -369,6 +369,6 @@ A: Currently, the pre-built installer and standalone executable are only availab
 
 **Last Updated**: July 2026
 
-**Version**: 4.0
+**Version**: 4.1
 
 Enjoy using AutoRewarder! 🎉

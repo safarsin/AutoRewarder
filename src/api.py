@@ -2476,8 +2476,11 @@ class AutoRewarderAPI:
         static = self.search_engine.load_queries_from_json(
             JSON_FILE_PATH, num_needed=count + len(queries)
         )
+
         if not queries:
-            return static
+            from .utils import humanize_queries
+
+            return humanize_queries(static)
 
         seen = set(queries)
         extra = [q for q in static if q not in seen][: count - len(queries)]
