@@ -72,7 +72,7 @@ def _build_prompt(count, loc):
         f"Anti-patterns to avoid:\n"
         f"- \"sports news today\", \"weather forecast\", \"healthy recipes\" — these are topic labels, not searches.\n"
         f"- Obvious template fills: \"[topic] [year] [modifier]\" across every line.\n\n"
-        f"Return ONLY a JSON array of {count} strings. No preamble, no closing remark."
+        f"Return ONLY a JSON array of {count} strings."
     )
 
 
