@@ -2096,7 +2096,8 @@ class AutoRewarderAPI:
 
         num_batches = math.ceil(total / per_batch)
         total_seconds = duration_hours * 3600
-        interval = total_seconds / max(num_batches, 1)
+        # Start first batch immediately; place final batch at duration end.
+        interval = total_seconds / max(num_batches - 1, 1)
 
         self.log(
             f"Planning {num_batches} batches of ~{per_batch} queries, interval ~{interval:.1f}s"
