@@ -1427,6 +1427,8 @@ input[type="number"]:focus {
 
 .form-field input[type="time"],
 .form-field input[type="number"],
+.form-field input[type="text"],
+.form-field input[type="password"],
 .form-field select {
   width: 100%;
   padding: 8px 10px;
@@ -1463,6 +1465,25 @@ input[type="number"]:focus {
   font-size: 11.5px;
   color: var(--text-dim);
   line-height: 1.45;
+}
+
+/* LLM search-term generation fields (Settings modal) */
+
+.llm-fields {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: opacity 0.15s;
+}
+
+.llm-fields.dim {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.llm-fields .form-hint {
+  margin: 2px 0 0 0;
 }
 
 .row-disabled {

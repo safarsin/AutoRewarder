@@ -11,6 +11,7 @@ import platform
 import subprocess
 import threading
 import webbrowser
+import shlex
 
 # `webview` (pywebview) is imported lazily inside `open_history_window` — the
 # only method that needs it — so AutoRewarder_CLI.py can import
@@ -35,7 +36,7 @@ from .accounts import (
     GlobalSettingsManager,
 )
 from .emulator import DriverManager, HumanBehavior, edge_policy
-from .search import HistoryManager, SearchEngine
+from .search import HistoryManager, SearchEngine, llm, resolve_search_locale
 from .dailytasks import DailySet
 from .stats import (
     StatsManager,
@@ -57,6 +58,7 @@ AUTOSTART_TIME = "09:00"
 # previous single-task design and only cleaned up, never created.
 _AUTOSTART_TASK_NAME = "AutoRewarder"
 _SYSTEMD_UNIT_NAME = "autorewarder"
+_MACOS_LAUNCHAGENT_NAME = "com.autorewarder"
 
 # HH:MM validator — accepts 00:00..23:59.
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -494,6 +496,56 @@ class AutoRewarderAPI:
             return False
 
     # ------------------------------------------------------------------
+    # Exposed to JS: LLM-generated search terms + locale
+    # ------------------------------------------------------------------
+
+    def get_llm_config(self):
+        """
+        Return the LLM query-generation config plus the effective locale.
+
+        Returns:
+            dict: use_llm_queries, llm_provider, llm_model, llm_api_key,
+            search_locale, detected_locale, effective_locale.
+        """
+        cfg = self.global_settings.get_llm_config()
+        cfg["effective_locale"] = self.global_settings.get_effective_locale()
+        return cfg
+
+    def set_llm_config(
+        self, use_llm_queries, provider, model, api_key, search_locale="auto"
+    ):
+        """
+        Persist the LLM query-generation config from the Settings modal.
+
+        Returns:
+            bool: True on success, False otherwise.
+        """
+        try:
+            self.global_settings.set_llm_config(
+                use_llm_queries, provider, model, api_key, search_locale
+            )
+            state = "ON" if use_llm_queries else "OFF"
+            self.log(f"LLM query generation: {state} ({provider}).")
+            return True
+        except Exception as e:
+            self.log(f"[WARNING] Failed to save LLM config: {e}")
+            return False
+
+    def set_detected_locale(self, locale):
+        """
+        Store the locale the GUI read from navigator.language.
+
+        Returns:
+            bool: True on success, False otherwise.
+        """
+        try:
+            self.global_settings.set_detected_locale(locale)
+            return True
+        except Exception as e:
+            self.log(f"[WARNING] Failed to save detected locale: {e}")
+            return False
+
+    # ------------------------------------------------------------------
     # Exposed to JS: per-account schedule + startup
     # ------------------------------------------------------------------
 
@@ -814,6 +866,7 @@ class AutoRewarderAPI:
             candidate = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
             if os.path.exists(candidate):
                 python_exe = candidate
+
         entry = os.path.join(BASE_DIR, "AutoRewarder.py")
         return f'"{python_exe}" "{entry}" --headless --account {account_id}'
 
@@ -827,6 +880,10 @@ class AutoRewarderAPI:
         """Base name for the systemd service + timer of a specific account."""
         return f"{_SYSTEMD_UNIT_NAME}-{account_id}"
 
+    def _macos_launchagent_base(self, account_id):
+        """Base name for the per-account macOS LaunchAgent plist/label."""
+        return f"{_MACOS_LAUNCHAGENT_NAME}.{account_id}"
+
     # ------------------------------------------------------------------
     # Autostart — daily scheduled task (Windows Task Scheduler / systemd
     # user timer). Replaces the previous "fire on login" model so a daily
@@ -835,6 +892,9 @@ class AutoRewarderAPI:
 
     def _systemd_user_dir(self):
         return os.path.join(os.path.expanduser("~"), ".config", "systemd", "user")
+
+    def _launchagent_user_dir(self):
+        return os.path.join(os.path.expanduser("~"), "Library", "LaunchAgents")
 
     def _legacy_linux_autostart_path(self):
         """Old .desktop autostart path — kept only for migration cleanup."""
@@ -1205,13 +1265,94 @@ class AutoRewarderAPI:
         except Exception:
             return False
 
+    def _register_macos_launchagent(self, account_id, run_time, label=None):
+        """Write + enable a per-account launchagent .service + .timer."""
+
+        import plistlib
+
+        try:
+            try:
+                hour, minute = map(int, run_time.split(":"))
+            except (ValueError, AttributeError):
+                self.log(f"[ERROR] Invalid run_time format: {run_time}")
+                return False
+
+            base = self._launchagent_user_dir()
+            unit_base = self._macos_launchagent_base(account_id)
+            plist_path = os.path.join(base, f"{unit_base}.plist")
+
+            os.makedirs(base, exist_ok=True)
+            cmd = self._autostart_command(account_id)
+            program_args = shlex.split(cmd)
+            desc_label = label or account_id
+
+            plist_content = {
+                "Label": unit_base,
+                "ProgramArguments": program_args,
+                "StartCalendarInterval": {"Hour": hour, "Minute": minute},
+                "RunAtLoad": False,
+            }
+
+            with open(plist_path, "wb") as fh:
+                plistlib.dump(plist_content, fh)
+
+            try:
+                subprocess.run(["launchctl", "unload", plist_path], capture_output=True)
+            except Exception:
+                pass
+            result = subprocess.run(
+                ["launchctl", "load", plist_path], capture_output=True
+            )
+
+            if result.returncode != 0:
+                self.log(
+                    f"[ERROR] launchctl enable failed for {desc_label}: "
+                    f"{(result.stderr or result.stdout).strip()}"
+                )
+                return False
+
+            self.log(f"Scheduled LaunchAgent registered: '{desc_label}' at {run_time}")
+            return True
+
+        except FileNotFoundError:
+            self.log("[ERROR] launchctl not found — launchctl unavailable.")
+            return False
+
+        except Exception as e:
+            self.log(f"[ERROR] Failed to register LaunchAgent: {e}")
+            return False
+
+    def _remove_macos_launchagent(self, account_id):
+        """Disable + delete an account's per-account macOS LaunchAgent plist."""
+        try:
+            base = self._launchagent_user_dir()
+            unit_base = self._macos_launchagent_base(account_id)
+            plist_path = os.path.join(base, f"{unit_base}.plist")
+
+            try:
+                subprocess.run(["launchctl", "unload", plist_path], capture_output=True)
+            except Exception:
+                pass
+
+            if os.path.exists(plist_path):
+                try:
+                    os.remove(plist_path)
+                except OSError:
+                    pass
+
+            return True
+        except Exception:
+            return False
+
     def _remove_account_autostart(self, account_id):
         """Remove an account's OS-level scheduled task (platform-aware)."""
         system = platform.system()
         if system == "Windows":
             return self._remove_windows_task(account_id)
-        if system == "Linux":
+        elif system == "Linux":
             return self._remove_systemd_unit(account_id)
+        elif system == "Darwin":
+            return self._remove_macos_launchagent(account_id)
         return False
 
     def _sync_account_autostart(self, account_id):
@@ -1247,9 +1388,11 @@ class AutoRewarderAPI:
         system = platform.system()
         if system == "Windows":
             return self._register_windows_task(account_id, run_time, label)
-        if system == "Linux":
+        elif system == "Linux":
             return self._register_systemd_unit(account_id, run_time, label)
-        self.log("Autostart is only supported on Windows and Linux.")
+        elif system == "Darwin":
+            return self._register_macos_launchagent(account_id, run_time, label)
+        self.log("Autostart is only supported on Windows, Linux, and MacOS.")
         return False
 
     def _sync_all_autostart(self):
@@ -1276,8 +1419,8 @@ class AutoRewarderAPI:
         are always cleaned up on either path.
         """
         system_name = platform.system()
-        if system_name not in ("Windows", "Linux"):
-            self.log("Autostart is only supported on Windows and Linux.")
+        if system_name not in ("Windows", "Linux", "Darwin"):
+            self.log("Autostart is only supported on Windows, Linux, and MacOS.")
             return False
 
         # Persist user intent FIRST so _sync_account_autostart reads the
@@ -1316,7 +1459,7 @@ class AutoRewarderAPI:
         """Return OS support flag + current autostart state for the Settings UI."""
         system_name = platform.system()
         return {
-            "supported": system_name in ("Windows", "Linux"),
+            "supported": system_name in ("Windows", "Linux", "Darwin"),
             "enabled": self.is_autostart_enabled(),
         }
 
@@ -2350,6 +2493,79 @@ class AutoRewarderAPI:
             self._driver = None
             time.sleep(0.5)
 
+    def _build_queries(self, count):
+        """
+        Build the list of queries for a phase.
+
+        When LLM generation is enabled and an API key is set, ask the chosen
+        provider for `count` fresh queries in the user's language. Any failure
+        (no key, invalid key, quota, offline, malformed answer) or a shortfall
+        is transparently topped up / replaced with a random sample from the
+        static assets/queries.json, so the daily search target is still met and
+        the run never depends on the network.
+
+        Args:
+            count (int): how many queries to produce.
+
+        Returns:
+            list: up to `count` query strings (empty only if the static file is
+            missing).
+        """
+        if count <= 0:
+            return []
+
+        queries = []
+        cfg = self.global_settings.get_llm_config()
+        if cfg["use_llm_queries"]:
+            if cfg["llm_api_key"]:
+                locale = resolve_search_locale(
+                    self.global_settings.get_settings(), self.log
+                )
+                self.log(
+                    f"Generating {count} queries via LLM "
+                    f"({cfg['llm_provider']}, {locale})…"
+                )
+                queries = llm.generate_queries(
+                    count,
+                    locale,
+                    provider=cfg["llm_provider"],
+                    model=cfg["llm_model"],
+                    api_key=cfg["llm_api_key"],
+                    logger=self.log,
+                )
+                if not queries:
+                    self.log(
+                        "[WARNING] LLM generation failed — "
+                        "falling back to static queries."
+                    )
+            else:
+                self.log(
+                    "[WARNING] LLM enabled but no API key set — "
+                    "using static queries."
+                )
+
+        if len(queries) >= count:
+            return queries[:count]
+
+        # Top up from the static file, skipping any query the LLM already
+        # produced. Request extra headroom so de-dup can't leave us short.
+        static = self.search_engine.load_queries_from_json(
+            JSON_FILE_PATH, num_needed=count + len(queries)
+        )
+
+        if not queries:
+            from .utils import humanize_queries
+
+            return humanize_queries(static)
+
+        seen = set(queries)
+        extra = [q for q in static if q not in seen][: count - len(queries)]
+        self.log(
+            f"LLM returned {len(queries)}/{count} queries — "
+            f"topped up with {len(extra)} static queries."
+        )
+        return queries + extra
+
     def _run_phase(self, mobile, count, do_daily_set):
         """
         Open a driver for a single phase (PC or Mobile), do `count` searches,
@@ -2365,9 +2581,7 @@ class AutoRewarderAPI:
             f"=== {label} phase — {count} {'queries' if count != 1 else 'query'} ==="
         )
 
-        queries_to_search = self.search_engine.load_queries_from_json(
-            JSON_FILE_PATH, num_needed=count
-        )
+        queries_to_search = self._build_queries(count)
         if not queries_to_search:
             self.log(f"[WARNING] {label}: no queries available. Skipping phase.")
             if self.history is not None:

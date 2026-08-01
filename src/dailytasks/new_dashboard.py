@@ -84,7 +84,7 @@ try {
     var href = a.href || a.getAttribute('href') || '';
     // Only real daily-set activities point at a Bing search (this also excludes
     // the section header's "earn more" link, whose absolute href has bing.com).
-    if (href.indexOf('bing.com/search') < 0) continue;
+    if (href.indexOf('bing.com/earn') > 0) continue;
     // Title only: the card's bold title node, not the whole card text.
     var tEl = a.querySelector('.text-globalBody2Strong') || a.querySelector('p');
     var title = tEl ? (tEl.textContent || '').replace(/\s+/g, ' ').trim() : '';
@@ -569,7 +569,12 @@ class NewDashboardDailySet:
             # No parseable dates — fall back to treating everything as today.
             return items
         today = min(k for k, _ in dated)
-        return [it for k, it in dated if k == today]
+
+        # Some Daily Set cards don't carry a date in the payload (for example,
+        # referral offers) but they still belong to today's set. Keep
+        # undated items alongside the actual today's cards instead of dropping
+        # them once any dated card is present.
+        return [it for k, it in keyed if k is None or k == today]
 
     # -- Navigation helpers ----------------------------------------------------
 

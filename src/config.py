@@ -10,7 +10,7 @@ import os
 import platform
 import sys
 
-CURRENT_VERSION = "v4.0"
+CURRENT_VERSION = "v4.1"
 REPO = "safarsin/AutoRewarder"
 
 PLATFORM_NAME = platform.system()
@@ -27,6 +27,12 @@ if PLATFORM_NAME == "Linux":
 elif PLATFORM_NAME == "Windows":
     APP_DIR = os.path.join(
         os.environ["USERPROFILE"], "AppData", "Local", "AutoRewarder"
+    )
+
+# Get MacOS app directory
+elif PLATFORM_NAME == "Darwin":
+    APP_DIR = os.path.join(
+        os.path.expanduser("~"), "Library", "Application Support", "AutoRewarder"
     )
 
 # Quit on invalid platform

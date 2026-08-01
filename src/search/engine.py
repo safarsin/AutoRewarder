@@ -3,6 +3,7 @@
 import json
 import random
 import time
+from urllib.parse import urlparse
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException, WebDriverException
 from selenium.webdriver.common.by import By
@@ -186,6 +187,7 @@ class SearchEngine:
                 chosen_tab = random.choices(tabs_config, weights=weights, k=1)[0]
 
                 if chosen_tab["name"] != "All":
+                    main_tab = driver.current_window_handle
                     tab_element = None
 
                     # Check if news tab exists, if it doesn't choose Images or Videos
@@ -198,8 +200,6 @@ class SearchEngine:
 
                     self._log(f"Chosen behavior: Switch to {chosen_tab['name']}")
                     try:
-                        main_tab = driver.current_window_handle
-
                         # Find the tab element using its id
                         if not tab_element:
                             xpath = f"//nav/ul/li[@id='{chosen_tab['id']}']/a"
@@ -245,7 +245,18 @@ class SearchEngine:
                     new_tabs = [tab for tab in driver.window_handles if tab != main_tab]
                     for tab in new_tabs:
                         try:
+                            if tab not in driver.window_handles:
+                                continue
                             driver.switch_to.window(tab)
+                            hostname = (
+                                (urlparse(driver.current_url).hostname or "")
+                                .lower()
+                                .rstrip(".")
+                            )
+                            if hostname != "bing.com" and not hostname.endswith(
+                                ".bing.com"
+                            ):
+                                continue
                             driver.close()
                         except WebDriverException as e:
                             short_error = str(e).split("\n")[0][:28]
