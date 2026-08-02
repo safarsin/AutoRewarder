@@ -14,6 +14,7 @@ from ..emulator import HumanBehavior
 
 
 SEARCH_METHODS = ("homepage", "address_bar")
+RESULT_CLICK_CHANCE = 0.65
 
 
 def choose_search_method(rng=random.choice):
@@ -105,6 +106,95 @@ class SearchEngine:
         # 20% of the time, take a break after 10-15 searches
         else:
             return random.randint(10, 15)
+
+    def _click_random_result(self, driver, human, stop_event=None):
+        """
+        Click a random organic result link and briefly browse the page.
+
+        Picks one organic link from the 'All' results page, clicks it with
+        human-like gestures, dwells on the destination for a randomized period
+        (interruptible via stop_event), scrolls a bit, then returns to the
+        results page — closing any new tab the link opened, otherwise using
+        browser back.
+
+        Args:
+            driver (WebDriver): An instance of Selenium WebDriver.
+            human (HumanBehavior): Human-behavior emulator for clicks and scrolls.
+            stop_event (threading.Event, optional): When set, bails out early.
+        """
+
+        main_tab = driver.current_window_handle
+
+        try:
+            links = driver.find_elements(
+                By.CSS_SELECTOR, "li.b_algo h2 a, #b_results h2 a"
+            )
+            if not links:
+                self._log("[WARNING] No organic result links found — skipping click.")
+                return
+
+            link = random.choice(links)
+            self._log("Chosen behavior: Click result link")
+            results_url = driver.current_url
+            human.click_element(link)
+
+            # Wait for navigation away from the results page (up to ~10 seconds)
+            for _ in range(20):
+                if stop_event is not None and stop_event.is_set():
+                    return
+                time.sleep(0.5)
+                if driver.current_url != results_url or len(driver.window_handles) > 1:
+                    break
+            else:
+                self._log("[WARNING] Result click did not navigate — skipping dwell.")
+                return
+
+            # Browse the destination page for a randomized period
+            if stop_event is not None:
+                if stop_event.wait(random.uniform(5, 30)):
+                    return
+            else:
+                time.sleep(random.uniform(5, 20))
+
+            try:
+                human.scroll_page()
+            except WebDriverException as e:
+                short_error = str(e).split("\n")[0][:28]
+                self._log(
+                    f"[WARNING] WebDriver error when scrolling result page: {short_error}. Continuing."
+                )
+
+            # Return to the results page: close any new tab, else go back
+            if len(driver.window_handles) > 1:
+                for tab in driver.window_handles:
+                    if tab == main_tab:
+                        continue
+                    try:
+                        driver.switch_to.window(tab)
+                        driver.close()
+                    except WebDriverException as e:
+                        short_error = str(e).split("\n")[0][:28]
+                        self._log(
+                            f"[WARNING] WebDriver error when closing result tab: {short_error}. Continuing."
+                        )
+                if main_tab in driver.window_handles:
+                    driver.switch_to.window(main_tab)
+            else:
+                try:
+                    driver.back()
+                except WebDriverException as e:
+                    short_error = str(e).split("\n")[0][:28]
+                    self._log(
+                        f"[WARNING] WebDriver error when going back: {short_error}. Continuing."
+                    )
+
+            time.sleep(random.uniform(2, 4))
+
+        except WebDriverException as e:
+            short_error = str(e).split("\n")[0][:28]
+            self._log(
+                f"[WARNING] WebDriver error when clicking result link: {short_error}. Continuing."
+            )
 
     def perform_searches(self, driver, queries, mobile=False, stop_event=None):
         """
@@ -259,6 +349,10 @@ class SearchEngine:
 
                 # Pause after scrolling
                 time.sleep(random.uniform(2, 4))
+
+                # Occasionally click a result link and browse it briefly
+                if chosen_tab["name"] == "All" and random.random() < RESULT_CLICK_CHANCE:
+                    self._click_random_result(driver, human, stop_event)
 
                 # Close all tabs other than main
                 if chosen_tab["name"] != "All":
