@@ -266,7 +266,7 @@ sync_fork_if_new_release() {
     }
 
     echo "Updating search queries from Google Trends..."
-    if ! python3 -u update_queries.py update --mode combine --timeout 60; then
+    if ! python3 -u update_queries.py update --mode replace --timeout 60; then
       echo "WARNING: Query update failed. Continuing with existing queries."
     fi
 

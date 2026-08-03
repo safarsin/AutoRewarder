@@ -61,6 +61,29 @@ class SearchEngine:
         if self._history:
             self._history.add_to_history(query_text, status)
 
+    def _dump_debug(self, driver, tag):
+        """
+        Save the current page source and a screenshot for debugging missing elements.
+
+        Non-fatal: any failure is logged and ignored so search flow continues.
+        """
+
+        try:
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            html_path = f"/tmp/bing_debug_{tag}_{timestamp}.html"
+            with open(html_path, "w", encoding="utf-8") as file:
+                file.write(driver.page_source)
+            self._log(
+                f"[DEBUG] Page dump saved: {html_path} (URL: {driver.current_url})"
+            )
+            try:
+                screenshot_path = f"/tmp/bing_debug_{tag}_{timestamp}.png"
+                driver.save_screenshot(screenshot_path)
+            except WebDriverException:
+                pass
+        except Exception as e:
+            self._log(f"[DEBUG] Failed to dump page: {e}")
+
     def load_queries_from_json(self, filepath, num_needed):
         """
         Load search queries from a JSON file and return a random sample.
@@ -131,6 +154,7 @@ class SearchEngine:
             )
             if not links:
                 self._log("[WARNING] No organic result links found — skipping click.")
+                self._dump_debug(driver, "no_organic")
                 return
 
             link = random.choice(links)
@@ -147,6 +171,7 @@ class SearchEngine:
                     break
             else:
                 self._log("[WARNING] Result click did not navigate — skipping dwell.")
+                self._dump_debug(driver, "click_no_nav")
                 return
 
             # Browse the destination page for a randomized period
@@ -323,6 +348,9 @@ class SearchEngine:
                     except NoSuchElementException:
                         self._log(
                             f"[WARNING] Tab {chosen_tab['name']} not found. Staying on 'All'."
+                        )
+                        self._dump_debug(
+                            driver, f"tab_missing_{chosen_tab['name'].lower()}"
                         )
 
                         # Fallback to "All" if the chosen tab is not found

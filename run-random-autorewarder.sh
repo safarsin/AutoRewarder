@@ -552,8 +552,8 @@ wait_between_chunks() {
   mobile_left=()
   for index in "${!accounts[@]}"; do
     search_total="$(rand_between "$SEARCH_TOTAL_MIN" "$SEARCH_TOTAL_MAX")"
-    pc="$(rand_between 0 "$search_total")"
-    mobile=$((search_total - pc))
+    pc="$search_total"
+    mobile=0
     pc_left+=("$pc")
     mobile_left+=("$mobile")
 

@@ -68,8 +68,7 @@ def clamp(value, minimum, maximum):
 
 def random_search_split(rng):
     total = rng.randint(SEARCH_TOTAL_MIN, SEARCH_TOTAL_MAX)
-    pc = rng.randint(0, total)
-    return pc, total - pc
+    return total, 0
 
 
 def discover_ready_accounts(accounts_dir, rng):

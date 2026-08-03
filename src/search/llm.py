@@ -13,6 +13,7 @@ query file.
 """
 
 import json
+import re
 
 import requests
 
@@ -113,7 +114,7 @@ def _call_openai(prompt, model, api_key, max_tokens, logger):
         _log_http_error(logger, "openai", resp)
         return ""
     data = resp.json()
-    return data["choices"][0]["message"]["content"] or ""
+    return _message_text(data) or ""
 
 
 def _call_openrouter(prompt, model, api_key, max_tokens, logger):
@@ -137,7 +138,27 @@ def _call_openrouter(prompt, model, api_key, max_tokens, logger):
         _log_http_error(logger, "openrouter", resp)
         return ""
     data = resp.json()
-    return data["choices"][0]["message"]["content"] or ""
+    return _message_text(data) or ""
+
+
+def _message_text(data):
+    """Extract the text answer from an OpenAI-compatible chat response.
+
+    Some models return ``message.content`` as a list of text blocks rather
+    than a plain string; handle both shapes.
+    """
+    content = data["choices"][0]["message"].get("content") or ""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, dict):
+                parts.append(block.get("text", "") or "")
+            elif block:
+                parts.append(str(block))
+        return "".join(parts)
+    return ""
 
 
 def _call_anthropic(prompt, model, api_key, max_tokens, logger):
@@ -204,36 +225,60 @@ _DISPATCH = {
 def _extract_queries(text, count):
     """Parse a JSON array of strings out of the model's text answer.
 
-    Tolerates code fences and surrounding prose by locating the outermost
-    ``[...]`` span. Returns a de-duplicated, order-preserving list capped at
-    `count`.
+    Tolerates code fences, prose, ``{"queries": [...]}``-style objects and
+    trailing commas. If nothing JSON-shaped parses, falls back to pulling
+    quoted strings out of the raw answer. Returns a de-duplicated,
+    order-preserving list capped at `count`.
     """
     if not text:
         return []
 
-    start = text.find("[")
-    end = text.rfind("]")
-    if start == -1 or end == -1 or end <= start:
-        return []
-
-    end += 1
-    try:
-        data = json.loads(text[start:end])
-    except (ValueError, TypeError):
-        return []
-
-    if not isinstance(data, list):
-        return []
-
-    out = []
-    for item in data:
-        if isinstance(item, str):
-            query = item.strip().strip('"').strip()
+    items = _parse_json_queries(text)
+    if items is None:
+        # Fallback: scan the raw answer for quoted strings. Handles bullet
+        # lists and prose when the model skips valid JSON entirely.
+        items = []
+        for m in re.finditer(r'"((?:[^"\\]|\\.)*)"', text):
+            query = m.group(1).replace('\\"', '"').replace("\\\\", "\\").strip()
             if query:
-                out.append(query)
+                items.append(query)
+
+    out = [q for q in items if q]
 
     # De-duplicate while preserving order, then cap at the requested count.
     return list(dict.fromkeys(out))[:count]
+
+
+def _parse_json_queries(text):
+    """Return the query strings from the answer's JSON, or None if unparseable.
+
+    Locates the outermost ``[...]`` span so fences and prose around the array
+    are ignored, then accepts either a bare list or an object that wraps one
+    (e.g. ``{"queries": [...]}``).
+    """
+    start = text.find("[")
+    end = text.rfind("]")
+    if start == -1 or end == -1 or end <= start:
+        return None
+
+    chunk = text[start:end + 1]
+    # Tolerate trailing commas, which models love to emit.
+    chunk = re.sub(r",\s*([\]}])", r"\1", chunk)
+    try:
+        data = json.loads(chunk)
+    except (ValueError, TypeError):
+        return None
+
+    if isinstance(data, list):
+        values = data
+    elif isinstance(data, dict):
+        values = next((v for v in data.values() if isinstance(v, list)), None)
+    else:
+        return None
+
+    if not isinstance(values, list):
+        return None
+    return [item.strip().strip('"').strip() for item in values if isinstance(item, str)]
 
 
 def generate_queries(
