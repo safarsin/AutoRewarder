@@ -73,16 +73,13 @@ class SearchEngine:
             html_path = f"/tmp/bing_debug_{tag}_{timestamp}.html"
             with open(html_path, "w", encoding="utf-8") as file:
                 file.write(driver.page_source)
-            self._log(
-                f"[DEBUG] Page dump saved: {html_path} (URL: {driver.current_url})"
-            )
             try:
                 screenshot_path = f"/tmp/bing_debug_{tag}_{timestamp}.png"
                 driver.save_screenshot(screenshot_path)
             except WebDriverException:
                 pass
-        except Exception as e:
-            self._log(f"[DEBUG] Failed to dump page: {e}")
+        except Exception:
+            pass
 
     def load_queries_from_json(self, filepath, num_needed):
         """
