@@ -13,7 +13,9 @@ query file.
 """
 
 import json
+import random
 import re
+from datetime import date
 
 import requests
 
@@ -49,32 +51,92 @@ def _max_tokens(count):
     return min(8192, 512 + count * 30)
 
 
-def _build_prompt(count, loc):
+def normalize_query(query):
+    """Lowercase, strip punctuation, collapse whitespace — repeat-detection key."""
+    text = re.sub(r"[^\w\s]", "", str(query or "").lower())
+    return re.sub(r"\s+", " ", text).strip()
+
+
+# Pattern pools per query category. `{loc}` placeholders are formatted at
+# prompt-build time; a random subset is shown each call so the model isn't
+# anchored to the same strings every day.
+_EXAMPLE_POOLS = {
+    "Questions people ask themselves": (
+        "why is my cat throwing up",
+        "how much tithing should i give",
+        "when does daylight savings end",
+    ),
+    "Urgent how-tos": (
+        "how to unclog toilet without plunger",
+        "reset airpods pro",
+        "delete duplicate rows excel",
+    ),
+    "Navigational shortcuts": (
+        "facebook login",
+        "weather tomorrow",
+        "gmail inbox",
+    ),
+    "Conversational fragments": (
+        "best affordable vacuum 2025",
+        "is it gonna snow today",
+        "headache that won't go away",
+    ),
+    "Local/intent-driven": (
+        "pizza open now near me",
+        "dmv appointment {loc}",
+        "cheap oil change {loc}",
+    ),
+    "Trend/reaction": (
+        "who won the debate",
+        "stock market down today why",
+        "power outage {loc}",
+    ),
+    "Comparison": (
+        "iphone 16 vs samsung s25",
+        "uber vs lyft cheaper",
+    ),
+}
+
+
+def _build_prompt(count, loc, excluded=None):
     """Phrase the generation instruction in the user's language."""
     lang = language_name(loc)
-    return (
-        f"Generate {count} distinct web search queries that feel ripped from real people's browsers. Language: {lang}, locale: {loc}.\n"
-        f"Think like a human with a genuine itch to scratch — not a topic checklist. Every query should be something someone actually typed because they needed to know right then.\n\n"
-        f"Mix these natural query patterns:\n"
-        f"- Questions people ask themselves: \"why is my cat throwing up\", \"how much tithing should i give\", \"when does daylight savings end\"\n"
-        f"- Urgent how-tos: \"how to unclog toilet without plunger\", \"reset airpods pro\", \"delete duplicate rows excel\"\n"
-        f"- Navigational shortcuts: \"facebook login\", \"weather tomorrow\", \"gmail inbox\"\n"
-        f"- Conversational fragments: \"best affordable vacuum 2025\", \"is it gonna snow today\", \"headache that won't go away\"\n"
-        f"- Local/intent-driven: \"pizza open now near me\", \"dmv appointment {loc}\", \"cheap oil change {loc}\"\n"
-        f"- Trend/reaction: \"who won the debate\", \"stock market down today why\", \"power outage {loc}\"\n"
-        f"- Comparison: \"iphone 16 vs samsung s25\", \"uber vs lyft cheaper\"\n\n"
-        f"Crucial rules:\n"
-        f"- Vary length: some 2-3 words, some 5-8 words. Real queries are uneven.\n"
-        f"- Skip perfect grammar. Real people drop articles, use fragments, type lowercase.\n"
-        f"- No keyword-stuffing. Nobody types \"best healthy easy quick dinner recipes high protein.\"\n"
-        f"- Each query distinct persona/need. Don't remix same template across topics.\n"
-        f"- No quotes, no numbering, no markdown, no explanations.\n"
-        f"- Queries must survive the \"would anyone actually type this?\" test.\n\n"
-        f"Anti-patterns to avoid:\n"
-        f"- \"sports news today\", \"weather forecast\", \"healthy recipes\" — these are topic labels, not searches.\n"
-        f"- Obvious template fills: \"[topic] [year] [modifier]\" across every line.\n\n"
-        f"Return ONLY a JSON array of {count} strings."
-    )
+    lines = [
+        f"Generate {count} distinct web search queries that feel ripped from real people's browsers. Language: {lang}, locale: {loc}.",
+        "Think like a human with a genuine itch to scratch — not a topic checklist. Every query should be something someone actually typed because they needed to know right then.",
+        "",
+        "Mix these natural query patterns — examples are style samples only, never emit them verbatim:",
+    ]
+    for label, examples in _EXAMPLE_POOLS.items():
+        shown = random.sample(
+            [example.format(loc=loc) for example in examples],
+            min(2, len(examples)),
+        )
+        lines.append("- " + label + ": " + ", ".join(f'"{q}"' for q in shown))
+    lines += [
+        "",
+        f"Today's date: {date.today().isoformat()}. Favor fresh, seasonal, or timely queries.",
+        "",
+        "Crucial rules:",
+        "- Vary length: some 2-3 words, some 5-8 words. Real queries are uneven.",
+        "- Skip perfect grammar. Real people drop articles, use fragments, type lowercase.",
+        "- No keyword-stuffing. Nobody types \"best healthy easy quick dinner recipes high protein.\"",
+        "- Each query distinct persona/need. Don't remix same template across topics.",
+        "- No quotes, no numbering, no markdown, no explanations.",
+        "- Queries must survive the \"would anyone actually type this?\" test.",
+        "",
+        "Anti-patterns to avoid:",
+        "- \"sports news today\", \"weather forecast\", \"healthy recipes\" — these are topic labels, not searches.",
+        "- Obvious template fills: \"[topic] [year] [modifier]\" across every line.",
+    ]
+    prompt = "\n".join(lines)
+
+    if excluded:
+        prompt += (
+            "\n\nRecently used queries you must NOT repeat (exact or near-identical counts as a repeat):\n"
+            + "\n".join(f"- {q}" for q in excluded)
+        )
+    return prompt + f"\n\nReturn ONLY a JSON array of {count} strings."
 
 
 def _log_http_error(logger, provider, resp):
@@ -282,7 +344,7 @@ def _parse_json_queries(text):
 
 
 def generate_queries(
-    count, locale, provider="openai", model="", api_key="", logger=None
+    count, locale, provider="openai", model="", api_key="", logger=None, exclude=None
 ):
     """Generate up to `count` search queries in `locale`'s language via an LLM.
 
@@ -293,6 +355,7 @@ def generate_queries(
         model (str): model id; falls back to the provider default when blank.
         api_key (str): the user's own API key.
         logger (callable, optional): logging function.
+        exclude (list, optional): recently-used queries the result must not repeat.
 
     Returns:
         list[str]: query strings, or ``[]`` on any failure. Never raises.
@@ -304,6 +367,9 @@ def generate_queries(
     if count <= 0 or not api_key:
         return []
 
+    excluded = [q for q in (exclude or []) if isinstance(q, str) and q.strip()]
+    excluded_norm = {normalize_query(q) for q in excluded}
+
     provider = normalize_provider(provider)
     caller = _DISPATCH.get(provider)
     if caller is None:
@@ -312,7 +378,7 @@ def generate_queries(
         return []
 
     model = (model or "").strip() or DEFAULT_MODELS[provider]
-    prompt = _build_prompt(count, locale)
+    prompt = _build_prompt(count, locale, excluded[:150])
 
     try:
         text = caller(prompt, model, api_key, _max_tokens(count), logger)
@@ -326,6 +392,7 @@ def generate_queries(
         return []
 
     queries = _extract_queries(text, count)
+    queries = [q for q in queries if normalize_query(q) not in excluded_norm]
     if not queries and logger:
         logger(f"[WARNING] LLM ({provider}) returned no usable queries.")
     return queries

@@ -2,7 +2,7 @@
 
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class HistoryManager:
@@ -102,3 +102,39 @@ class HistoryManager:
         history_list = self.get_history()
         history_list.append(new_record)
         self.save_history(history_list)
+
+    def recent_queries(self, days=90):
+        """
+        Return deduplicated query strings used within the last `days` days.
+
+        Newest first. Records with unparseable dates, blank queries, or the
+        literal "N/A" placeholder are skipped. Never raises; returns ``[]``
+        when history is missing or unreadable.
+        """
+        from .llm import normalize_query
+
+        cutoff = datetime.now() - timedelta(days=max(0, int(days)))
+        seen = set()
+        recent = []
+
+        for record in reversed(self.get_history()):
+            if not isinstance(record, dict):
+                continue
+            try:
+                used_on = datetime.strptime(record.get("date") or "", "%m-%d-%Y")
+            except (ValueError, TypeError):
+                continue
+            if used_on < cutoff:
+                continue
+
+            query = record.get("query")
+            if not isinstance(query, str) or not query.strip() or query == "N/A":
+                continue
+
+            key = normalize_query(query)
+            if key in seen:
+                continue
+            seen.add(key)
+            recent.append(query)
+
+        return recent

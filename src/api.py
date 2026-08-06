@@ -2441,6 +2441,7 @@ class AutoRewarderAPI:
 
         queries = []
         cfg = self.global_settings.get_llm_config()
+        recent = self.history.recent_queries() if self.history is not None else []
         if cfg["use_llm_queries"]:
             if cfg["llm_api_key"]:
                 locale = resolve_search_locale(
@@ -2457,6 +2458,7 @@ class AutoRewarderAPI:
                     model=cfg["llm_model"],
                     api_key=cfg["llm_api_key"],
                     logger=self.log,
+                    exclude=recent,
                 )
                 if not queries:
                     self.log(
@@ -2472,19 +2474,27 @@ class AutoRewarderAPI:
         if len(queries) >= count:
             return queries[:count]
 
-        # Top up from the static file, skipping any query the LLM already
-        # produced. Request extra headroom so de-dup can't leave us short.
+        # Top up from the static file, skipping anything the LLM already
+        # produced or that was used within the recent window. Request extra
+        # headroom so de-dup can't leave us short.
         static = self.search_engine.load_queries_from_json(
             JSON_FILE_PATH, num_needed=count + len(queries)
         )
 
+        recent_norm = {llm.normalize_query(q) for q in recent}
         if not queries:
             from .utils import humanize_queries
 
-            return humanize_queries(static)
+            return [
+                q for q in humanize_queries(static)
+                if llm.normalize_query(q) not in recent_norm
+            ]
 
         seen = set(queries)
-        extra = [q for q in static if q not in seen][: count - len(queries)]
+        extra = [
+            q for q in static
+            if q not in seen and llm.normalize_query(q) not in recent_norm
+        ][: count - len(queries)]
         self.log(
             f"LLM returned {len(queries)}/{count} queries — "
             f"topped up with {len(extra)} static queries."

@@ -137,6 +137,57 @@ class OpenRouterTests(unittest.TestCase):
         self.assertEqual(queries, [])
         self.assertIn("LLM (openrouter) unexpected response", logs[0])
 
+    def test_normalize_query_ignores_case_punctuation_whitespace(self):
+        self.assertEqual(
+            llm.normalize_query("How to Unclog Toilet?"),
+            llm.normalize_query("how to unclog toilet"),
+        )
+        self.assertEqual(llm.normalize_query("  a..b!! "), "ab")
+        self.assertEqual(llm.normalize_query(None), "")
+
+    def test_excluded_queries_are_filtered_from_output(self):
+        response = FakeResponse(
+            payload={
+                "choices": [
+                    {
+                        "message": {
+                            "content": '["how to unclog toilet", "weather tomorrow"]'
+                        }
+                    }
+                ]
+            }
+        )
+
+        with patch("src.search.llm.requests.post", return_value=response):
+            queries = llm.generate_queries(
+                2,
+                "en-US",
+                provider="openrouter",
+                api_key="test-key",
+                exclude=["How to Unclog Toilet!"],
+            )
+
+        self.assertEqual(queries, ["weather tomorrow"])
+
+    def test_prompt_includes_exclude_block_and_today_date(self):
+        response = FakeResponse(
+            payload={"choices": [{"message": {"content": '["fresh query"]'}}]}
+        )
+
+        with patch("src.search.llm.requests.post", return_value=response) as post:
+            llm.generate_queries(
+                1,
+                "en-US",
+                provider="openrouter",
+                api_key="test-key",
+                exclude=["old query one", "old query two"],
+            )
+
+        prompt = post.call_args.kwargs["json"]["messages"][0]["content"]
+        self.assertIn("Recently used queries", prompt)
+        self.assertIn("- old query one", prompt)
+        self.assertIn("Today's date:", prompt)
+
 
 if __name__ == "__main__":
     unittest.main()
