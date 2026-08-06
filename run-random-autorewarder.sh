@@ -52,12 +52,20 @@ random_wait_seconds() {
     return 0
   fi
 
-  if ! [[ "$RANDOM_WAIT_MAX_SECONDS" =~ ^[0-9]+$ ]] || [ "$RANDOM_WAIT_MAX_SECONDS" -le 0 ]; then
-    echo 0
-    return 0
-  fi
+  # Heavy-tailed pre-run pause: mostly 10-40 min, occasionally longer, so the
+  # first search of the day does not land on a clock-aligned grid.
+  python3 - <<'PY'
+import random
 
-  echo $((RANDOM % RANDOM_WAIT_MAX_SECONDS))
+r = random.random()
+if r < 0.7:
+    wait = random.uniform(600, 2400)
+elif r < 0.9:
+    wait = random.uniform(2400, 4200)
+else:
+    wait = random.uniform(4200, 5400)
+print(int(wait))
+PY
 }
 
 wait_random_after_updates() {
@@ -481,12 +489,9 @@ wait_between_chunks() {
   }
 
   if [ "$DRY_RUN" = "1" ]; then
-    echo "DRY RUN: skipping upstream sync, query update, random pre-run wait, and points report."
+    echo "DRY RUN: skipping query update, random pre-run wait, and points report."
   else
-    sync_fork_if_new_release || {
-      echo "ERROR: Upstream release sync failed. Not running AutoRewarder."
-      exit 1
-    }
+    # Upstream release sync removed: done manually by the operator.
 
     echo "Updating search queries from Google Trends..."
     if ! python3 -u update_queries.py update --mode combine --timeout 60; then

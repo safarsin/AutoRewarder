@@ -12,15 +12,14 @@ from pathlib import Path
 
 from src.config import ACCOUNTS_DIR
 
-
-SEARCH_TOTAL_MIN = 3
-SEARCH_TOTAL_MAX = 20
+SEARCH_TOTAL_MIN = 18
+SEARCH_TOTAL_MAX = 22
 QPH_MIN = 1
 QPH_MAX = 10
 QPH_JITTER = 3
 DURATION_MIN_HOURS = 2.15
-DURATION_MAX_HOURS = 3.5
-DEFAULT_DEADLINE_HOUR = 23
+DURATION_MAX_HOURS = 2.8
+DEFAULT_DEADLINE_HOUR = 22
 DEFAULT_DEADLINE_MINUTE = 0
 DEFAULT_SAFETY_BUFFER_MINUTES = 15
 
@@ -34,6 +33,7 @@ class AccountRoll:
     pc: int
     mobile: int
     duration: int
+    offset_minutes: int = 0
 
     @property
     def total_queries(self):
@@ -67,8 +67,10 @@ def clamp(value, minimum, maximum):
 
 
 def random_search_split(rng):
+    """Split the daily total between PC and mobile, both non-zero."""
     total = rng.randint(SEARCH_TOTAL_MIN, SEARCH_TOTAL_MAX)
-    return total, 0
+    pc = rng.randint(1, max(1, total - 1))
+    return pc, total - pc
 
 
 def discover_ready_accounts(accounts_dir, rng):
@@ -103,7 +105,9 @@ def discover_ready_accounts(accounts_dir, rng):
     return rolls
 
 
-def available_duration_hours(now, deadline_hour, deadline_minute, safety_buffer_minutes):
+def available_duration_hours(
+    now, deadline_hour, deadline_minute, safety_buffer_minutes
+):
     if deadline_hour == 24 and deadline_minute == 0:
         deadline = datetime.combine(now.date() + timedelta(days=1), time(0, 0))
     else:
@@ -144,6 +148,28 @@ def allocate_random_durations(rolls, available_hours, rng):
         roll.duration = math.floor(max(1.0, duration) * 100) / 100
 
 
+def allocate_random_offsets(rolls, available_hours, now):
+    """
+    Stagger account start times inside the leftover daily budget.
+
+    Each account gets `offset_minutes`: minutes after the headless run begins.
+    Offsets are derived from a per-day seed, so the ordering shifts daily but
+    stays deterministic for tests, and they never consume the caller's RNG.
+    """
+    if not rolls:
+        return
+    total_duration = sum(roll.duration for roll in rolls)
+    slack = max(0.0, available_hours - total_duration)
+    if slack <= 0:
+        for roll in rolls:
+            roll.offset_minutes = 0
+        return
+    seeded = random.Random(int(now.strftime("%Y%m%d")))
+    points = sorted(seeded.random() for _ in rolls)
+    for roll, fraction in zip(rolls, points):
+        roll.offset_minutes = int(fraction * slack * 60)
+
+
 def randomized_queries_per_hour(roll, rng):
     """Choose a bounded QPH that varies batch size without changing query totals."""
     effective_qph = roll.total_queries / max(1.0, float(roll.duration))
@@ -160,7 +186,9 @@ def randomize_account_schedules(
     safety_buffer_minutes=DEFAULT_SAFETY_BUFFER_MINUTES,
 ):
     """Randomize schedule fields for enabled, ready accounts."""
-    accounts_dir = Path(accounts_dir) if accounts_dir is not None else app_accounts_dir()
+    accounts_dir = (
+        Path(accounts_dir) if accounts_dir is not None else app_accounts_dir()
+    )
     rng = rng if rng is not None else random.SystemRandom()
     now = now if now is not None else datetime.now()
 
@@ -169,6 +197,7 @@ def randomize_account_schedules(
         now, deadline_hour, deadline_minute, safety_buffer_minutes
     )
     allocate_random_durations(rolls, budget, rng)
+    allocate_random_offsets(rolls, budget, now)
 
     changes = []
     for roll in rolls:
@@ -177,6 +206,7 @@ def randomize_account_schedules(
             "queriesPerHour": roll.schedule.get("queriesPerHour"),
             "queries_pc": roll.schedule.get("queries_pc"),
             "queries_mobile": roll.schedule.get("queries_mobile"),
+            "startOffsetMinutes": roll.schedule.get("startOffsetMinutes", 0),
         }
 
         qph = randomized_queries_per_hour(roll, rng)
@@ -184,6 +214,7 @@ def randomize_account_schedules(
         roll.schedule["queries_mobile"] = roll.mobile
         roll.schedule["runDuration"] = roll.duration
         roll.schedule["queriesPerHour"] = qph
+        roll.schedule["startOffsetMinutes"] = roll.offset_minutes
         roll.meta["schedule"] = roll.schedule
         write_json(roll.meta_path, roll.meta)
 
@@ -192,6 +223,7 @@ def randomize_account_schedules(
             "queriesPerHour": qph,
             "queries_pc": roll.pc,
             "queries_mobile": roll.mobile,
+            "startOffsetMinutes": roll.offset_minutes,
             "effectiveQueriesPerHour": round(
                 roll.total_queries / max(1, roll.duration), 2
             ),
@@ -233,7 +265,8 @@ def main():
             f"mobile {old['queries_mobile']} -> {new['queries_mobile']}, "
             f"duration {old['runDuration']}h -> {new['runDuration']}h, "
             f"QPH {old['queriesPerHour']} -> {new['queriesPerHour']} "
-            f"(effective {new['effectiveQueriesPerHour']}/h)"
+            f"(effective {new['effectiveQueriesPerHour']}/h), "
+            f"offset {new['startOffsetMinutes']}min"
         )
     return 0
 

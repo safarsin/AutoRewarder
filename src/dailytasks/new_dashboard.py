@@ -616,13 +616,42 @@ class NewDashboardDailySet:
 
     # -- Top-level entry point -------------------------------------------------
 
-    def perform(self, driver, human, stop_event=None):
+    def perform(self, driver, human, stop_event=None, chunk=None):
         """
         Run the new-dashboard point-earning tasks: the Daily Set (/dashboard),
         claiming pending points, then the "earn-page" activities and the quests
         (/earn). Returns the Daily Set outcome (used to mark today done); the
         claim/earn/quest passes are best-effort.
+
+        chunk (str, optional): "first" runs the Daily Set + claim pass,
+            "second" runs the earn-page + quests pass. None runs everything in
+            one visit, letting the caller spread the work across search
+            batches (the Daily Set outcome only comes from the "first" pass).
         """
+        if chunk == "first":
+            daily_ok = self._run_daily_set(driver, human, stop_event=stop_event)
+            if stop_event is not None and stop_event.is_set():
+                return daily_ok
+            try:
+                self._run_claim(driver, human, stop_event=stop_event)
+            except Exception as e:
+                if not (stop_event is not None and stop_event.is_set()):
+                    self._log(f"[WARNING] Claim pass failed: {e}")
+            return daily_ok
+        if chunk == "second":
+            try:
+                self._run_more_activities(driver, human, stop_event=stop_event)
+            except Exception as e:
+                if not (stop_event is not None and stop_event.is_set()):
+                    self._log(f"[WARNING] 'earn-page' pass failed: {e}")
+            if stop_event is not None and stop_event.is_set():
+                return True
+            try:
+                self._run_quests(driver, human, stop_event=stop_event)
+            except Exception as e:
+                if not (stop_event is not None and stop_event.is_set()):
+                    self._log(f"[WARNING] Quest pass failed: {e}")
+            return True
         daily_ok = self._run_daily_set(driver, human, stop_event=stop_event)
         if stop_event is not None and stop_event.is_set():
             return daily_ok

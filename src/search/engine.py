@@ -12,9 +12,7 @@ from selenium.webdriver.common.by import By
 from ..utils import human_typing
 from ..emulator import HumanBehavior
 
-
 SEARCH_METHODS = ("homepage", "address_bar")
-RESULT_CLICK_CHANCE = 0.65
 
 
 def choose_search_method(rng=random.choice):
@@ -37,6 +35,35 @@ class SearchEngine:
 
         self._logger = logger
         self._history = history
+        # Sampled once per account session so daily click/tab ratios drift
+        # instead of being drawn fresh (and identically distributed) per query.
+        self._session_behavior = None
+
+    def _session_behavior_weights(self):
+        """Return this session's result-click chance and tab weights."""
+        if self._session_behavior is None:
+            all_priority = random.uniform(55, 75)
+            images = random.uniform(8, 18)
+            videos = random.uniform(5, 15)
+            news = max(5.0, min(12.0, 100.0 - all_priority - images - videos))
+            self._session_behavior = {
+                "result_click_chance": random.uniform(0.55, 0.75),
+                "tabs": [
+                    {"name": "All", "priority": all_priority, "id": None},
+                    {
+                        "name": "Images",
+                        "priority": images,
+                        "id": "b-scopeListItem-images",
+                    },
+                    {
+                        "name": "Videos",
+                        "priority": videos,
+                        "id": "b-scopeListItem-video",
+                    },
+                    {"name": "News", "priority": news, "id": "b-scopeListItem-news"},
+                ],
+            }
+        return self._session_behavior
 
     def _log(self, message):
         """
@@ -135,7 +162,10 @@ class SearchEngine:
         human-like gestures, dwells on the destination for a randomized period
         (interruptible via stop_event), scrolls a bit, then returns to the
         results page — closing any new tab the link opened, otherwise using
-        browser back.
+        browser back. If a click does not navigate (a dead link or an
+        anti-bot interstitial), one retry on another link runs; if that also
+        fails, the session falls back to scrolling the SERP instead of
+        emitting repeated dead clicks.
 
         Args:
             driver (WebDriver): An instance of Selenium WebDriver.
@@ -154,29 +184,57 @@ class SearchEngine:
                 self._dump_debug(driver, "no_organic")
                 return
 
-            link = random.choice(links)
-            self._log("Chosen behavior: Click result link")
-            results_url = driver.current_url
-            human.click_element(link)
-
-            # Wait for navigation away from the results page (up to ~10 seconds)
-            for _ in range(20):
-                if stop_event is not None and stop_event.is_set():
-                    return
-                time.sleep(0.5)
-                if driver.current_url != results_url or len(driver.window_handles) > 1:
+            navigated = False
+            for attempt in (1, 2):
+                if not links:
                     break
-            else:
-                self._log("[WARNING] Result click did not navigate — skipping dwell.")
+                link = random.choice(links)
+                self._log("Chosen behavior: Click result link")
+                results_url = driver.current_url
+                human.click_element(link)
+
+                # Wait for navigation away from the results page (up to ~10s).
+                for _ in range(20):
+                    if stop_event is not None and stop_event.is_set():
+                        return
+                    time.sleep(0.5)
+                    if (
+                        driver.current_url != results_url
+                        or len(driver.window_handles) > 1
+                    ):
+                        navigated = True
+                        break
+                if navigated:
+                    break
+                self._log("[WARNING] Result click did not navigate — retrying.")
+                links = driver.find_elements(
+                    By.CSS_SELECTOR, "li.b_algo h2 a, #b_results h2 a"
+                )
+
+            if not navigated:
+                # Fall back to an engaged SERP dwell so the session does not
+                # produce a stream of dead clicks with no pageview.
+                self._log(
+                    "[WARNING] Result clicks did not navigate — SERP dwell fallback."
+                )
                 self._dump_debug(driver, "click_no_nav")
+                try:
+                    human.scroll_page()
+                except WebDriverException:
+                    pass
+                if stop_event is not None:
+                    if stop_event.wait(random.uniform(8, 25)):
+                        return
+                else:
+                    time.sleep(random.uniform(8, 25))
                 return
 
-            # Browse the destination page for a randomized period
+            # Browse the destination page for a randomized period.
             if stop_event is not None:
-                if stop_event.wait(random.uniform(5, 30)):
+                if stop_event.wait(random.uniform(8, 35)):
                     return
             else:
-                time.sleep(random.uniform(5, 20))
+                time.sleep(random.uniform(8, 35))
 
             try:
                 human.scroll_page()
@@ -186,7 +244,7 @@ class SearchEngine:
                     f"[WARNING] WebDriver error when scrolling result page: {short_error}. Continuing."
                 )
 
-            # Return to the results page: close any new tab, else go back
+            # Return to the results page: close any new tab, else go back.
             if len(driver.window_handles) > 1:
                 for tab in driver.window_handles:
                     if tab == main_tab:
@@ -210,7 +268,7 @@ class SearchEngine:
                         f"[WARNING] WebDriver error when going back: {short_error}. Continuing."
                     )
 
-            time.sleep(random.uniform(2, 4))
+            time.sleep(random.uniform(3, 8))
 
         except WebDriverException as e:
             short_error = str(e).split("\n")[0][:28]
@@ -295,7 +353,8 @@ class SearchEngine:
                 else:
                     # Open Bing homepage
                     driver.get("https://www.bing.com")
-                    time.sleep(random.uniform(4, 8))  # Random delay to mimic human behavior
+                    # Longer, human-paced delay before the first interaction.
+                    time.sleep(random.uniform(6, 20))
 
                     # Find the search box, clear it
                     search_box = driver.find_element(By.NAME, "q")
@@ -308,13 +367,8 @@ class SearchEngine:
                 # Wait for result to load
                 time.sleep(random.uniform(2, 4))
 
-                tabs_config = [
-                    {"name": "All", "priority": 70, "id": None},
-                    {"name": "Images", "priority": 10, "id": "b-scopeListItem-images"},
-                    {"name": "Videos", "priority": 10, "id": "b-scopeListItem-video"},
-                    {"name": "News", "priority": 10, "id": "b-scopeListItem-news"},
-                ]
-
+                session = self._session_behavior_weights()
+                tabs_config = session["tabs"]
                 weights = [tab["priority"] for tab in tabs_config]
                 chosen_tab = random.choices(tabs_config, weights=weights, k=1)[0]
 
@@ -373,10 +427,14 @@ class SearchEngine:
                     )
 
                 # Pause after scrolling
-                time.sleep(random.uniform(2, 4))
+                time.sleep(random.uniform(3, 8))
 
                 # Occasionally click a result link and browse it briefly
-                if chosen_tab["name"] == "All" and random.random() < RESULT_CLICK_CHANCE:
+                if (
+                    chosen_tab["name"] == "All"
+                    and random.random()
+                    < self._session_behavior_weights()["result_click_chance"]
+                ):
                     self._click_random_result(driver, human, stop_event)
 
                 # Close all tabs other than main

@@ -341,7 +341,9 @@ class DailySet:
 
     # -- Top-level entry point -------------------------------------------------
 
-    def perform_daily_set(self, driver, human, stop_event=None, variant=None):
+    def perform_daily_set(
+        self, driver, human, stop_event=None, variant=None, chunk=None
+    ):
         """
         Run the Daily Set for this account, dispatching to the legacy or the
         new-dashboard handler based on the resolved dashboard variant.
@@ -353,6 +355,10 @@ class DailySet:
             variant (str, optional): Overrides the instance's dashboard_variant
                 ("auto"/"legacy"/"new"). When None, falls back to the value set
                 on the instance. "auto" detects which dashboard rendered.
+            chunk (str, optional): "first" runs the Daily Set + claim pass,
+                "second" runs the earn-page + quests pass. None runs everything
+                in one visit. Used to spread the dashboard work across several
+                search batches so the session looks less scripted.
 
         Returns:
             bool: True if it's reasonable to mark today as done, False if we
@@ -380,13 +386,13 @@ class DailySet:
             from .new_dashboard import NewDashboardDailySet
 
             handler = NewDashboardDailySet(logger=self.logger)
-            result = handler.perform(driver, human, stop_event=stop_event)
+            result = handler.perform(driver, human, stop_event=stop_event, chunk=chunk)
             # Surface the new-dashboard run's counts for the stats layer so
             # per-account statistics stay accurate on migrated accounts.
             self.last_totals = dict(handler.last_totals)
             return result
 
-        return self._perform_legacy(driver, human, stop_event=stop_event)
+        return self._perform_legacy(driver, human, stop_event=stop_event, chunk=chunk)
 
     def _detect_variant(self, driver):
         """
@@ -429,7 +435,7 @@ class DailySet:
 
         return "legacy"
 
-    def _perform_legacy(self, driver, human, stop_event=None):
+    def _perform_legacy(self, driver, human, stop_event=None, chunk=None):
         """
         Visit the legacy Rewards dashboard and process every click-through task
         we know about: the Daily Set and the "More Activities" / "Plus
@@ -486,8 +492,14 @@ class DailySet:
             self.cards = RewardsCard(driver, logger=self.logger)
             main_tab = driver.current_window_handle
 
+            if chunk == "first":
+                sections = SECTIONS[:1]
+            elif chunk == "second":
+                sections = SECTIONS[1:]
+            else:
+                sections = SECTIONS
             totals = {"already": 0, "newly": 0, "final": 0, "total": 0, "attempted": 0}
-            for section_name, selector in SECTIONS:
+            for section_name, selector in sections:
                 if stop_event is not None and stop_event.is_set():
                     self._log("Stop requested — skipping remaining sections.")
                     break

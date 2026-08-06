@@ -69,6 +69,17 @@ def _normalize_run_time(value):
     return AUTOSTART_TIME
 
 
+def sample_batch_size(rng=random):
+    """Pick a small, human-plausible batch size (1-5 queries)."""
+    return rng.choice((1, 1, 1, 2, 2, 2, 3, 3, 4, 5))
+
+
+def sleep_for_interval(interval, rng=random):
+    """Lognormal-jittered gap around a planned interval, clipped to bounds."""
+    jitter = max(0.25, min(4.0, rng.lognormvariate(0, 0.5)))
+    return max(5.0, interval * jitter)
+
+
 class AutoRewarderAPI:
     """
     Core API class for AutoRewarder.
@@ -2047,13 +2058,13 @@ class AutoRewarderAPI:
         self, pc_count, mobile_count, duration_hours, queries_per_hour
     ):
         """
-        Drip-feed queries across a duration using the GUI run pipeline.
+        Drip-feed queries across the duration using the normal run pipeline.
 
-        Args:
-            pc_count (int): total PC queries to run
-            mobile_count (int): total Mobile queries to run
-            duration_hours (float|int): how many hours to spread the queries across
-            queries_per_hour (int): target queries per hour (overrides duration_hours if > 0)
+        Batches vary in size, gaps are drawn from a lognormal jitter (plus the
+        occasional long break), and one browser is reused per platform so the
+        session does not look like a scripted 1-query-per-launch loop. The
+        Daily Set is deferred to a later PC batch instead of the first two
+        minutes of the session.
         """
         try:
             pc = max(0, int(pc_count or 0))
@@ -2063,19 +2074,15 @@ class AutoRewarderAPI:
             mobile = max(0, int(mobile_count or 0))
         except (TypeError, ValueError):
             mobile = 0
-
         try:
             duration_hours = float(duration_hours)
         except (TypeError, ValueError):
             duration_hours = 3.0
-
         duration_hours = max(1.0, duration_hours)
-
         try:
             qph = int(queries_per_hour or 0)
         except (TypeError, ValueError):
             qph = 0
-
         if qph < 0:
             qph = 0
 
@@ -2083,66 +2090,110 @@ class AutoRewarderAPI:
         self.log(
             f"Advanced scheduling: PC={pc}, Mobile={mobile} over {duration_hours}h (qph={qph})"
         )
-
         if total <= 0:
             self.log("[WARNING] Nothing to do (PC and Mobile counts are both 0).")
             return
 
-        if qph > 0:
-            raw_batch = qph // 6  # ~10-minute batches
-        else:
-            raw_batch = total // max(1, int(duration_hours * 2))
-        per_batch = max(1, min(10, raw_batch))
-
-        num_batches = math.ceil(total / per_batch)
         total_seconds = duration_hours * 3600
-        # Start first batch immediately; place final batch at duration end.
-        interval = total_seconds / max(num_batches - 1, 1)
-
+        num_batches = max(1, int(math.ceil(total / 2.5)))
         self.log(
-            f"Planning {num_batches} batches of ~{per_batch} queries, interval ~{interval:.1f}s"
+            f"Planning {num_batches} batches over {duration_hours}h "
+            f"(avg interval ~{total_seconds / max(num_batches, 1):.1f}s)"
         )
 
         pc_left = pc
         mobile_left = mobile
+        daily_set_pending = True
+        searches_until_break = random.randint(4, 15)
 
-        for i in range(num_batches):
-            if self._stop_event.is_set():
-                break
+        pc_driver = None
+        mobile_driver = None
+        try:
+            batch_index = 0
+            while (pc_left > 0 or mobile_left > 0) and not self._stop_event.is_set():
+                batch_index += 1
+                if pc_left > 0:
+                    batch_pc = min(sample_batch_size(), pc_left)
+                    batch_mobile = 0
+                else:
+                    batch_pc = 0
+                    batch_mobile = min(sample_batch_size(), mobile_left)
+                self.log(
+                    f"Batch {batch_index}/{num_batches}: PC={batch_pc}, Mobile={batch_mobile} "
+                    f"(PC left {pc_left}, Mobile left {mobile_left})"
+                )
 
-            if pc_left > 0:
-                batch_pc = min(per_batch, pc_left)
-                batch_mobile = 0
-            else:
-                batch_pc = 0
-                batch_mobile = min(per_batch, mobile_left)
+                if batch_pc > 0 and not self._stop_event.is_set():
+                    if pc_driver is None:
+                        pc_driver = self.driver_manager.setup_driver(mobile=False)
+                    # Not on the very first batch unless it is the only PC
+                    # batch, so the Daily Set ritual moves around the session.
+                    # When more PC batches remain, split it: Daily Set + claim
+                    # now, earn-page + quests on a later batch.
+                    daily_set_chunk = None
+                    if self._daily_set_second_pending:
+                        daily_set_chunk = "second"
+                        self._daily_set_second_pending = False
+                    elif daily_set_pending and (
+                        batch_index > 1 or pc_left - batch_pc <= 0
+                    ):
+                        if pc_left - batch_pc > 0:
+                            daily_set_chunk = "first"
+                            self._daily_set_second_pending = True
+                        daily_set_pending = False
+                    self._run_phase(
+                        mobile=False,
+                        count=batch_pc,
+                        do_daily_set=daily_set_chunk is not None,
+                        driver=pc_driver,
+                        quit_driver=False,
+                        daily_set_chunk=daily_set_chunk,
+                    )
+                    pc_left -= batch_pc
+                    searches_until_break -= batch_pc
 
-            if batch_pc == 0 and batch_mobile == 0:
-                break
+                if batch_mobile > 0 and not self._stop_event.is_set():
+                    if mobile_driver is None:
+                        # Short natural pause before switching to the phone.
+                        if self._sleep_with_stop(random.uniform(60, 180)):
+                            break
+                        mobile_driver = self.driver_manager.setup_driver(mobile=True)
+                    self._run_phase(
+                        mobile=True,
+                        count=batch_mobile,
+                        do_daily_set=False,
+                        driver=mobile_driver,
+                        quit_driver=False,
+                    )
+                    mobile_left -= batch_mobile
 
-            self.log(
-                f"Batch {i+1}/{num_batches}: PC={batch_pc}, Mobile={batch_mobile} "
-                f"(PC left {pc_left}, Mobile left {mobile_left})"
-            )
+                if self._stop_event.is_set():
+                    break
+                if pc_left <= 0 and mobile_left <= 0:
+                    break
 
-            if batch_pc > 0 and not self._stop_event.is_set():
-                self._run_phase(mobile=False, count=batch_pc, do_daily_set=True)
+                if searches_until_break <= 0:
+                    break_time = random.uniform(900, 3600)
+                    self.log(f"Taking a longer break ({break_time:.0f}s)...")
+                    if self._sleep_with_stop(break_time):
+                        break
+                    searches_until_break = random.randint(4, 15)
+                    continue
 
-            if batch_mobile > 0 and not self._stop_event.is_set():
-                self._run_phase(mobile=True, count=batch_mobile, do_daily_set=False)
-
-            pc_left -= batch_pc
-            mobile_left -= batch_mobile
-
-            if pc_left <= 0 and mobile_left <= 0:
-                break
-            if self._stop_event.is_set():
-                break
-
-            sleep_time = max(5.0, interval * random.uniform(0.75, 1.25))
-            self.log(f"Sleeping {sleep_time:.1f}s until next batch")
-            if self._sleep_with_stop(sleep_time):
-                break
+                remaining = pc_left + mobile_left
+                interval = total_seconds / max(1, math.ceil(remaining / 2.5))
+                sleep_time = sleep_for_interval(interval)
+                self.log(f"Sleeping {sleep_time:.1f}s until next batch")
+                if self._sleep_with_stop(sleep_time):
+                    break
+        finally:
+            for driver in (pc_driver, mobile_driver):
+                if driver is not None:
+                    try:
+                        driver.quit()
+                    except Exception as e:
+                        self.log(f"[WARNING] Error closing driver: {e}")
+            self._driver = None
 
         if not self._stop_event.is_set() and pc_left <= 0 and mobile_left <= 0:
             self.log("Advanced schedule completed!")
@@ -2217,7 +2268,9 @@ class AutoRewarderAPI:
             and (not schedule_enabled or advanced_disabled)
         ):
             if advanced_disabled:
-                self.log("Advanced scheduling disabled for this run. Running normal pace.")
+                self.log(
+                    "Advanced scheduling disabled for this run. Running normal pace."
+                )
             else:
                 self.log(
                     "[WARNING] Advanced scheduling is enabled, but Schedule is off. Running normal pace."
@@ -2242,6 +2295,7 @@ class AutoRewarderAPI:
         self._last_scraped_balance = None
         self._run_query_pool = None
         self._run_query_cursor = 0
+        self._daily_set_second_pending = False
 
         try:
             if daily_only:
@@ -2486,13 +2540,15 @@ class AutoRewarderAPI:
             from .utils import humanize_queries
 
             return [
-                q for q in humanize_queries(static)
+                q
+                for q in humanize_queries(static)
                 if llm.normalize_query(q) not in recent_norm
             ]
 
         seen = set(queries)
         extra = [
-            q for q in static
+            q
+            for q in static
             if q not in seen and llm.normalize_query(q) not in recent_norm
         ][: count - len(queries)]
         self.log(
@@ -2529,15 +2585,26 @@ class AutoRewarderAPI:
         self._run_query_cursor = end
         return self._run_query_pool[start:end]
 
-    def _run_phase(self, mobile, count, do_daily_set):
+    def _run_phase(
+        self,
+        mobile,
+        count,
+        do_daily_set,
+        driver=None,
+        quit_driver=True,
+        daily_set_chunk=None,
+    ):
         """
-        Open a driver for a single phase (PC or Mobile), do `count` searches,
-        optionally run the Daily Set, then quit.
+        Do `count` searches for a single phase (PC or Mobile), optionally run
+        the Daily Set, and close the browser unless the caller wants to reuse
+        it (advanced drip scheduling).
 
         Args:
             mobile (bool): whether this is the Mobile phase (True) or PC phase (False)
             count (int): how many searches to perform in this phase
             do_daily_set (bool): whether to run the Daily Set after searches (PC phase only)
+            driver (WebDriver, optional): reuse this driver instead of opening one
+            quit_driver (bool): whether to quit the driver when done (False with reuse)
         """
         label = "Mobile" if mobile else "PC"
         self.log(
@@ -2553,7 +2620,10 @@ class AutoRewarderAPI:
                 )
             return
 
-        self._driver = self.driver_manager.setup_driver(mobile=mobile)
+        if driver is None:
+            self._driver = self.driver_manager.setup_driver(mobile=mobile)
+        else:
+            self._driver = driver
         try:
             done = self.search_engine.perform_searches(
                 self._driver,
@@ -2574,7 +2644,10 @@ class AutoRewarderAPI:
                 self.log("Daily Set not completed today. Starting Daily Set tasks...")
                 human = HumanBehavior(self._driver, show_cursor=True, mobile=mobile)
                 success = self.daily_set.perform_daily_set(
-                    self._driver, human, stop_event=self._stop_event
+                    self._driver,
+                    human,
+                    stop_event=self._stop_event,
+                    chunk=daily_set_chunk,
                 )
                 ran_daily_set = True
                 # Record cards + scrape the balance while still on the rewards
@@ -2585,13 +2658,17 @@ class AutoRewarderAPI:
                 self._session_counts["quests"] += totals.get("quests", 0)
                 self._try_scrape_balance()
                 if not self._stop_event.is_set():
-                    if success:
+                    if not success:
+                        self.log("Daily Set failed. Not marked as done for today.")
+                    elif daily_set_chunk == "first":
+                        self.log(
+                            "Daily Set first pass done — finishing on a later batch."
+                        )
+                    else:
                         self.daily_set.mark_as_completed()
                         self.log(
                             "Daily Set tasks completed and marked as done for today."
                         )
-                    else:
-                        self.log("Daily Set failed. Not marked as done for today.")
 
             # When the Daily Set didn't run (mobile phase, or already done
             # today) the rewards counter on the current Bing SERP is still a
@@ -2600,9 +2677,10 @@ class AutoRewarderAPI:
                 self._try_scrape_balance()
 
         finally:
-            try:
-                self._driver.quit()
-            except Exception as e:
-                self.log(f"[WARNING] Error closing driver: {e}")
-            self._driver = None
+            if quit_driver:
+                try:
+                    self._driver.quit()
+                except Exception as e:
+                    self.log(f"[WARNING] Error closing driver: {e}")
+                self._driver = None
             time.sleep(0.5)

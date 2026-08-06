@@ -15,6 +15,7 @@ DEFAULT_ACCOUNT_SCHEDULE = {
     "queriesPerHour": 10,  # 1..99
     "queries_pc": 30,  # 0..130
     "queries_mobile": 20,  # 0..99
+    "startOffsetMinutes": 0,  # minutes after the headless run begins
     "last_triggered_date": None,
     # Wall-clock time at which the OS-level scheduled task fires for this
     # account (24h "HH:MM"). Each account gets its own scheduled task so

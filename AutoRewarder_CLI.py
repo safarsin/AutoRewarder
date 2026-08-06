@@ -21,7 +21,8 @@ Usage examples:
 import argparse
 import os
 import sys
-from datetime import date, datetime
+import time
+from datetime import date, datetime, timedelta
 
 from src.api import AutoRewarderAPI
 from src.accounts import AccountMetaManager
@@ -226,6 +227,27 @@ def _refresh_balance_before_account_run(api, label):
     )
 
 
+def _wait_for_start_offset(label, run_started, offset_minutes):
+    """
+    Sleep until this account's staggered start time (if not already past).
+
+    Offsets come from `schedule_randomizer.startOffsetMinutes` so enabled
+    accounts don't all chain back-to-back in the same second.
+    """
+    if offset_minutes <= 0:
+        return
+    target = run_started + timedelta(minutes=offset_minutes)
+    while True:
+        remaining = (target - datetime.now()).total_seconds()
+        if remaining <= 0:
+            return
+        console_log(
+            f"Waiting {int(remaining)}s until '{label}' starts "
+            f"(offset {offset_minutes}min)..."
+        )
+        time.sleep(min(60.0, max(1.0, remaining)))
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -361,10 +383,36 @@ def main():
         )
         return
 
-    # Default: iterate every enabled schedule. api._run_lock ensures only one
-    # run executes at a time inside the process.
-    ran_any = False
+    # Default: iterate every enabled schedule, staggered by startOffsetMinutes
+    # so accounts are spread across the day instead of chaining back-to-back.
+    # api._run_lock ensures only one run executes at a time inside the process.
+    run_started = datetime.now()
+    pending = []
     for acc in accounts:
+        offset = 0
+        sched = {}
+        try:
+            sched = AccountMetaManager(acc["id"]).get_schedule() or {}
+            offset = max(0, int(sched.get("startOffsetMinutes") or 0))
+        except (TypeError, ValueError):
+            offset = 0
+        except Exception:
+            offset = 0
+        enabled = bool(acc.get("first_setup_done") and sched.get("enabled"))
+        if (
+            enabled
+            and not args.force
+            and sched.get("last_triggered_date") == date.today().isoformat()
+        ):
+            enabled = False
+        # Disabled/not-ready accounts sort first so they skip without delay.
+        pending.append((offset if enabled else -1, acc))
+    pending.sort(key=lambda item: item[0])
+
+    ran_any = False
+    for offset, acc in pending:
+        if offset > 0:
+            _wait_for_start_offset(acc["label"], run_started, offset)
         if _run_account(api, acc, force=args.force):
             ran_any = True
     if not ran_any:
