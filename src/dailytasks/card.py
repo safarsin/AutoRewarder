@@ -16,7 +16,7 @@ Failures (stale element, JS error) are swallowed with sensible defaults:
 import random
 import time
 
-from selenium.webdriver.common.by import By
+from ..emulator.compat import By
 
 from .card_js import (
     CARD_COMPLETED_JS,
@@ -167,11 +167,11 @@ class RewardsCard:
 
         If `stop_event` is set when an exception fires, the failure is
         considered a side-effect of the user stopping the run and not logged
-        as a warning (the driver was force-quit, every Selenium call from
+        as a warning (the driver was force-quit, every browser call from
         here on will throw HTTPConnectionPool errors).
 
         Args:
-            card: Selenium WebElement representing the Rewards card to click.
+            card: wrapped nodriver element representing the Rewards card to click.
             human: An instance of HumanBehavior for performing human-like interactions.
             main_tab: The handle of the main browser tab to return to after clicking.
             label: Optional short label for logging.

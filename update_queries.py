@@ -63,11 +63,13 @@ def is_clean_query(query):
         return False
     return True
 
+
 def trend_topic_key(query):
     words = re.findall(r"[A-Za-z0-9+]+", query.casefold())
     if "worldcup" in words or ("world" in words and "cup" in words):
         return "world cup"
     return " ".join(words[:2]) if words else query.casefold()
+
 
 def limit_trend_topic_repetition(queries, max_per_topic=MAX_TREND_TOPIC_QUERIES):
     counts = {}
@@ -147,53 +149,45 @@ def dataframe_to_rows(data):
     raise ValueError(f"Unsupported trends result type: {type(data).__name__}")
 
 
-def build_trends_webdriver(browser, download_dir, headless=True):
+def build_trends_driver(browser, download_dir, headless=True, timeout=DEFAULT_TIMEOUT):
     if browser == "edge":
-        from selenium import webdriver
-        from selenium.webdriver.edge.options import Options
+        from src.emulator.driver import _edge_executable_path
 
-        options = Options()
-        driver_class = webdriver.Edge
+        browser_executable_path = _edge_executable_path()
     elif browser == "chrome":
-        from selenium import webdriver
-        from selenium.webdriver.chrome.options import Options
-
-        options = Options()
-        driver_class = webdriver.Chrome
+        browser_executable_path = None
     else:
         raise ValueError("browser must be edge or chrome")
 
-    options.add_argument("--window-size=1600,1000")
-    options.add_argument("--no-first-run")
-    options.add_argument("--no-default-browser-check")
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option(
-        "prefs",
-        {
-            "download.default_directory": str(download_dir),
-            "download.prompt_for_download": False,
-            "download.directory_upgrade": True,
-            "safebrowsing.enabled": True,
-        },
-    )
+    browser_args = [
+        "--window-size=1600,1000",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-blink-features=AutomationControlled",
+    ]
     if headless:
-        options.add_argument("--headless=new")
-        options.add_argument("--disable-gpu")
+        browser_args.append("--headless=new")
+        browser_args.append("--disable-gpu")
 
-    driver = driver_class(options=options)
+    from src.emulator.nodriver_backend import NodriverDriver
+
+    driver = NodriverDriver(
+        browser_executable_path=browser_executable_path,
+        user_data_dir=None,
+        headless=headless,
+        browser_args=browser_args,
+        page_load_timeout=timeout,
+    )
+    driver.start()
     try:
-        driver.execute_cdp_cmd(
-            "Page.setDownloadBehavior",
-            {"behavior": "allow", "downloadPath": str(download_dir)},
-        )
+        driver.set_download_path(download_dir)
     except Exception:
         pass
     return driver
 
 
 def wait_for_document_ready(driver, timeout):
-    from selenium.webdriver.support.ui import WebDriverWait
+    from src.emulator.compat import WebDriverWait
 
     WebDriverWait(driver, timeout).until(
         lambda active_driver: active_driver.execute_script("return document.readyState")
@@ -202,9 +196,7 @@ def wait_for_document_ready(driver, timeout):
 
 
 def click_first_matching(driver, xpaths, timeout):
-    from selenium.common.exceptions import TimeoutException
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
+    from src.emulator.compat import By, TimeoutException, WebDriverWait
 
     last_error = None
     for xpath in xpaths:
@@ -252,15 +244,19 @@ def download_trends_csv_via_browser(
     timeout=DEFAULT_TIMEOUT,
 ):
     try:
-        from selenium.common.exceptions import TimeoutException
+        import nodriver  # type: ignore[import-not-found]  # noqa: F401
     except ImportError as exc:
         raise RuntimeError(
-            "selenium is not installed. Run `pip install -r requirements.txt`."
+            "nodriver is not installed. Run `pip install -r requirements.txt`."
         ) from exc
+
+    from src.emulator.compat import TimeoutException
 
     with tempfile.TemporaryDirectory(prefix="trends-download-") as temp_dir:
         download_dir = Path(temp_dir)
-        driver = build_trends_webdriver(browser, download_dir, headless=headless)
+        driver = build_trends_driver(
+            browser, download_dir, headless=headless, timeout=timeout
+        )
         try:
             driver.get(TRENDS_URL.format(geo=geo, hours=hours))
             wait_for_document_ready(driver, timeout)

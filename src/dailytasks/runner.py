@@ -13,10 +13,8 @@ import random
 import time
 from datetime import date
 
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
+from ..emulator.compat import By, TimeoutException, WebDriverWait
+from ..emulator.compat import expected_conditions as EC
 
 from .card import RewardsCard
 from .card_js import CardStatus
@@ -153,7 +151,7 @@ class DailySet:
         aggregate stats across sections and make the mark-as-done decision.
 
         Args:
-            driver: Selenium WebDriver instance.
+            driver: The nodriver driver facade instance.
             human: An instance of HumanBehavior for performing human-like interactions.
             section_name: The name of the section being processed (e.g. "Daily Set", "More Activities"), used for logging.
             selector: The CSS selector to find cards within this section.
@@ -349,7 +347,7 @@ class DailySet:
         new-dashboard handler based on the resolved dashboard variant.
 
         Args:
-            driver: Selenium WebDriver instance.
+            driver: The nodriver driver facade instance.
             human: An instance of HumanBehavior for performing human-like interactions.
             stop_event (threading.Event, optional): When set, the run aborts cleanly.
             variant (str, optional): Overrides the instance's dashboard_variant

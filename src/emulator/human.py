@@ -1,11 +1,9 @@
-"""Human-like interaction helpers for Selenium-driven browsing."""
+"""Human-like interaction helpers for browser-driven browsing."""
 
 import random
 import time
-from selenium.common.exceptions import WebDriverException
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.actions.action_builder import ActionBuilder
-from selenium.webdriver.common.actions.pointer_input import PointerInput
+
+from .compat import WebDriverException
 
 
 class HumanBehavior:
@@ -24,7 +22,7 @@ class HumanBehavior:
     def __init__(self, driver, show_cursor=True, mobile=False):
         """
         Args:
-            driver (webdriver): The Selenium WebDriver instance.
+            driver (NodriverDriver): The browser driver facade.
             show_cursor (bool): Whether to draw a debug cursor overlay.
             mobile (bool): Whether to emit touch gestures instead of mouse
                 events. Pair with a driver that has `Emulation.setTouchEmulationEnabled`
@@ -36,18 +34,6 @@ class HumanBehavior:
         self.mobile = bool(mobile)
         # Stored in viewport coordinates (not document coordinates).
         self.last_mouse_position = [random.randint(100, 500), random.randint(100, 500)]
-
-    def _new_actions(self):
-        """
-        Build an ActionChains bound to the right W3C pointer type.
-        On mobile, the default mouse pointer is replaced with a touch pointer
-        so every subsequent pointer_action emits touch events.
-        """
-        actions = ActionChains(self.driver)
-        if self.mobile:
-            touch = PointerInput(kind="touch", name="touch")
-            actions.w3c_actions = ActionBuilder(self.driver, mouse=touch, duration=0)
-        return actions
 
     def _draw_debug_cursor(self, x, y, color="red"):
         """
@@ -68,10 +54,10 @@ class HumanBehavior:
 
         # Fixed-position overlay cursor; doesn't intercept clicks (pointer-events: none).
         script = f"""
-        let cursor = document.getElementById('selenium-bot-cursor');
+        let cursor = document.getElementById('cursor-overlay');
         if (!cursor) {{
             cursor = document.createElement('div');
-            cursor.id = 'selenium-bot-cursor';
+            cursor.id = 'cursor-overlay';
             cursor.style.width = '12px';
             cursor.style.height = '12px';
             cursor.style.background = '{color}';
@@ -304,12 +290,7 @@ class HumanBehavior:
             # Move the mouse to an absolute point within the viewport
             if delta_x != 0 or delta_y != 0:
                 try:
-                    actions = ActionChains(self.driver)
-                    # W3C Pointer: absolute move to a viewport coordinate.
-                    actions.w3c_actions.pointer_action.move_to_location(
-                        int(curr_x), int(curr_y)
-                    )
-                    actions.perform()
+                    self.driver.mouse_move_to(curr_x, curr_y)
                 except Exception:
                     # If the driver rejects the move for any reason, keep going without
                     # falling back to move_to_element(element) (that can scroll the page).
@@ -355,11 +336,7 @@ class HumanBehavior:
                 last_x, last_y, viewport_width, viewport_height
             )
             try:
-                actions = ActionChains(self.driver)
-                actions.w3c_actions.pointer_action.move_to_location(
-                    int(last_x), int(last_y)
-                )
-                actions.perform()
+                self.driver.mouse_move_to(last_x, last_y)
             except Exception:
                 pass
             self._draw_debug_cursor(last_x, last_y)
@@ -399,10 +376,7 @@ class HumanBehavior:
         # dynamic pages (e.g., rewards.bing.com) even when the user-visible click works.
         x, y = self.last_mouse_position
         try:
-            actions = ActionChains(self.driver)
-            actions.w3c_actions.pointer_action.move_to_location(int(x), int(y))
-            actions.w3c_actions.pointer_action.click()
-            actions.perform()
+            self.driver.mouse_click(x, y)
         except WebDriverException:
             # Fallbacks: JS click first, then WebElement.click as last resort.
             try:
@@ -494,13 +468,10 @@ class HumanBehavior:
         self._draw_debug_cursor(tap_x, tap_y, color="green")
 
         try:
-            actions = self._new_actions()
-            actions.w3c_actions.pointer_action.move_to_location(tap_x, tap_y)
-            actions.w3c_actions.pointer_action.pointer_down()
+            self.driver.mouse_down(tap_x, tap_y)
             # Natural tap hold duration.
-            actions.w3c_actions.pointer_action.pause(random.uniform(0.05, 0.14))
-            actions.w3c_actions.pointer_action.pointer_up()
-            actions.perform()
+            time.sleep(random.uniform(0.05, 0.14))
+            self.driver.mouse_up(tap_x, tap_y)
         except WebDriverException:
             try:
                 self.driver.execute_script("arguments[0].click();", element)
@@ -534,23 +505,18 @@ class HumanBehavior:
             x, y_end = self._clamp_point(x, y_end, width, height)
 
             try:
-                actions = self._new_actions()
-                actions.w3c_actions.pointer_action.move_to_location(x, y_start)
-                actions.w3c_actions.pointer_action.pointer_down()
-
+                self.driver.mouse_down(x, y_start)
                 steps = random.randint(8, 14)
+                last_y = y_start
                 for i in range(1, steps + 1):
                     t = self._ease_in_out(i / steps)
                     y = int(y_start + (y_end - y_start) * t)
                     x_jit = x + random.randint(-3, 3)
                     x_jit, y = self._clamp_point(x_jit, y, width, height)
-                    actions.w3c_actions.pointer_action.move_to_location(x_jit, y)
-                    actions.w3c_actions.pointer_action.pause(
-                        random.uniform(0.010, 0.028)
-                    )
-
-                actions.w3c_actions.pointer_action.pointer_up()
-                actions.perform()
+                    last_y = y
+                    self.driver.mouse_move_pressed(x_jit, y)
+                    time.sleep(random.uniform(0.010, 0.028))
+                self.driver.mouse_up(x_jit, last_y)
             except WebDriverException:
                 # Fallback: JS scroll if the touch gesture rejects.
                 try:

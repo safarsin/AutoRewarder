@@ -122,7 +122,7 @@ def _build_prompt(count, loc, excluded=None):
         "- Skip perfect grammar. Real people drop articles, use fragments, type lowercase.",
         "- No keyword-stuffing. Nobody types \"best healthy easy quick dinner recipes high protein.\"",
         "- Each query distinct persona/need. Don't remix same template across topics.",
-        "- No quotes, no numbering, no markdown, no explanations.",
+        "- No markdown, no numbering, no explanations — just the raw JSON array.",
         "- Queries must survive the \"would anyone actually type this?\" test.",
         "",
         "Anti-patterns to avoid:",
@@ -136,7 +136,11 @@ def _build_prompt(count, loc, excluded=None):
             "\n\nRecently used queries you must NOT repeat (exact or near-identical counts as a repeat):\n"
             + "\n".join(f"- {q}" for q in excluded)
         )
-    return prompt + f"\n\nReturn ONLY a JSON array of {count} strings."
+    return prompt + (
+        "\n\nReply with a single JSON array of {count} strings, for example:\n"
+        '[\"actual query one\", \"another real query\", \"yet another search\"]\n\n'
+        "Return ONLY that JSON array."
+    ).format(count=count)
 
 
 def _log_http_error(logger, provider, resp):
@@ -285,25 +289,32 @@ _DISPATCH = {
 
 
 def _extract_queries(text, count):
-    """Parse a JSON array of strings out of the model's text answer.
+    """Parse queries out of the model's text answer.
 
-    Tolerates code fences, prose, ``{"queries": [...]}``-style objects and
-    trailing commas. If nothing JSON-shaped parses, falls back to pulling
-    quoted strings out of the raw answer. Returns a de-duplicated,
-    order-preserving list capped at `count`.
+    Tries, in order: JSON array/object, quoted-string scanning, then
+    bullet / numbered / plain-line extraction as a last resort. Returns a
+    de-duplicated, order-preserving list capped at `count`.
     """
     if not text:
         return []
 
     items = _parse_json_queries(text)
     if items is None:
-        # Fallback: scan the raw answer for quoted strings. Handles bullet
-        # lists and prose when the model skips valid JSON entirely.
         items = []
         for m in re.finditer(r'"((?:[^"\\]|\\.)*)"', text):
             query = m.group(1).replace('\\"', '"').replace("\\\\", "\\").strip()
             if query:
                 items.append(query)
+        # Second fallback: no JSON, no quoted strings -> try bullet /
+        # numbered / plain lines.  Strip common markdown fences first.
+        if not items:
+            stripped = re.sub(r'```[a-z]*\s*', '', text).strip()
+            for line in stripped.splitlines():
+                line = re.sub(r'^[\s]*[-*•]+\s*', '', line)
+                line = re.sub(r'^\d+[.)]\s*', '', line)
+                line = line.strip().strip('"').strip()
+                if line and len(line) >= 3:
+                    items.append(line)
 
     out = [q for q in items if q]
 
@@ -395,4 +406,119 @@ def generate_queries(
     queries = [q for q in queries if normalize_query(q) not in excluded_norm]
     if not queries and logger:
         logger(f"[WARNING] LLM ({provider}) returned no usable queries.")
+    return queries
+
+# -- Topic-cluster query generation -------------------------------------------
+
+_TOPIC_SEEDS = (
+    "home improvement (DIY repair, renovation, paint colors, furniture)",
+    "health concern (symptom lookup, medication question, doctor finder)",
+    "shopping research (product comparison, reviews, best price, coupon)",
+    "travel planning (flights, hotels, things to do, visa requirements)",
+    "cooking / recipes (dinner ideas, substitutions, technique questions)",
+    "tech support (error message, device not working, how-to guide)",
+    "career / job search (resume tips, interview questions, salary lookup)",
+    "personal finance (tax question, credit score, best savings rate)",
+    "parenting (milestones, school advice, product safety, activities)",
+    "car trouble (weird noise, warning light, mechanic estimate, tire pressure)",
+    "pet care (food recommendations, strange behavior, vet cost estimate)",
+    "fitness (workout plan, form check, soreness question, protein timing)",
+    "entertainment (what to watch, game release date, concert tickets, book recs)",
+    "weather / emergency prep (storm track, power outage, school closure)",
+    "local services (plumber reviews, DMV hours, trash pickup schedule)",
+)
+
+def _build_topic_cluster_prompt(count, loc, excluded=None):
+    """Phrase a topic-clustered generation instruction."""
+    lang = language_name(loc)
+    seed = random.choice(_TOPIC_SEEDS)
+    lines = [
+        f"Generate {count} distinct but RELATED web search queries that feel like one real person researching a single topic. Language: {lang}, locale: {loc}.",
+        "",
+        f"Your topic seed: {seed}. Stay within this theme — all {count} queries should feel like one person digging deeper into this topic during one sitting.",
+        "",
+        "The queries should follow a natural drill-down arc, for example:",
+        "  - Broad opener: \"best budget vacuum 2025\"",
+        "  - Narrow comparison: \"shark vs dyson cordless comparison\"",
+        "  - Specific question: \"do bagless vacuums lose suction over time\"",
+        "  - Local / purchase intent: \"vacuum repair shop near me\"",
+        "",
+        "Crucial rules:",
+        "- Vary length: some 2-3 words, some 5-8 words. Real queries are uneven.",
+        "- Skip perfect grammar. Real people drop articles, use fragments, type lowercase.",
+        "- No keyword-stuffing.",
+        "- Each query must be genuinely different, not a synonym remix.",
+        "- No markdown, no numbering, no explanations — just the raw JSON array.",
+        "- Queries must survive the \"would anyone actually type this?\" test.",
+    ]
+    prompt = "\n".join(lines)
+
+    if excluded:
+        prompt += (
+            "\n\nRecently used queries you must NOT repeat (exact or near-identical counts as a repeat):\n"
+            + "\n".join(f"- {q}" for q in excluded)
+        )
+    return prompt + (
+        "\n\nReply with a single JSON array of exactly {count} strings, for example:\n"
+        '["broad search about the topic", "a more specific follow-up", "a comparison or local intent query"]\n\n'
+        "Return ONLY that JSON array."
+    ).format(count=count)
+
+
+def generate_topic_cluster(
+    count, locale, provider="openai", model="", api_key="", logger=None, exclude=None
+):
+    """Generate up to `count` search queries all related to one topic via an LLM.
+
+    Unlike ``generate_queries`` which produces intentionally unrelated queries,
+    this function produces a cluster of queries around a single randomly-chosen
+    everyday topic, simulating one human's natural research session.
+
+    Args:
+        count (int): number of queries to request (best kept 2--5).
+        locale (str): BCP-47 locale (e.g. ``\"fr-FR\"``) driving the language.
+        provider (str): one of ``openai`` / ``openrouter`` / ``anthropic`` / ``gemini``.
+        model (str): model id; falls back to the provider default when blank.
+        api_key (str): the user's own API key.
+        logger (callable, optional): logging function.
+        exclude (list, optional): recently-used queries the result must not repeat.
+
+    Returns:
+        list[str]: query strings, or ``[]`` on any failure. Never raises.
+    """
+    try:
+        count = int(count)
+    except (TypeError, ValueError):
+        return []
+    if count <= 0 or not api_key:
+        return []
+
+    excluded = [q for q in (exclude or []) if isinstance(q, str) and q.strip()]
+    excluded_norm = {normalize_query(q) for q in excluded}
+
+    provider = normalize_provider(provider)
+    caller = _DISPATCH.get(provider)
+    if caller is None:
+        if logger:
+            logger(f"[WARNING] LLM: unsupported provider '{provider}'.")
+        return []
+
+    model = (model or "").strip() or DEFAULT_MODELS[provider]
+    prompt = _build_topic_cluster_prompt(count, locale, excluded[:150])
+
+    try:
+        text = caller(prompt, model, api_key, _max_tokens(count), logger)
+    except requests.RequestException as e:
+        if logger:
+            logger(f"[WARNING] LLM ({provider}) network error: {e}")
+        return []
+    except (KeyError, IndexError, ValueError, TypeError) as e:
+        if logger:
+            logger(f"[WARNING] LLM ({provider}) unexpected response: {e}")
+        return []
+
+    queries = _extract_queries(text, count)
+    queries = [q for q in queries if normalize_query(q) not in excluded_norm]
+    if not queries and logger:
+        logger(f"[WARNING] LLM ({provider}) returned no usable queries for topic cluster.")
     return queries

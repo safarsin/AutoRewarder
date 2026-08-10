@@ -3,11 +3,8 @@
 import json
 import random
 import time
-from urllib.parse import urlparse
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.keys import Keys
-from selenium.common.exceptions import NoSuchElementException, WebDriverException
-from selenium.webdriver.common.by import By
+from urllib.parse import quote, urlparse
+from ..emulator.compat import By, NoSuchElementException, WebDriverException
 
 from ..utils import human_typing
 from ..emulator import HumanBehavior
@@ -168,7 +165,7 @@ class SearchEngine:
         emitting repeated dead clicks.
 
         Args:
-            driver (WebDriver): An instance of Selenium WebDriver.
+            driver: The nodriver driver facade instance.
             human (HumanBehavior): Human-behavior emulator for clicks and scrolls.
             stop_event (threading.Event, optional): When set, bails out early.
         """
@@ -278,10 +275,10 @@ class SearchEngine:
 
     def perform_searches(self, driver, queries, mobile=False, stop_event=None):
         """
-        Perform searches on Bing using Selenium WebDriver with human-like behavior.
+        Perform searches on Bing with human-like behavior.
 
         Args:
-            driver (WebDriver): An instance of Selenium WebDriver to control the browser.
+            driver: The nodriver driver facade instance controlling the browser.
             queries (list): A list of search queries to perform.
             mobile (bool): When True, HumanBehavior emits touch gestures instead
                 of mouse events — pair with a mobile-emulated driver.
@@ -342,14 +339,22 @@ class SearchEngine:
                 self._log(f"Search #{i + 1}: {query} ({search_method})")
 
                 if search_method == "address_bar":
-                    ActionChains(driver).key_down(Keys.CONTROL).send_keys("l").key_up(
-                        Keys.CONTROL
-                    ).perform()
+                    driver.press_ctrl_l()
                     time.sleep(random.uniform(0.2, 0.8))
                     for char in query:
-                        ActionChains(driver).send_keys(char).perform()
+                        driver.send_keys_to_active(char)
                         time.sleep(random.uniform(0.05, 0.18))
-                    ActionChains(driver).send_keys(Keys.RETURN).perform()
+                    driver.press_enter()
+                    # CDP key events may not reach the browser chrome (e.g.
+                    # headless mode), so if the address bar did not take the
+                    # query, navigate directly so the search still completes.
+                    time.sleep(random.uniform(1, 2))
+                    if "search?" not in driver.current_url:
+                        self._log(
+                            "[WARNING] Address bar input unavailable — "
+                            "falling back to direct search navigation."
+                        )
+                        driver.get("https://www.bing.com/search?q=" + quote(query))
                 else:
                     # Open Bing homepage
                     driver.get("https://www.bing.com")
@@ -362,7 +367,19 @@ class SearchEngine:
 
                     # Type the query with human-like delays
                     human_typing(search_box, query)
-                    search_box.send_keys(Keys.RETURN)  # Press Enter to search
+                    driver.press_enter()  # Press Enter to search
+                    # If the Enter key events did not submit the form (some
+                    # CDP setups), submit it directly so the search still
+                    # completes.
+                    time.sleep(random.uniform(1.5, 3))
+                    if "search?" not in driver.current_url:
+                        try:
+                            driver.execute_script(
+                                "if (arguments[0].form) arguments[0].form.submit();",
+                                search_box,
+                            )
+                        except Exception:
+                            pass
 
                 # Wait for result to load
                 time.sleep(random.uniform(2, 4))

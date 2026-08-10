@@ -80,11 +80,54 @@ def sleep_for_interval(interval, rng=random):
     return max(5.0, interval * jitter)
 
 
+
+# Common English stop-words for static query topic-clustering.
+# Excluded from word-overlap scoring so "the", "are", etc. don't
+# create false topic matches.
+_STOP_WORDS = frozenset({
+    # articles / determiners
+    "the", "a", "an", "this", "that", "these", "those",
+    # pronouns
+    "i", "me", "my", "we", "us", "our", "you", "your", "he", "him", "his",
+    "she", "her", "it", "its", "they", "them", "their", "who", "whom",
+    "whose", "which", "what",
+    # prepositions
+    "of", "in", "to", "on", "at", "by", "for", "with", "from", "about",
+    "into", "through", "during", "before", "after", "above", "below",
+    "between", "under", "over", "off", "out", "up", "down",
+    # conjunctions
+    "and", "but", "or", "nor", "so", "yet", "both", "either", "neither",
+    "whether", "while", "although", "because", "if", "than", "then",
+    # auxiliary / modals
+    "is", "am", "are", "was", "were", "be", "been", "being", "have",
+    "has", "had", "do", "does", "did", "will", "would", "shall", "should",
+    "may", "might", "can", "could", "must",
+    # common adverbs / qualifiers
+    "not", "no", "very", "too", "just", "also", "only", "still", "again",
+    "once", "here", "there", "now", "then", "ever", "never", "always",
+    "almost", "quite", "rather", "really", "already",
+    # common verbs (when they dominate false matches)
+    "get", "got", "make", "made", "take", "took", "see", "saw", "know",
+    "knew", "come", "came", "look", "use", "used", "find", "found",
+    "give", "give", "tell", "told", "say", "said", "go", "went", "put",
+    "like", "need", "want", "try", "ask", "show",
+    # common adjectives / nouns (too generic to be topic signals)
+    "new", "old", "big", "small", "good", "bad", "great", "best", "worst",
+    "more", "most", "less", "much", "many", "some", "any", "every",
+    "all", "each", "other", "same", "own", "such", "few", "several",
+    "way", "thing", "things", "day", "days", "time", "times", "year",
+    "years", "part", "parts", "lot", "lots",
+    # temporal
+    "today", "tomorrow", "yesterday", "tonight",
+    # question words / abbreviations
+    "how", "vs", "versus", "why", "where", "when",
+})
+
 class AutoRewarderAPI:
     """
     Core API class for AutoRewarder.
 
-    Bridges the pywebview GUI and the Selenium automation. Multi-account aware:
+    Bridges the pywebview GUI and the browser automation. Multi-account aware:
     the driver, history, daily-set, and meta managers are rebuilt whenever the
     currently-selected account changes.
     """
@@ -138,10 +181,6 @@ class AutoRewarderAPI:
             "quests": 0,
         }
         self._last_scraped_balance = None
-        # Per-run search-query pool. Built once for pc+mobile and sliced by
-        # each phase/batch so LLM-backed runs make one provider call.
-        self._run_query_pool = None
-        self._run_query_cursor = 0
         # Last balance-scrape diagnostic ({value, via, candidates, url, title}),
         # surfaced to the dashboard so a failed read can be debugged in place.
         self._last_balance_debug = {}
@@ -573,7 +612,7 @@ class AutoRewarderAPI:
 
         Sets the stop flag so cooperating loops (searches, daily set) bail at
         the next checkpoint, and force-quits the active driver to break any
-        in-progress Selenium call. The current run thread will exit through
+        in-progress browser call. The current run thread will exit through
         its normal `finally` cleanup, which re-enables the Start button.
         """
         if not self._run_lock.locked():
@@ -1833,7 +1872,7 @@ class AutoRewarderAPI:
         that hydrates / animates a moment after the page loads.
 
         Args:
-            driver: an open Selenium WebDriver bound to a logged-in profile.
+            driver: an open nodriver driver facade bound to a logged-in profile.
             attempts (int): how many times to re-check before giving up.
 
         Returns:
@@ -1842,7 +1881,7 @@ class AutoRewarderAPI:
         # Cap the page load so a stuck/headless navigation can't hang forever
         # (which would leave the browser open with nothing to read). On timeout
         # we still try to scrape whatever rendered.
-        from selenium.common.exceptions import TimeoutException
+        from .emulator.compat import TimeoutException
 
         try:
             driver.set_page_load_timeout(30)
@@ -2151,6 +2190,16 @@ class AutoRewarderAPI:
                     )
                     pc_left -= batch_pc
                     searches_until_break -= batch_pc
+                    # Quit driver between batches. Long sleeps kill the
+                    # CDP websocket → "invalid session id". Fresh
+                    # browser each batch avoids stale session timeouts.
+                    if pc_driver is not None:
+                        try:
+                            pc_driver.quit()
+                        except Exception:
+                            pass
+                        pc_driver = None
+                        self._driver = None
 
                 if batch_mobile > 0 and not self._stop_event.is_set():
                     if mobile_driver is None:
@@ -2166,6 +2215,15 @@ class AutoRewarderAPI:
                         quit_driver=False,
                     )
                     mobile_left -= batch_mobile
+                    # Quit driver between batches to avoid stale
+                    # session timeouts during long sleeps.
+                    if mobile_driver is not None:
+                        try:
+                            mobile_driver.quit()
+                        except Exception:
+                            pass
+                        mobile_driver = None
+                        self._driver = None
 
                 if self._stop_event.is_set():
                     break
@@ -2293,8 +2351,6 @@ class AutoRewarderAPI:
             "quests": 0,
         }
         self._last_scraped_balance = None
-        self._run_query_pool = None
-        self._run_query_cursor = 0
         self._daily_set_second_pending = False
 
         try:
@@ -2302,7 +2358,6 @@ class AutoRewarderAPI:
                 self.log("Starting AutoRewarder (Daily tasks only)...")
             else:
                 self.log("Starting AutoRewarder (Edge Edition)...")
-                self._prepare_run_queries(pc_count + mobile_count)
             if self._webview_window:
                 try:
                     self._webview_window.evaluate_js(
@@ -2354,10 +2409,7 @@ class AutoRewarderAPI:
                     self._webview_window.evaluate_js("enable_start_button()")
             except Exception:
                 pass
-            self._run_query_pool = None
-            self._run_query_cursor = 0
             self._run_lock.release()
-
     def _try_scrape_balance(self):
         """
         Best-effort read of the real points balance from the page the active
@@ -2471,27 +2523,23 @@ class AutoRewarderAPI:
                 self.log(f"[WARNING] Error closing driver: {e}")
             self._driver = None
             time.sleep(0.5)
+    def _build_topic_cluster(self, count):
+        """Build a topic-clustered batch of queries via LLM.
 
-    def _build_queries(self, count):
-        """
-        Build the list of queries for a phase.
-
-        When LLM generation is enabled and an API key is set, ask the chosen
-        provider for `count` fresh queries in the user's language. Any failure
-        (no key, invalid key, quota, offline, malformed answer) or a shortfall
-        is transparently topped up / replaced with a random sample from the
-        static assets/queries.json, so the daily search target is still met and
-        the run never depends on the network.
+        Like ``_build_queries`` but requests queries all related to one
+        everyday topic, simulating a human research session. Falls back to
+        static queries on any failure.
 
         Args:
-            count (int): how many queries to produce.
+            count (int): how many queries to produce (best kept 2--5).
 
         Returns:
-            list: up to `count` query strings (empty only if the static file is
-            missing).
+            list: up to ``count`` query strings.
         """
         if count <= 0:
             return []
+
+        import random as _random
 
         queries = []
         cfg = self.global_settings.get_llm_config()
@@ -2502,10 +2550,10 @@ class AutoRewarderAPI:
                     self.global_settings.get_settings(), self.log
                 )
                 self.log(
-                    f"Generating {count} queries via LLM "
+                    f"Generating {count}-query topic cluster via LLM "
                     f"({cfg['llm_provider']}, {locale})…"
                 )
-                queries = llm.generate_queries(
+                queries = llm.generate_topic_cluster(
                     count,
                     locale,
                     provider=cfg["llm_provider"],
@@ -2516,8 +2564,8 @@ class AutoRewarderAPI:
                 )
                 if not queries:
                     self.log(
-                        "[WARNING] LLM generation failed — "
-                        "falling back to static queries."
+                        "[WARNING] LLM topic-cluster generation failed "
+                        "— falling back to static queries."
                     )
             else:
                 self.log(
@@ -2528,22 +2576,72 @@ class AutoRewarderAPI:
         if len(queries) >= count:
             return queries[:count]
 
-        # Top up from the static file, skipping anything the LLM already
-        # produced or that was used within the recent window. Request extra
-        # headroom so de-dup can't leave us short.
         static = self.search_engine.load_queries_from_json(
             JSON_FILE_PATH, num_needed=count + len(queries)
         )
-
         recent_norm = {llm.normalize_query(q) for q in recent}
         if not queries:
             from .utils import humanize_queries
 
-            return [
+            static_humanized = [
                 q
                 for q in humanize_queries(static)
                 if llm.normalize_query(q) not in recent_norm
             ]
+            if not static_humanized:
+                return []
+            # Topic-cluster the static fallback: pick a seed with enough
+            # related queries, then return queries connected by meaningful
+            # word overlap (stop-words excluded).
+            for _attempt in range(30):
+                seed = _random.choice(static_humanized)
+                seed_words = {
+                    w.lower() for w in seed.split()
+                    if len(w) >= 2 and w.lower() not in _STOP_WORDS
+                }
+                if not seed_words:
+                    continue
+                scored = []
+                for q in static_humanized:
+                    if q == seed:
+                        continue
+                    q_words = {
+                        w.lower() for w in q.split()
+                        if len(w) >= 2 and w.lower() not in _STOP_WORDS
+                    }
+                    overlap = seed_words & q_words
+                    if overlap:
+                        scored.append((q, len(overlap)))
+                if len(scored) < count - 1:
+                    continue  # not enough related matches, try another seed
+                scored.sort(key=lambda x: x[1], reverse=True)
+                related = [seed]
+                for q, _score in scored:
+                    if len(related) >= count:
+                        break
+                    q_words = {
+                        w.lower() for w in q.split()
+                        if len(w) >= 2 and w.lower() not in _STOP_WORDS
+                    }
+                    is_dup = False
+                    for existing in related:
+                        e_words = {
+                            w.lower() for w in existing.split()
+                            if len(w) >= 2 and w.lower() not in _STOP_WORDS
+                        }
+                        union = q_words | e_words
+                        overlap = q_words & e_words
+                        if union and len(overlap) / len(union) > 0.7:
+                            is_dup = True
+                            break
+                    if not is_dup:
+                        related.append(q)
+                if len(related) >= min(count, 2):
+                    return related[:count]
+            # Last resort: seed + any other queries (should be rare).
+            seed = static_humanized[0] if static_humanized else "news"
+            return [seed] + [q for q in static_humanized if q != seed][:count - 1]
+
 
         seen = set(queries)
         extra = [
@@ -2552,38 +2650,39 @@ class AutoRewarderAPI:
             if q not in seen and llm.normalize_query(q) not in recent_norm
         ][: count - len(queries)]
         self.log(
-            f"LLM returned {len(queries)}/{count} queries — "
+            f"LLM topic cluster returned {len(queries)}/{count} queries — "
             f"topped up with {len(extra)} static queries."
         )
         return queries + extra
 
-    def _prepare_run_queries(self, count):
-        """
-        Build the whole run's query pool once.
 
-        Advanced scheduling calls `_run_phase` many times, but each phase
-        consumes from this pool instead of calling the LLM per batch.
-        """
-        self._run_query_pool = self._build_queries(count)
-        self._run_query_cursor = 0
 
     def _take_run_queries(self, count):
-        """
-        Return the next `count` queries from the current run pool.
+        """Return ``count`` queries, split into topic-clustered sub-batches.
 
-        If `_run_phase` is ever called outside `main()`, preserve the old
-        behavior by building only that phase's queries.
+        Each sub-batch (2--5 queries) is generated as a topic cluster via
+        the LLM, so adjacent searches feel like one person researching
+        something rather than a bot jumping across unrelated topics.
+
+        When the LLM is disabled or fails, falls back to the same static
+        query source as ``_build_queries``.
         """
         if count <= 0:
             return []
 
-        if self._run_query_pool is None:
-            return self._build_queries(count)
+        queries = []
+        remaining = count
+        while remaining > 0:
+            # Small clusters feel natural; 2--5 queries per topic.
+            import random as _random
+            cluster_size = min(remaining, _random.choice((2, 2, 3, 3, 4, 5)))
+            cluster = self._build_topic_cluster(cluster_size)
+            queries.extend(cluster)
+            remaining -= len(cluster)
+            if not cluster:
+                break
 
-        start = self._run_query_cursor
-        end = min(start + count, len(self._run_query_pool))
-        self._run_query_cursor = end
-        return self._run_query_pool[start:end]
+        return queries[:count]
 
     def _run_phase(
         self,

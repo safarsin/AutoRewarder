@@ -1511,7 +1511,7 @@ input[type="number"]:focus {
 ::-webkit-scrollbar-thumb:hover { background: var(--border); }
 
 /* =========================================================================
-   Warmup loader (used during WebDriver warmup)
+   Warmup loader (used during browser warmup)
    ========================================================================= */
 
 .loader-line {

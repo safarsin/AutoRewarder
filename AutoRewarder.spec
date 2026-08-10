@@ -8,7 +8,8 @@ a = Analysis(
     binaries=[],
     datas=[('gui', 'gui'), ('assets', 'assets')] + collect_data_files('nlpaug'),
     hiddenimports=[
-        'selenium.webdriver.edge.webdriver',
+        'nodriver',
+        'websockets',
         'pystray',
         'pystray._win32',
         'PIL',

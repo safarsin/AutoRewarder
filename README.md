@@ -6,7 +6,7 @@
 
 An advanced, set-and-forget automation tool for Microsoft Rewards (supporting both the legacy and new dashboards). AutoRewarder performs Bing searches for PC and mobile point collection using a massive dataset of realistic queries (with optional, bring-your-own-key AI generation), completes Daily Sets and More Activities, and uses mathematically driven, human-like input simulation (W3C Actions, Bezier curves, smart scrolling and realistic keyboard typos).
 
-Built with a robust Python/Selenium backend, it offers two modes of operation: a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview, and a headless runner (CLI) for scheduled background runs and automation scripts. Packaged as an executable Windows app (via Inno Setup) for a seamless, plug-and-play experience.
+Built with a robust Python/nodriver backend, it offers two modes of operation: a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview, and a headless runner (CLI) for scheduled background runs and automation scripts. Packaged as an executable Windows app (via Inno Setup) for a seamless, plug-and-play experience.
 
 > **Ready to start? Check out the complete [USER GUIDE](USER_GUIDE.md)**
 
@@ -85,7 +85,7 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 | Layer | Technology |
 |-------|------------|
-| Backend | Python 3.12, [selenium](https://www.selenium.dev/), [pywebview](https://pywebview.flowrl.com/), pystray, Pillow, [nlpaug](https://github.com/makcedward/nlpaug/tree/master) |
+| Backend | Python 3.12, [nodriver](https://github.com/ultrafunkamsterdam/nodriver/), [pywebview](https://pywebview.flowrl.com/), pystray, Pillow, [nlpaug](https://github.com/makcedward/nlpaug/tree/master) |
 | Frontend | HTML, CSS, JavaScript |
 | Bridge | pywebview JS API (pywebview.api) |
 | Build | [PyInstaller](https://pyinstaller.org/), [Inno Setup](https://jrsoftware.org/isinfo.php) |
@@ -95,7 +95,7 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 ## System Requirements
 
 - **OS**: Windows 10 or later (installer), or Linux via source setup (no prebuilt executable)
-- **Browser**: Microsoft Edge (driver managed by Selenium Manager)
+- **Browser**: Microsoft Edge (driven over CDP by [nodriver](https://github.com/ultrafunkamsterdam/nodriver/), no chromedriver)
 - **.NET Framework**: 4.8 or higher (automatically checked by installer)
 - **RAM**: Minimum 512 MB (1 GB recommended)
 - **Disk Space**: ~100 MB
@@ -122,7 +122,7 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 **Automation & Core Logic:**
 - OS-level daily autostart (launches headless runs at per-account scheduled times)
 - Configurable run pacing (advanced scheduling with run duration and queries per hour)
-- Background WebDriver warmup at startup for faster execution
+- Background browser warmup at startup for faster execution
 - Human-like search behavior (typing delays, random pauses, smooth scrolling)
 - Mobile emulation for Rewards credit (iPhone UA and touch)
 - Uses real-world queries from assets/queries.json (8154 unique entries from google-trends dataset)
@@ -170,6 +170,10 @@ python -m venv .venv
 pip install -r requirements.txt
 python AutoRewarder.py
 ```
+
+> After installing, run `python check_nodriver.py` once to smoke-test the
+> browser-automation layer (launches a real Edge session, prints PASS/FAIL per
+> check, exits non-zero on failure).
 ---
 
 ## CLI Usage
@@ -249,8 +253,8 @@ AutoRewarder/
 │   │   ├── manager.py         # Account CRUD + current account selection
 │   │   ├── meta.py            # Per-account metadata (first_setup_done, schedule)
 │   │   └── settings.py        # App-wide settings (hide_browser, autostart)
-│   ├── emulator/              # Selenium browser + human-like input
-│   │   ├── driver.py          # Edge WebDriver setup
+│   ├── emulator/              # Browser automation (nodriver) + human-like input
+│   │   ├── driver.py          # Edge browser setup (nodriver)
 │   │   ├── human.py           # Human-like mouse / touch / scrolling
 │   │   └── edge_policy.py     # Windows-only Edge auto-signin opt-out
 │   ├── search/                # Bing query execution + history
@@ -299,7 +303,7 @@ settings.json      # Global settings (hide_browser, current_account_id, autoStar
 accounts.json      # Account index
 accounts/
 	<account_id>/
-		EdgeProfile/   # Separate Edge profile for WebDriver
+		EdgeProfile/   # Separate Edge profile for automation
 		history.json   # Search history (date, time, query, status)
 		status.json    # Daily Set completion status (per-day)
 		stats.json     # Statistics: scraped points balance + activity counters
@@ -318,7 +322,7 @@ For common issues and solutions, see the [Troubleshooting](USER_GUIDE.md#trouble
 ## Roadmap
 
 - [x] Windows installer with dependency checking (Inno Setup)
-- [x] Action Chains Selenium/W3C Actions for more natural mouse movement and clicks
+- [x] CDP Input-based mouse/keyboard for more natural movement and clicks
 - [x] Daily Set collector
 - [x] Refactor: split monolith to src modules
 - [x] Update checks (GitHub Releases API)

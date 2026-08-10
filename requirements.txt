@@ -1,4 +1,6 @@
-selenium==4.41.0
+# Browser automation: nodriver (Selenium replacement, CDP-based, stealth).
+# Pin the exact release after installing once: `pip install nodriver`.
+nodriver
 pywebview==6.1
 requests==2.33.1
 pystray==0.19.5

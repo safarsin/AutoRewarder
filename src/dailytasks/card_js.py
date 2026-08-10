@@ -1,7 +1,7 @@
 """
 JavaScript heuristics + CardStatus enum used by RewardsCard.
 
-These run inside the Rewards SPA via Selenium's `driver.execute_script`. Each
+These run inside the Rewards SPA via the driver's `execute_script`. Each
 heuristic is a self-contained JS program that takes a card root element as
 `arguments[0]` and returns a value. The heuristics share two helper functions
 (`classOf` and `isVisible`) defined once in `_JS_HELPERS` and prepended to

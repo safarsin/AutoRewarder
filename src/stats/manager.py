@@ -166,7 +166,7 @@ def scrape_points_balance(driver, logger=None):
     refresh diagnostic).
 
     Args:
-        driver: Selenium WebDriver, already navigated to a page that shows the
+        driver: browser driver (nodriver facade), already navigated to a page that shows the
             rewards balance.
         logger (callable, optional): logging function.
 

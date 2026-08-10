@@ -80,7 +80,7 @@ def account_dir(account_id):
 
 
 def edge_profile_path(account_id):
-    """Return the Selenium --user-data-dir path for a given account."""
+    """Return the Edge profile (--user-data-dir) path for a given account."""
     return os.path.join(account_dir(account_id), "EdgeProfile")
 
 

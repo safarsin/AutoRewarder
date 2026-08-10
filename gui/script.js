@@ -4,7 +4,7 @@
 
 let accountsCache = [];
 let currentAccountId = null;
-// True while the background WebDriver warmup (which also refreshes the balance)
+// True while the background browser warmup (which also refreshes the balance)
 // is running at launch. Start must stay disabled until it finishes, so a run
 // can't open a second driver on the same Edge profile.
 let driverWarmingUp = false;

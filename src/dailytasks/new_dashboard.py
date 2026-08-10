@@ -17,9 +17,7 @@ returns whether it's reasonable to mark today as done.
 import random
 import time
 
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
+from ..emulator.compat import By, TimeoutException, WebDriverWait
 
 DASHBOARD_URL = "https://rewards.bing.com/dashboard"
 EARN_URL = "https://rewards.bing.com/earn"
@@ -184,9 +182,9 @@ try {
     if ((el.getAttribute('aria-disabled') || '') === 'true') continue;
     if ((el.getAttribute('data-disabled') || '') === 'true') continue;
     if (el.hasAttribute('disabled')) continue;
-    // For an <a> el.href is the resolved absolute URL, matching Selenium's
+    // For an <a> el.href is the resolved absolute URL, matching the driver's
     // get_attribute('href') used to relocate it; a <span role="link"> has no
-    // .href property so we keep its raw attribute (also what Selenium returns).
+    // .href property so we keep its raw attribute.
     var href = el.href || el.getAttribute('href') || '';
     if (!href) continue;
     var row = el.closest('div');
@@ -997,7 +995,7 @@ class NewDashboardDailySet:
         today, then re-read to confirm progress.
 
         Args:
-            driver: Selenium WebDriver instance.
+            driver: The nodriver driver facade instance.
             human: HumanBehavior instance (used for human-like dwell/scroll).
             stop_event (threading.Event, optional): When set, aborts cleanly.
 

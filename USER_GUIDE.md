@@ -197,7 +197,7 @@ By default, clicking the "X" on the main window sends AutoRewarder to the system
 
 ### How to check if it's running or stop it (Task Manager)
 
-If the AutoRewarder window is open, the in-app **Stop** button is the cleanest way to halt a run — it closes the browser, kills the WebDriver, and leaves no orphan Edge processes behind.
+If the AutoRewarder window is open, the in-app **Stop** button is the cleanest way to halt a run — it closes the browser and leaves no orphan Edge processes behind.
 
 For background runs (Autostart or CLI mode) where there's no visible window, use Task Manager:
 
@@ -309,15 +309,10 @@ If your issue isn't listed, please open an issue on GitHub.
 
 ## Troubleshooting
 
-**Edge WebDriver not found or outdated:**
-- Ensure Microsoft Edge is installed
-- Try restarting the application (Selenium Manager will auto-download driver)
-- Check that Edge version is up to date
-- In **Manage accounts**, choose **Re-run setup** for the affected account
-
-**`session not created: DevToolsActivePort file doesn't exist` / Edge failed to start:**
+**Edge failed to start:**
+- Ensure Microsoft Edge is installed (AutoRewarder drives Edge directly over the Chrome DevTools Protocol — no driver binary is needed)
 - Close AutoRewarder and any Edge windows
-- Open Windows Task Manager and kill all `msedge.exe` processes (and `msedgedriver.exe` if present)
+- Open Windows Task Manager and kill all `msedge.exe` processes
 - Open Edge normally and complete any pending updates at `edge://settings/help`
 - Re-run AutoRewarder
 - If it still fails, use **Manage accounts** -> **Re-run setup** for the account
