@@ -718,9 +718,10 @@ class AutoRewarderAPI:
         user has already moved to the per-account model.
 
         Recognised sources:
-          * Fire-on-login: HKCU Run (Windows) / .desktop (Linux)
+          * Fire-on-login: HKCU Run (Windows) / .desktop (Linux) /
+            LaunchAgent (macOS)
           * Single-task daily scheduler: schtasks `AutoRewarder` /
-            systemd `autorewarder.timer` (v3.3 single-task design)
+            systemd `autorewarder.timer` / macOS LaunchAgent plist(s)
         """
         system = platform.system()
         if system == "Windows":
@@ -758,6 +759,21 @@ class AutoRewarderAPI:
                 )
                 if os.path.exists(timer_path):
                     return True
+            except Exception:
+                pass
+        elif system == "Darwin":
+            launch_agents_dir = os.path.join(
+                os.path.expanduser("~"), "Library", "LaunchAgents"
+            )
+            try:
+                for entry in os.listdir(launch_agents_dir):
+                    name = entry.lower()
+                    if name.endswith(".plist") and (
+                        name.startswith("com.autorewarder.")
+                        or name.startswith("autorewarder")
+                        or name.startswith("com.github.safarsin.autorewarder")
+                    ):
+                        return True
             except Exception:
                 pass
         return False
@@ -886,6 +902,18 @@ class AutoRewarderAPI:
     def _systemd_user_dir(self):
         return os.path.join(os.path.expanduser("~"), ".config", "systemd", "user")
 
+    def _launchd_agents_dir(self):
+        return os.path.join(os.path.expanduser("~"), "Library", "LaunchAgents")
+
+    def _launchd_agent_label(self, account_id):
+        return f"com.autorewarder.{account_id}"
+
+    def _launchd_agent_path(self, account_id):
+        return os.path.join(
+            self._launchd_agents_dir(),
+            f"{self._launchd_agent_label(account_id)}.plist",
+        )
+
     def _legacy_linux_autostart_path(self):
         """Old .desktop autostart path — kept only for migration cleanup."""
         return os.path.join(
@@ -895,9 +923,9 @@ class AutoRewarderAPI:
     def _cleanup_legacy_autostart(self):
         """
         Remove pre-per-account autostart entries:
-          * HKCU Run / .desktop (the original fire-on-login mechanism)
+          * HKCU Run / .desktop / macOS LaunchAgent (the original fire-on-login mechanism)
           * Single-task `AutoRewarder` schtasks / `autorewarder.timer`
-            systemd unit (the v3.3 single-task daily scheduler)
+            systemd unit / legacy LaunchAgent plist(s)
 
         Idempotent — safe to call on every startup. Outcomes are logged
         so that a silent failure can be diagnosed instead of leaving a
@@ -921,9 +949,6 @@ class AutoRewarderAPI:
             except Exception:
                 pass
             # Single-task daily scheduler from the v3.3 design.
-            # Only attempt delete if it actually exists, so failures are
-            # always meaningful (don't log "delete failed" for tasks
-            # that were never there).
             try:
                 q = subprocess.run(
                     ["schtasks", "/Query", "/TN", _AUTOSTART_TASK_NAME],
@@ -953,7 +978,6 @@ class AutoRewarderAPI:
                             f"'{_AUTOSTART_TASK_NAME}': {msg}"
                         )
             except FileNotFoundError:
-                # schtasks not on PATH — nothing we can do.
                 pass
             except Exception as e:
                 self.log(f"[WARNING] Legacy schtasks cleanup error: {e}")
@@ -965,7 +989,6 @@ class AutoRewarderAPI:
                     self.log("Removed legacy .desktop autostart entry")
                 except OSError as e:
                     self.log(f"[WARNING] Could not remove .desktop: {e}")
-            # Single-task systemd timer from the v3.3 design.
             base = self._systemd_user_dir()
             old_service = os.path.join(base, f"{_SYSTEMD_UNIT_NAME}.service")
             old_timer = os.path.join(base, f"{_SYSTEMD_UNIT_NAME}.timer")
@@ -1000,6 +1023,36 @@ class AutoRewarderAPI:
                     )
                 except Exception:
                     pass
+        elif system == "Darwin":
+            agents_dir = self._launchd_agents_dir()
+            if not os.path.isdir(agents_dir):
+                return
+            removed = False
+            for entry in os.listdir(agents_dir):
+                filename = entry.lower()
+                if not filename.endswith(".plist"):
+                    continue
+                if (
+                    filename.startswith("com.autorewarder.")
+                    or filename.startswith("autorewarder")
+                    or filename.startswith("com.github.safarsin.autorewarder")
+                ):
+                    path = os.path.join(agents_dir, entry)
+                    try:
+                        subprocess.run(
+                            ["launchctl", "unload", "-w", path],
+                            capture_output=True,
+                            check=False,
+                        )
+                    except Exception:
+                        pass
+                    try:
+                        os.remove(path)
+                        removed = True
+                    except OSError as e:
+                        self.log(f"[WARNING] Could not remove {path}: {e}")
+            if removed:
+                self.log("Removed legacy macOS LaunchAgent entries")
 
     # ---- Per-account OS-task management -------------------------------
 
@@ -1262,7 +1315,113 @@ class AutoRewarderAPI:
             return self._remove_windows_task(account_id)
         if system == "Linux":
             return self._remove_systemd_unit(account_id)
+        if system == "Darwin":
+            return self._remove_launchd_agent(account_id)
         return False
+
+    def _register_launchd_agent(self, account_id, run_time, label=None):
+        """Register a per-account macOS LaunchAgent for daily execution."""
+        try:
+            agents_dir = self._launchd_agents_dir()
+            os.makedirs(agents_dir, exist_ok=True)
+            label_name = self._launchd_agent_label(account_id)
+            plist_path = self._launchd_agent_path(account_id)
+            hour, minute = [int(part) for part in run_time.split(":", 1)]
+            program_args = self._launchd_agent_program_args(account_id)
+            xml_args = "".join(
+                f"<string>{self._plist_escape(arg)}</string>" for arg in program_args
+            )
+            plist = (
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
+                '<plist version="1.0">\n'
+                '<dict>\n'
+                f'  <key>Label</key><string>{label_name}</string>\n'
+                '  <key>ProgramArguments</key>\n'
+                '  <array>\n'
+                f'{xml_args}\n'
+                '  </array>\n'
+                '  <key>StartCalendarInterval</key>\n'
+                '  <dict>\n'
+                f'    <key>Hour</key><integer>{hour}</integer>\n'
+                f'    <key>Minute</key><integer>{minute}</integer>\n'
+                '  </dict>\n'
+                '</dict>\n'
+                '</plist>\n'
+            )
+            with open(plist_path, "w", encoding="utf-8") as fh:
+                fh.write(plist)
+
+            try:
+                subprocess.run(
+                    ["launchctl", "unload", "-w", plist_path],
+                    capture_output=True,
+                    check=False,
+                )
+            except FileNotFoundError:
+                pass
+
+            try:
+                result = subprocess.run(
+                    ["launchctl", "load", "-w", plist_path],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if result.returncode != 0:
+                    msg = (result.stderr or result.stdout or "").strip()
+                    self.log(
+                        f"[ERROR] launchctl load failed for {label or account_id}: {msg}"
+                    )
+                    return False
+            except FileNotFoundError:
+                self.log("[ERROR] launchctl not found — macOS launchd unavailable.")
+                return False
+
+            self.log(f"Scheduled LaunchAgent registered: '{label or account_id}' at {run_time}")
+            return True
+        except Exception as e:
+            self.log(f"[ERROR] Failed to register macOS LaunchAgent: {e}")
+            return False
+
+    def _plist_escape(self, value):
+        return (
+            str(value)
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+            .replace("'", "&apos;")
+        )
+
+    def _launchd_agent_program_args(self, account_id):
+        if getattr(sys, "frozen", False):
+            return [sys.executable, "--headless", "--account", account_id]
+        return [
+            sys.executable,
+            os.path.join(BASE_DIR, "AutoRewarder.py"),
+            "--headless",
+            "--account",
+            account_id,
+        ]
+
+    def _remove_launchd_agent(self, account_id):
+        """Disable + delete a per-account macOS LaunchAgent."""
+        path = self._launchd_agent_path(account_id)
+        try:
+            subprocess.run(
+                ["launchctl", "unload", "-w", path],
+                capture_output=True,
+                check=False,
+            )
+        except Exception:
+            pass
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except OSError:
+            pass
+        return True
 
     def _sync_account_autostart(self, account_id):
         """
@@ -1299,7 +1458,9 @@ class AutoRewarderAPI:
             return self._register_windows_task(account_id, run_time, label)
         if system == "Linux":
             return self._register_systemd_unit(account_id, run_time, label)
-        self.log("Autostart is only supported on Windows and Linux.")
+        if system == "Darwin":
+            return self._register_launchd_agent(account_id, run_time, label)
+        self.log("Autostart is only supported on Windows, macOS, and Linux.")
         return False
 
     def _sync_all_autostart(self):
@@ -1322,12 +1483,12 @@ class AutoRewarderAPI:
           * enable=False → autoStartUp=False; remove every per-account
                            task that we might have registered.
 
-        Legacy entries (HKCU Run, .desktop, single-task daily scheduler)
+        Legacy entries (HKCU Run, .desktop, LaunchAgent, single-task daily scheduler)
         are always cleaned up on either path.
         """
         system_name = platform.system()
-        if system_name not in ("Windows", "Linux"):
-            self.log("Autostart is only supported on Windows and Linux.")
+        if system_name not in ("Windows", "Linux", "Darwin"):
+            self.log("Autostart is only supported on Windows, macOS, and Linux.")
             return False
 
         # Persist user intent FIRST so _sync_account_autostart reads the
@@ -1366,7 +1527,7 @@ class AutoRewarderAPI:
         """Return OS support flag + current autostart state for the Settings UI."""
         system_name = platform.system()
         return {
-            "supported": system_name in ("Windows", "Linux"),
+            "supported": system_name in ("Windows", "Linux", "Darwin"),
             "enabled": self.is_autostart_enabled(),
         }
 

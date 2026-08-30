@@ -1,6 +1,7 @@
 """Search automation helpers for Bing queries."""
 
 import json
+import platform
 import random
 import time
 from urllib.parse import urlparse
@@ -319,7 +320,10 @@ class SearchEngine:
                 EC.element_to_be_clickable((By.ID, "sb_sbi"))
             )
 
-            human.click_element(visual_search_button)
+            if platform.system() == "Darwin":
+                driver.execute_script("arguments[0].click();", visual_search_button)
+            else:
+                human.click_element(visual_search_button)
 
             upload_input = wait.until(
                 EC.presence_of_element_located((By.ID, "sb_fileinput"))

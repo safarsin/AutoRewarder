@@ -23,6 +23,10 @@ APP_DIR = ""
 if PLATFORM_NAME == "Linux":
     APP_DIR = os.path.expanduser("~/.local/share/AutoRewarder")
 
+# Get macOS app directory
+elif PLATFORM_NAME == "Darwin":
+    APP_DIR = os.path.expanduser("~/Library/Application Support/AutoRewarder")
+
 # Get Windows app directory
 elif PLATFORM_NAME == "Windows":
     APP_DIR = os.path.join(
