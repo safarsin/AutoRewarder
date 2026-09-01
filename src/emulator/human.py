@@ -1,5 +1,6 @@
 """Human-like interaction helpers for Selenium-driven browsing."""
 
+import platform
 import random
 import time
 from selenium.common.exceptions import WebDriverException
@@ -48,6 +49,20 @@ class HumanBehavior:
             touch = PointerInput(kind="touch", name="touch")
             actions.w3c_actions = ActionBuilder(self.driver, mouse=touch, duration=0)
         return actions
+
+    @staticmethod
+    def _is_macos():
+        return platform.system() == "Darwin"
+
+    def _safe_pointer_move(self, x, y):
+        """Use a single, low-risk move on macOS to avoid Edge crashes."""
+        try:
+            actions = self._new_actions()
+            actions.w3c_actions.pointer_action.move_to_location(int(x), int(y))
+            actions.perform()
+            return True
+        except Exception:
+            return False
 
     def _draw_debug_cursor(self, x, y, color="red"):
         """
@@ -274,10 +289,11 @@ class HumanBehavior:
 
         if steps is None:
             distance = ((target_x - start_x) ** 2 + (target_y - start_y) ** 2) ** 0.5
-            steps = int(distance / random.uniform(8, 15))
-            steps = max(10, min(40, steps))
+            steps = int(distance / random.uniform(18, 32))
+            steps = max(8, min(28, steps))
 
         last_x, last_y = start_x, start_y
+        path = []
 
         for i in range(steps + 1):
             t = i / steps
@@ -290,48 +306,50 @@ class HumanBehavior:
                 (1 - t) ** 2 * start_y + 2 * (1 - t) * t * control_y + t**2 * target_y
             )
 
-            # Micro-vibration
-            curr_x += random.randint(-2, 2)
-            curr_y += random.randint(-2, 2)
+            # Keep movement fluid without the visible micro-jitter that makes
+            # real pointer motion feel broken or laggy on slower browsers.
+            curr_x += random.randint(-1, 1)
+            curr_y += random.randint(-1, 1)
 
             curr_x, curr_y = self._clamp_point(
                 curr_x, curr_y, viewport_width, viewport_height
             )
 
-            delta_x = curr_x - last_x
-            delta_y = curr_y - last_y
+            if curr_x != last_x or curr_y != last_y:
+                path.append((curr_x, curr_y))
+                last_x, last_y = curr_x, curr_y
 
-            # Move the mouse to an absolute point within the viewport
-            if delta_x != 0 or delta_y != 0:
-                try:
-                    actions = ActionChains(self.driver)
-                    # W3C Pointer: absolute move to a viewport coordinate.
-                    actions.w3c_actions.pointer_action.move_to_location(
-                        int(curr_x), int(curr_y)
-                    )
-                    actions.perform()
-                except Exception:
-                    # If the driver rejects the move for any reason, keep going without
-                    # falling back to move_to_element(element) (that can scroll the page).
-                    pass
+        # Submit the motion in one W3C pointer batch so the browser processes
+        # a smooth, continuous cursor path instead of a series of tiny stalled
+        # updates that look laggy and robotic.
+        if self._is_macos() and path:
+            # macOS Edge is particularly sensitive to a long burst of pointer moves.
+            # Keep the motion path smooth but emit the final move in a single, stable step.
+            settled_x, settled_y = path[-1]
+            self._safe_pointer_move(settled_x, settled_y)
+            self._draw_debug_cursor(settled_x, settled_y)
+            self.last_mouse_position = [settled_x, settled_y]
+            time.sleep(max(0.04, min(0.12, steps * 0.004)))
+            return
 
-            # Draw debug cursor at the current position
-            self._draw_debug_cursor(curr_x, curr_y)
+        if path:
+            try:
+                actions = ActionChains(self.driver)
+                for x, y in path:
+                    actions.w3c_actions.pointer_action.move_to_location(int(x), int(y))
+                actions.perform()
+            except Exception:
+                pass
 
-            last_x, last_y = curr_x, curr_y
+        # Keep the debug overlay in sync, but only after the path has been
+        # emitted so we don't add extra JS work for every micro-step.
+        if path:
+            self._draw_debug_cursor(path[-1][0], path[-1][1])
 
-            # Variable pause to mimic human movement speed changes
-            if i < steps * 0.3:
-                pause = random.uniform(0.005, 0.02)
-            elif i < steps * 0.7:
-                pause = random.uniform(0.01, 0.04)
-            else:
-                pause = random.uniform(0.02, 0.06)
-
-            if random.random() < 0.05:
-                pause += random.uniform(0.05, 0.15)
-
-            time.sleep(pause)
+        # Use shorter, more natural pauses so the cursor appears fluid instead
+        # of stepwise and delayed across long pointer moves.
+        travel_seconds = max(0.04, min(0.18, steps * 0.004))
+        time.sleep(travel_seconds)
 
         # If missed the target, do a quick correction move
         if miss:
@@ -384,6 +402,31 @@ class HumanBehavior:
 
         if self.mobile:
             self._tap_element(element, scroll_into_view=scroll_into_view)
+            return
+
+        if self._is_macos():
+            try:
+                self.driver.execute_script(
+                    "arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});",
+                    element,
+                )
+            except Exception:
+                pass
+            self.move_to_element(element, scroll_into_view=False)
+            self._draw_debug_cursor(
+                self.last_mouse_position[0], self.last_mouse_position[1], color="green"
+            )
+            try:
+                self.driver.execute_script("arguments[0].click();", element)
+            except Exception:
+                try:
+                    element.click()
+                except Exception:
+                    pass
+            time.sleep(0.16)
+            self._draw_debug_cursor(
+                self.last_mouse_position[0], self.last_mouse_position[1], color="red"
+            )
             return
 
         self.move_to_element(element, scroll_into_view=scroll_into_view)

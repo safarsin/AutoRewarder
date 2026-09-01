@@ -1,6 +1,7 @@
 """Search automation helpers for Bing queries."""
 
 import json
+import platform
 import random
 import time
 from urllib.parse import urlparse
@@ -335,7 +336,10 @@ class SearchEngine:
                 visual_search_button = driver.find_element(By.ID, "sb_sbi")
                 time.sleep(random.uniform(1, 3))
 
-            human.click_element(visual_search_button)
+            if platform.system() == "Darwin":
+                driver.execute_script("arguments[0].click();", visual_search_button)
+            else:
+                human.click_element(visual_search_button)
 
             if not portable_mode:
                 upload_input = wait.until(
