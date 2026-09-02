@@ -2561,14 +2561,30 @@ class AutoRewarderAPI:
                 self._driver,
                 image_path,
                 stop_event=self._stop_event,
+                entry_url=getattr(self.daily_set, "visual_search_url", None),
             )
 
-            if success:
-                self.daily_set.save_used_visual_search_images(updated_images)
-                self.daily_set.mark_visual_search_as_completed()
-                self.log("Visual search marked as done for today.")
+            if not success:
+                return False
 
-            return success
+            self.daily_set.save_used_visual_search_images(updated_images)
+
+            # A results page is not proof of credit: Rewards only counts the
+            # search for its "visual search streak" mission. Re-read that
+            # mission's progress and, when it says the search didn't count,
+            # leave today unmarked so the next run tries again.
+            credited = self._check_visual_search_credited()
+            if credited is False:
+                self.log(
+                    "[WARNING] Rewards did not count the visual search. "
+                    "Not marked as done for today."
+                )
+                return False
+
+            self.daily_set.mark_visual_search_as_completed()
+            self.log("Visual search marked as done for today.")
+
+            return True
 
         except Exception as e:
             self.log(f"[WARNING] Visual search failed: {e}")
@@ -2580,6 +2596,32 @@ class AutoRewarderAPI:
                     os.remove(image_path)
                 except Exception as e:
                     self.log(f"[WARNING] Failed to remove temporary image file: {e}")
+
+    def _check_visual_search_credited(self):
+        """
+        Check the Rewards "visual search streak" mission after a search.
+
+        Returns:
+            bool: True when the mission counted the search, False when it
+                explicitly still shows no activity today, or None when there
+                is nothing to compare against (legacy dashboard, mission not
+                offered, or the progress couldn't be read).
+        """
+        try:
+            progress = self.daily_set.read_visual_search_progress(self._driver)
+        except Exception as e:
+            self.log(f"[WARNING] Could not read the visual search mission: {e}")
+            return None
+
+        if progress is None:
+            return None
+
+        done, total = progress
+        before = getattr(self.daily_set, "visual_search_progress", None)
+        was = f" (was {before[0]}/{before[1]})" if before else ""
+        self.log(f"Rewards visual search streak: {done}/{total}{was}")
+
+        return done > 0
 
     def _run_phase(self, mobile, count, do_daily_set):
         """

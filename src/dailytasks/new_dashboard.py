@@ -226,6 +226,108 @@ try {
 """
 
 
+# Find the "visual search streak" mission's own entry URL. Rewards credits the
+# streak only for a search started from that link (the Bing homepage carrying
+# the mission's promo code, e.g. /?features=vsstreak,vstooltip&form=ML2XES), so
+# a search from a bare bing.com runs but never ticks the mission. The URL lives
+# in the streamed RSC payload; a rendered <a> is preferred when the mission
+# flyout happens to be open. Matched on the "vsstreak" feature flag, so it stays
+# language- and market-independent.
+_FIND_VS_STREAK_URL_JS = r"""
+try {
+  var a = document.querySelector('a[href*="vsstreak"]');
+  if (a && a.href) return a.href;
+  var raw = window.__next_f || [];
+  var parts = [];
+  for (var n = 0; n < raw.length; n++) {
+    var e = raw[n];
+    if (Array.isArray(e)) { if (typeof e[1] === 'string') parts.push(e[1]); }
+    else if (typeof e === 'string') { parts.push(e); }
+  }
+  var blob = parts.join('');
+  var idx = blob.indexOf('vsstreak');
+  if (idx < 0) return null;
+  var start = blob.lastIndexOf('http', idx);
+  if (start < 0) return null;
+  // Stop at a quote or whitespace only: the URL itself contains a comma
+  // (features=vsstreak,vstooltip) and backslash-escaped slashes.
+  var stop = '"\'`\n\r\t <>';
+  var end = idx;
+  while (end < blob.length && stop.indexOf(blob[end]) < 0) end++;
+  var url = blob.slice(start, end)
+    .replace(/\\u0026/g, '&')
+    .replace(/\\\//g, '/');
+  return url.indexOf('bing.com') >= 0 ? url : null;
+} catch (e) { return null; }
+"""
+
+# Read the progress of the "visual search streak" mission ("Activité : 0/1").
+# The card is identified by its own artwork (OMR.VisualSearch.VNext…, or the
+# search_visual.svg mission icon) rather than its localized title, and progress
+# comes from the react-aria progressbar when present, else from the card's
+# "<done>/<total>" counter. This is what says whether Rewards actually counted
+# the search we just made.
+_VS_STREAK_PROGRESS_JS = r"""
+try {
+  var imgs = document.querySelectorAll(
+    'img[src*="VisualSearch"], img[src*="search_visual"]'
+  );
+  for (var i = 0; i < imgs.length; i++) {
+    var card = imgs[i].parentElement;
+    for (var up = 0; card && up < 8; up++) {
+      var bar = card.querySelector('[role="progressbar"][aria-valuemax]');
+      if (bar) {
+        var now = parseInt(bar.getAttribute('aria-valuenow'), 10);
+        var max = parseInt(bar.getAttribute('aria-valuemax'), 10);
+        if (!isNaN(now) && !isNaN(max) && max > 0) return {done: now, total: max};
+      }
+      var m = (card.textContent || '').replace(/\s+/g, ' ').match(/(\d+)\s*\/\s*(\d+)/);
+      if (m) return {done: parseInt(m[1], 10), total: parseInt(m[2], 10)};
+      card = card.parentElement;
+    }
+  }
+  return null;
+} catch (e) { return null; }
+"""
+
+# Locate the primary control of the claim panel, language-independently.
+# The panel used to be a flyout ([class*="bg-flyout"]) holding a
+# <button class="...bgCtrlBrandRest...">; the dashboard now renders a react-aria
+# pressable card whose brand styling sits on an inner <div>. So match the brand
+# design token, then walk up to whatever is actually pressable. A brand control
+# wrapping the coins icon wins over any other brand CTA on the page.
+_FIND_CLAIM_CONTROL_JS = r"""
+try {
+  var scoped = document.querySelectorAll('[class*="bg-flyout"], [role="dialog"]');
+  var roots = Array.prototype.slice.call(scoped);
+  var isScoped = roots.length > 0;
+  if (!isScoped) roots = [document.body];
+  var fallback = null;
+  for (var r = 0; r < roots.length; r++) {
+    var brands = roots[r].querySelectorAll('[class*="bgCtrlBrand"]');
+    for (var i = 0; i < brands.length; i++) {
+      var el = brands[i];
+      if (!el.getClientRects().length) continue;
+      var press = el.closest(
+        'button, [role="button"], [data-react-aria-pressable]'
+      ) || el;
+      if (press.disabled) continue;
+      if (press.getAttribute('slot')) continue;
+      if ((press.getAttribute('aria-disabled') || '') === 'true') continue;
+      if (press.hasAttribute('data-disabled')) continue;
+      if (press.querySelector('img[src*="CoinsTransparent"]')) return press;
+      // Inside a flyout/dialog the only brand control is the claim CTA, so it
+      // is a safe fallback. On the bare page it could be any other dashboard
+      // CTA (redeem, promo banner), and clicking that would be worse than
+      // giving up — so don't guess there.
+      if (isScoped && !fallback) fallback = press;
+    }
+  }
+  return fallback;
+} catch (e) { return null; }
+"""
+
+
 class NewDashboardDailySet:
     """Daily Set handler for the new Next.js Microsoft Rewards dashboard."""
 
@@ -249,6 +351,13 @@ class NewDashboardDailySet:
             "earn": 0,
             "quests": 0,
         }
+        # Entry URL of the "visual search streak" mission, read off the
+        # dashboard during `perform` so the visual search can start from the
+        # link that credits it. None when the mission isn't offered.
+        self.visual_search_url = None
+        # Its progress as (done, total) before this run touched anything, or
+        # None when the mission isn't offered / couldn't be read.
+        self.visual_search_progress = None
 
     def _log(self, message):
         if self.logger:
@@ -625,6 +734,10 @@ class NewDashboardDailySet:
         claim/earn/quest passes are best-effort.
         """
         daily_ok = self._run_daily_set(driver, human, stop_event=stop_event)
+        self.visual_search_url = self._find_visual_search_url(driver)
+        self.visual_search_progress = self.read_visual_search_progress(
+            driver, navigate=False
+        )
         if stop_event is not None and stop_event.is_set():
             return daily_ok
         try:
@@ -648,6 +761,112 @@ class NewDashboardDailySet:
                 self._log(f"[WARNING] Quest pass failed: {e}")
         return daily_ok
 
+    def _find_visual_search_url(self, driver):
+        """
+        Return the "visual search streak" mission's entry URL, or None.
+
+        Called while the dashboard is loaded; the caller passes the URL to the
+        visual search so the search credits the mission.
+        """
+        try:
+            url = driver.execute_script(_FIND_VS_STREAK_URL_JS)
+        except Exception:
+            return None
+
+        if not isinstance(url, str) or not url.startswith("http"):
+            return None
+
+        self._log(f"Visual search streak mission link: {url}")
+        return url
+
+    def read_visual_search_progress(self, driver, navigate=True):
+        """
+        Read the "visual search streak" mission progress from the dashboard.
+
+        Args:
+            driver: Selenium WebDriver instance.
+            navigate (bool): Load the dashboard first. Pass False when the
+                dashboard is already the current page.
+
+        Returns:
+            tuple: (done, total) — e.g. (0, 1) before today's search and (1, 1)
+                once Rewards counted it — or None when the mission isn't
+                offered or the progress can't be read.
+        """
+        try:
+            if navigate:
+                driver.get(DASHBOARD_URL)
+                self._wait_ready(driver)
+                time.sleep(random.uniform(1.5, 2.5))
+            data = driver.execute_script(_VS_STREAK_PROGRESS_JS)
+        except Exception:
+            return None
+
+        if not isinstance(data, dict):
+            return None
+
+        try:
+            return int(data["done"]), int(data["total"])
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    def _find_claim_tile(self, driver):
+        """
+        Find the dashboard "ready to claim" tile.
+
+        It is a clickable (non-link) card with the coins icon and a danger-status
+        dot for the pending points. The balance tile shows the same coins icon
+        but is an <a href="/redeem"> with no danger dot, so it is excluded.
+        Matched by design-system tokens only, never by localized labels.
+
+        Returns:
+            tuple: (tile element or None, pending points as a string).
+        """
+        try:
+            icons = driver.find_elements(
+                By.CSS_SELECTOR, 'img[src*="CoinsTransparent"]'
+            )
+        except Exception:
+            icons = []
+
+        for icon in icons:
+            try:
+                anc = icon.find_element(
+                    By.XPATH,
+                    "./ancestor::*[contains(@class,'cursor-pointer')][1]",
+                )
+                if anc.tag_name.lower() == "a":
+                    continue
+                if not anc.find_elements(By.CSS_SELECTOR, '[class*="statusDanger"]'):
+                    continue
+                try:
+                    pending = anc.find_element(
+                        By.CSS_SELECTOR, ".text-pageHeader"
+                    ).text.strip()
+                except Exception:
+                    pending = ""
+                return anc, pending
+            except Exception:
+                continue
+
+        return None, ""
+
+    def _find_claim_control(self, driver, timeout=10):
+        """
+        Wait for the claim panel opened by the tile and return its primary control.
+
+        Returns:
+            WebElement: The element to click, or None if none appeared in time.
+        """
+        try:
+            return WebDriverWait(driver, timeout).until(
+                lambda d: d.execute_script(_FIND_CLAIM_CONTROL_JS)
+            )
+        except TimeoutException:
+            return None
+        except Exception:
+            return None
+
     def _run_claim(self, driver, human, stop_event=None):
         """
         Claim pending points from the dashboard "ready to claim" tile.
@@ -668,43 +887,13 @@ class NewDashboardDailySet:
             self._log(f"[WARNING] Could not open the dashboard to claim: {e}")
             return
 
-        # The claim tile: a clickable (non-link) card with the coins icon and a
-        # danger-status dot (pending points). The balance tile also shows a coins
-        # icon but is an <a href="/redeem"> with no danger dot, so it's excluded.
-        card = None
-        pending = ""
-        try:
-            icons = driver.find_elements(
-                By.CSS_SELECTOR, 'img[src*="CoinsTransparent"]'
-            )
-        except Exception:
-            icons = []
-        for icon in icons:
-            try:
-                anc = icon.find_element(
-                    By.XPATH,
-                    "./ancestor::*[contains(@class,'cursor-pointer')][1]",
-                )
-                if anc.tag_name.lower() == "a":
-                    continue
-                if not anc.find_elements(By.CSS_SELECTOR, '[class*="statusDanger"]'):
-                    continue
-                card = anc
-                try:
-                    pending = anc.find_element(
-                        By.CSS_SELECTOR, ".text-pageHeader"
-                    ).text.strip()
-                except Exception:
-                    pending = ""
-                break
-            except Exception:
-                continue
+        card, pending = self._find_claim_tile(driver)
 
         if card is None:
             self._log("No claimable points.")
             return
 
-        self._log(f"Opening claim flyout (pending: {pending or '?'} points).")
+        self._log(f"Opening claim panel (pending: {pending or '?'} points).")
         try:
             driver.execute_script(
                 "arguments[0].scrollIntoView({block:'center'});", card
@@ -717,30 +906,27 @@ class NewDashboardDailySet:
             self._log(f"[WARNING] Could not open the claim flyout: {e}")
             return
 
-        # Wait for the flyout, then click its primary (brand) button — not the
-        # close (slot="close") or the "how it works" disclosure (slot="trigger").
-        if not self._wait_for(driver, '[class*="bg-flyout"]', timeout=10):
-            self._log("[WARNING] Claim flyout did not open.")
-            return
+        # Then click the panel's primary (brand) control — not the close
+        # (slot="close") or the "how it works" disclosure (slot="trigger").
         time.sleep(random.uniform(0.8, 1.4))
-        try:
-            flyout = driver.find_element(By.CSS_SELECTOR, '[class*="bg-flyout"]')
-            btn = None
-            for b in flyout.find_elements(
-                By.CSS_SELECTOR, 'button[class*="bgCtrlBrandRest"]'
-            ):
-                if b.get_attribute("slot"):
-                    continue
-                if not b.is_enabled():
-                    continue
-                btn = b
-                break
-        except Exception as e:
-            self._log(f"[WARNING] Could not find the claim button: {e}")
-            return
+        btn = self._find_claim_control(driver, timeout=10)
 
         if btn is None:
-            self._log("[WARNING] Claim button not found in the flyout.")
+            # Log what the page actually holds: the panel markup is unstable, so
+            # these two counts say whether the panel failed to open at all or
+            # whether it opened with a control we no longer recognise.
+            try:
+                diag = driver.execute_script(
+                    "return document.querySelectorAll('[class*=\"bgCtrlBrand\"]').length"
+                    " + '/' + document.querySelectorAll("
+                    '\'[role="dialog"], [class*="bg-flyout"]\').length;'
+                )
+            except Exception:
+                diag = "?"
+            self._log(
+                "[WARNING] Claim button not found after opening the claim tile "
+                f"(brand controls/panels on page: {diag})."
+            )
             return
         try:
             human.click_element(btn, scroll_into_view=True)
