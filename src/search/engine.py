@@ -329,7 +329,13 @@ class SearchEngine:
         return successful
 
     def _find_visual_search_element(
-        self, driver, locators, timeout, poll_interval, require_displayed=False
+        self,
+        driver,
+        locators,
+        timeout,
+        poll_interval,
+        require_displayed=False,
+        stop_event=None,
     ):
         """
         Poll the page until one of the given locators matches an element.
@@ -344,14 +350,20 @@ class SearchEngine:
             poll_interval (float): Delay between two polling rounds, in seconds.
             require_displayed (bool): Whether the element must be visible and enabled.
                 Hidden file inputs still accept send_keys, so this stays False for them.
+            stop_event (threading.Event, optional): When set, polling gives up at
+                once instead of running to the timeout.
 
         Returns:
-            WebElement: The first matching element, or None if the timeout expired.
+            WebElement: The first matching element, or None if the timeout
+                expired or Stop was requested.
         """
 
         deadline = time.monotonic() + timeout
 
         while True:
+            if stop_event is not None and stop_event.is_set():
+                return None
+
             for by, selector in locators:
                 try:
                     element = driver.find_element(by, selector)
@@ -372,7 +384,7 @@ class SearchEngine:
             time.sleep(poll_interval)
 
     def _wait_for_visual_search_results(
-        self, driver, start_url, timeout, poll_interval
+        self, driver, start_url, timeout, poll_interval, stop_event=None
     ):
         """
         Wait until the uploaded image actually lands on a visual search result page.
@@ -382,14 +394,20 @@ class SearchEngine:
             start_url (str): The URL the upload was started from.
             timeout (float): How long to keep polling, in seconds.
             poll_interval (float): Delay between two polling rounds, in seconds.
+            stop_event (threading.Event, optional): When set, polling gives up at
+                once instead of running to the timeout.
 
         Returns:
-            bool: True if the results page was reached, False if the timeout expired.
+            bool: True if the results page was reached, False if the timeout
+                expired or Stop was requested.
         """
 
         deadline = time.monotonic() + timeout
 
         while True:
+            if stop_event is not None and stop_event.is_set():
+                return False
+
             try:
                 current_url = driver.current_url or ""
             except WebDriverException:
@@ -418,7 +436,7 @@ class SearchEngine:
                 return part
         return urlparse(current_url).path or "no FORM code"
 
-    def _log_visual_search_failure(self, driver, step, error=None):
+    def _log_visual_search_failure(self, driver, step, error=None, stop_event=None):
         """
         Log a visual search failure with the step that broke, for debugging.
 
@@ -430,10 +448,16 @@ class SearchEngine:
             driver (WebDriver): An instance of Selenium WebDriver to control the browser.
             step (str): A short description of the step that failed.
             error (Exception, optional): The exception that was raised, if any.
+            stop_event (threading.Event, optional): When set, the step didn't
+                fail — it was cancelled — so say that instead.
 
         Returns:
             bool: Always False, so callers can `return self._log_visual_search_failure(...)`.
         """
+
+        if stop_event is not None and stop_event.is_set():
+            self._log("Visual search stopped because Stop was requested.")
+            return False
 
         try:
             current_url = driver.current_url
@@ -512,10 +536,15 @@ class SearchEngine:
                     timeout=15,
                     poll_interval=poll_interval,
                     require_displayed=True,
+                    stop_event=stop_event,
                 )
 
                 if visual_search_button is not None:
                     break
+
+                if stop_event is not None and stop_event.is_set():
+                    self._log("Visual search stopped because Stop was requested.")
+                    return False
 
                 self._log(
                     f"[WARNING] No visual search button on {url}. Trying another entry point."
@@ -523,7 +552,9 @@ class SearchEngine:
 
             if visual_search_button is None:
                 return self._log_visual_search_failure(
-                    driver, "looking for the visual search button"
+                    driver,
+                    "looking for the visual search button",
+                    stop_event=stop_event,
                 )
 
             human.click_element(visual_search_button)
@@ -536,10 +567,13 @@ class SearchEngine:
                 VISUAL_SEARCH_INPUT_LOCATORS,
                 timeout=15,
                 poll_interval=poll_interval,
+                stop_event=stop_event,
             )
 
             if upload_input is None:
-                return self._log_visual_search_failure(driver, step)
+                return self._log_visual_search_failure(
+                    driver, step, stop_event=stop_event
+                )
 
             time.sleep(random.uniform(1, 4))
 
@@ -554,8 +588,11 @@ class SearchEngine:
                 start_url,
                 timeout=30,
                 poll_interval=poll_interval,
+                stop_event=stop_event,
             ):
-                return self._log_visual_search_failure(driver, step)
+                return self._log_visual_search_failure(
+                    driver, step, stop_event=stop_event
+                )
 
             time.sleep(random.uniform(4, 8))
 
@@ -582,7 +619,9 @@ class SearchEngine:
             return True
 
         except Exception as e:
-            return self._log_visual_search_failure(driver, step, e)
+            return self._log_visual_search_failure(
+                driver, step, e, stop_event=stop_event
+            )
 
     def get_next_image_id(self, used_images_list):
         """
