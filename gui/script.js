@@ -678,7 +678,8 @@ function open_settings_modal() {
     pywebview.api.get_launch_on_startup(),
     pywebview.api.get_close_to_tray(),
     pywebview.api.get_llm_config(),
-  ]).then(([schedules, startup, closeToTray, llmConfig]) => {
+    pywebview.api.get_force_tasks(),
+  ]).then(([schedules, startup, closeToTray, llmConfig, forceTasks]) => {
     render_schedule_cards(schedules || []);
 
     // Start-with-Windows toggle — disable row on unsupported OS.
@@ -701,6 +702,13 @@ function open_settings_modal() {
     if (trayToggle) {
       trayToggle.checked = closeToTray !== false;
     }
+
+    // Force toggles — default to off if the API failed.
+    const force = forceTasks || {};
+    const forceDailyToggle = document.getElementById('forceDailyToggle');
+    const forceVisualToggle = document.getElementById('forceVisualToggle');
+    if (forceDailyToggle) forceDailyToggle.checked = Boolean(force.force_daily_tasks);
+    if (forceVisualToggle) forceVisualToggle.checked = Boolean(force.force_visual_search);
 
     // LLM search-term generation.
     const cfg = llmConfig || {};
@@ -1068,6 +1076,14 @@ async function save_settings() {
     await Promise.all(payloads.map(p =>
       pywebview.api.set_dashboard_variant(p.id, p.dashboardVariant)
     ));
+
+    // Persist the force toggles (independent of the schedule slicing).
+    const forceDailyEl = document.getElementById('forceDailyToggle');
+    const forceVisualEl = document.getElementById('forceVisualToggle');
+    await pywebview.api.set_force_tasks(
+      Boolean(forceDailyEl && forceDailyEl.checked),
+      Boolean(forceVisualEl && forceVisualEl.checked)
+    );
 
     // Persist LLM search-term config (independent of the schedule slicing).
     const llmToggleEl = document.getElementById('llmToggle');

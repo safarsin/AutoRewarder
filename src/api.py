@@ -449,6 +449,30 @@ class AutoRewarderAPI:
         state = "ON (X → tray)" if value else "OFF (X → quit)"
         self.log(f"Close-to-tray: {state}. Restart to apply.")
 
+    def get_force_tasks(self):
+        """Return the force flags for the daily tasks and the visual search."""
+        return self.global_settings.get_force_tasks()
+
+    def set_force_tasks(self, force_daily_tasks, force_visual_search):
+        """
+        Persist the "run even if already done today" toggles.
+
+        Args:
+            force_daily_tasks (bool): Run the Daily Set even when status.json
+                says it is already done today.
+            force_visual_search (bool): Run the visual search even when
+                status.json says it is already done today.
+
+        Returns:
+            bool: True once the flags are saved.
+        """
+        self.global_settings.set_force_tasks(force_daily_tasks, force_visual_search)
+        self.log(
+            f"Force daily tasks: {'ON' if force_daily_tasks else 'OFF'} — "
+            f"Force visual search: {'ON' if force_visual_search else 'OFF'}"
+        )
+        return True
+
     def get_queries_counts(self):
         """
         Return the saved PC and Mobile query counts from global settings.
@@ -2351,48 +2375,59 @@ class AutoRewarderAPI:
         Open a PC driver, run only the Daily Set + More Activities, scrape
         the points balance, then quit. No Bing searches are performed.
 
-        Unlike the normal flow, this path is user-initiated (explicit toggle)
-        so it ignores `should_perform_daily_set()` — if the saved status says
-        "done today" but the user clicked Start anyway, they want it to run.
-        The card-level detection inside perform_daily_set will skip cards
-        that are genuinely complete, so re-running on a real already-done day
-        just confirms state without wasting clicks.
+        A task already marked as done today is skipped, unless the matching
+        "Force daily tasks" / "Force visual search" setting is on. When forced,
+        the card-level detection inside perform_daily_set still skips cards that
+        are genuinely complete, and the visual search picks an image it has not
+        used recently, so re-running on a real already-done day just confirms
+        state without wasting clicks.
         """
         if self.daily_set is None:
             self.log("[ERROR] Daily tasks unavailable for this account.")
             return
 
-        if not self.daily_set.should_perform_daily_set():
-            self.log(
-                "Note: today is already marked as done in status.json, "
-                "but running anyway since you asked explicitly."
-            )
+        force = self.global_settings.get_force_tasks()
+        daily_done = not self.daily_set.should_perform_daily_set()
+        run_daily_set = not daily_done or force["force_daily_tasks"]
 
         self.log("=== Daily tasks and Visual Search only ===")
 
+        if daily_done and run_daily_set:
+            self.log(
+                "Daily tasks already marked as done today, but running anyway "
+                "(Force daily tasks is ON)."
+            )
+
         self._driver = self.driver_manager.setup_driver(mobile=False)
         try:
-            human = HumanBehavior(self._driver, show_cursor=True, mobile=False)
-            success = self.daily_set.perform_daily_set(
-                self._driver, human, stop_event=self._stop_event
-            )
-            # Record cards completed + scrape the balance while we're still on
-            # the rewards dashboard, before any Stop check returns early.
-            totals = self.daily_set.last_totals
-            self._session_counts["cards"] += totals.get("newly", 0)
-            self._session_counts["earn"] += totals.get("earn", 0)
-            self._session_counts["quests"] += totals.get("quests", 0)
-            self._try_scrape_balance()
-            if self._stop_event.is_set():
-                self.log("Daily tasks aborted by Stop.")
-                return
-            if success:
-                self.daily_set.mark_as_completed()
-                self.log("Daily tasks completed and marked as done for today.")
+            if run_daily_set:
+                human = HumanBehavior(self._driver, show_cursor=True, mobile=False)
+                success = self.daily_set.perform_daily_set(
+                    self._driver, human, stop_event=self._stop_event
+                )
+                # Record cards completed + scrape the balance while we're still
+                # on the rewards dashboard, before any Stop check returns early.
+                totals = self.daily_set.last_totals
+                self._session_counts["cards"] += totals.get("newly", 0)
+                self._session_counts["earn"] += totals.get("earn", 0)
+                self._session_counts["quests"] += totals.get("quests", 0)
+                self._try_scrape_balance()
+                if self._stop_event.is_set():
+                    self.log("Daily tasks aborted by Stop.")
+                    return
+                if success:
+                    self.daily_set.mark_as_completed()
+                    self.log("Daily tasks completed and marked as done for today.")
+                else:
+                    self.log("Daily tasks failed. Not marked as done for today.")
             else:
-                self.log("Daily tasks failed. Not marked as done for today.")
+                self.log(
+                    "Daily tasks already completed today. Skipping. "
+                    "(Enable 'Force daily tasks' in Settings to run them anyway.)"
+                )
+                self._try_scrape_balance()
 
-            # Run visual search if needed, even if the Daily Set failed
+            # Run the visual search even if the Daily Set failed or was skipped.
             if not self._stop_event.is_set():
                 self._run_visual_search_if_needed()
 
@@ -2484,17 +2519,33 @@ class AutoRewarderAPI:
         Checks if the task is needed today, generates a unique image,
         performs the search, and updates the status after successful completion.
 
+        A day already marked as done is skipped, unless the "Force visual
+        search" setting is on — the saved status can be stale (a search that
+        was credited but is worth redoing, or a status file the user doesn't
+        trust), and that toggle is how the user says so.
+
         Returns:
             bool: True if visual search was performed, False otherwise.
         """
         if self.daily_set is None or self.search_engine is None:
             return False
 
-        if not self.daily_set.should_perform_visual_search():
+        force = self.global_settings.get_force_tasks()["force_visual_search"]
+        already_done = not self.daily_set.should_perform_visual_search()
+
+        if already_done and not force:
             self.log("Visual Search already completed today. Skipping.")
             return False
 
-        self.log("Visual Search not completed today. Starting Visual Search task...")
+        if already_done:
+            self.log(
+                "Visual Search already marked as done today, but running anyway "
+                "(Force visual search is ON)."
+            )
+        else:
+            self.log(
+                "Visual Search not completed today. Starting Visual Search task..."
+            )
 
         used_images = self.daily_set.get_used_visual_search_images()
 
@@ -2567,12 +2618,32 @@ class AutoRewarderAPI:
             self._session_counts[bucket] += int(done or 0)
 
             ran_daily_set = False
+
+            # Only the PC phase runs the Daily Set, and a day already marked as
+            # done is skipped unless "Force daily tasks" is on.
+            daily_done = False
+            force_daily = False
+            if do_daily_set and self.daily_set is not None:
+                daily_done = not self.daily_set.should_perform_daily_set()
+                force_daily = self.global_settings.get_force_tasks()[
+                    "force_daily_tasks"
+                ]
+
             if (
                 do_daily_set
+                and self.daily_set is not None
                 and not self._stop_event.is_set()
-                and self.daily_set.should_perform_daily_set()
+                and (not daily_done or force_daily)
             ):
-                self.log("Daily Set not completed today. Starting Daily Set tasks...")
+                if daily_done:
+                    self.log(
+                        "Daily Set already marked as done today, but running "
+                        "anyway (Force daily tasks is ON)."
+                    )
+                else:
+                    self.log(
+                        "Daily Set not completed today. Starting Daily Set tasks..."
+                    )
                 human = HumanBehavior(self._driver, show_cursor=True, mobile=mobile)
                 success = self.daily_set.perform_daily_set(
                     self._driver, human, stop_event=self._stop_event
@@ -2593,6 +2664,12 @@ class AutoRewarderAPI:
                         )
                     else:
                         self.log("Daily Set failed. Not marked as done for today.")
+
+            elif daily_done and not self._stop_event.is_set():
+                self.log(
+                    "Daily Set already completed today. Skipping. "
+                    "(Enable 'Force daily tasks' in Settings to run it anyway.)"
+                )
 
             # Visual search runs only in PC phase,
             # do_daily_set=False in Mobile phase.
