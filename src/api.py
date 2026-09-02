@@ -127,6 +127,11 @@ class AutoRewarderAPI:
             "quests": 0,
         }
         self._last_scraped_balance = None
+        # Whether the Daily Set / visual search already ran in this main() call.
+        # A "Force …" setting is persistent, so without these the PC batches of
+        # an advanced schedule would each redo the task (and re-upload an image).
+        self._daily_set_attempted = False
+        self._visual_search_attempted = False
         # Last balance-scrape diagnostic ({value, via, candidates, url, title}),
         # surfaced to the dashboard so a failed read can be debugged in place.
         self._last_balance_debug = {}
@@ -2251,6 +2256,8 @@ class AutoRewarderAPI:
             "quests": 0,
         }
         self._last_scraped_balance = None
+        self._daily_set_attempted = False
+        self._visual_search_attempted = False
 
         try:
             if daily_only:
@@ -2401,6 +2408,7 @@ class AutoRewarderAPI:
         self._driver = self.driver_manager.setup_driver(mobile=False)
         try:
             if run_daily_set:
+                self._daily_set_attempted = True
                 human = HumanBehavior(self._driver, show_cursor=True, mobile=False)
                 success = self.daily_set.perform_daily_set(
                     self._driver, human, stop_event=self._stop_event
@@ -2530,7 +2538,10 @@ class AutoRewarderAPI:
         if self.daily_set is None or self.search_engine is None:
             return False
 
-        force = self.global_settings.get_force_tasks()["force_visual_search"]
+        force = (
+            not self._visual_search_attempted
+            and self.global_settings.get_force_tasks()["force_visual_search"]
+        )
         already_done = not self.daily_set.should_perform_visual_search()
 
         if already_done and not force:
@@ -2546,6 +2557,8 @@ class AutoRewarderAPI:
             self.log(
                 "Visual Search not completed today. Starting Visual Search task..."
             )
+
+        self._visual_search_attempted = True
 
         used_images = self.daily_set.get_used_visual_search_images()
 
@@ -2667,9 +2680,10 @@ class AutoRewarderAPI:
             force_daily = False
             if do_daily_set and self.daily_set is not None:
                 daily_done = not self.daily_set.should_perform_daily_set()
-                force_daily = self.global_settings.get_force_tasks()[
-                    "force_daily_tasks"
-                ]
+                force_daily = (
+                    not self._daily_set_attempted
+                    and self.global_settings.get_force_tasks()["force_daily_tasks"]
+                )
 
             if (
                 do_daily_set
@@ -2691,6 +2705,7 @@ class AutoRewarderAPI:
                     self._driver, human, stop_event=self._stop_event
                 )
                 ran_daily_set = True
+                self._daily_set_attempted = True
                 # Record cards + scrape the balance while still on the rewards
                 # dashboard, before the Stop check can short-circuit.
                 totals = self.daily_set.last_totals
