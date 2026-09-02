@@ -64,7 +64,7 @@
     <!-- ==================== Run card ==================== -->
     <section class="card run-card">
       <div class="run-top">
-        <label class="toggle-row" title="Skip searches; only complete the daily Rewards tasks">
+        <label class="toggle-row" title="Skip searches; only complete the daily Rewards tasks and the visual search">
           <input type="checkbox" id="dailyOnlyToggle">
           <span class="toggle-pill"></span>
           <span class="toggle-label">Daily tasks only</span>
@@ -218,6 +218,33 @@
             </div>
             <span class="toggle-compact">
               <input type="checkbox" id="closeToTrayToggle">
+              <span class="toggle-pill"></span>
+            </span>
+          </label>
+        </section>
+
+        <section class="settings-group">
+          <div class="settings-group-title">Daily tasks</div>
+          <p class="settings-group-hint">
+            A task that already ran today is skipped on the next run. Turn these on to run it again anyway.
+          </p>
+          <label class="settings-row">
+            <div class="settings-row-text">
+              <div class="settings-row-label">Force daily tasks</div>
+              <div class="settings-row-hint">Run the Daily Set and More Activities even when today is already marked as done. Cards that are genuinely complete are still skipped.</div>
+            </div>
+            <span class="toggle-compact">
+              <input type="checkbox" id="forceDailyToggle">
+              <span class="toggle-pill"></span>
+            </span>
+          </label>
+          <label class="settings-row">
+            <div class="settings-row-text">
+              <div class="settings-row-label">Force visual search</div>
+              <div class="settings-row-hint">Run the visual search even when today is already marked as done. A different image is used each time.</div>
+            </div>
+            <span class="toggle-compact">
+              <input type="checkbox" id="forceVisualToggle">
               <span class="toggle-pill"></span>
             </span>
           </label>

@@ -97,6 +97,13 @@ class GlobalSettingsManager:
             # introduced in v3.3; users who prefer the standard X = quit
             # can flip it off in Settings. Read once at app startup.
             "close_to_tray": True,
+            # "Run it anyway" overrides. status.json remembers what already
+            # ran today so a second run of the day skips it; these let the
+            # user re-run a task whose saved status they don't trust (e.g. a
+            # Daily Set card that stayed uncredited, or a visual search that
+            # failed after being marked as done).
+            "force_daily_tasks": False,
+            "force_visual_search": False,
             # Default query counts.
             "queries_pc": 30,
             "queries_mobile": 20,
@@ -170,6 +177,29 @@ class GlobalSettingsManager:
         """Persist the current account id in settings."""
         settings = self.get_settings()
         settings["current_account_id"] = account_id
+        self.save_settings(settings)
+
+    def get_force_tasks(self):
+        """Return the force flags for the daily tasks and the visual search."""
+        settings = self.get_settings()
+        return {
+            "force_daily_tasks": bool(settings.get("force_daily_tasks", False)),
+            "force_visual_search": bool(settings.get("force_visual_search", False)),
+        }
+
+    def set_force_tasks(self, force_daily_tasks, force_visual_search):
+        """
+        Persist the force flags.
+
+        Args:
+            force_daily_tasks (bool): Run the Daily Set even when today is
+                already marked as done.
+            force_visual_search (bool): Run the visual search even when today
+                is already marked as done.
+        """
+        settings = self.get_settings()
+        settings["force_daily_tasks"] = bool(force_daily_tasks)
+        settings["force_visual_search"] = bool(force_visual_search)
         self.save_settings(settings)
 
     def get_queries_pc(self):

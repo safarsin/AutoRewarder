@@ -81,6 +81,15 @@ class DailySet:
         self.dashboard_variant = dashboard_variant
         # Filled in on each `perform_daily_set` call after the driver is ready.
         self.cards = None
+        # Entry URL of the new dashboard's "visual search streak" mission, read
+        # during perform_daily_set. The api passes it to the visual search so
+        # the search starts from the link that credits the mission.
+        self.visual_search_url = None
+        # That mission's progress as (done, total) before this run, plus the
+        # new-dashboard handler that read it, so the api can re-read the
+        # progress after the search to check Rewards actually counted it.
+        self.visual_search_progress = None
+        self._new_handler = None
         # Aggregated card counts from the most recent perform_daily_set call,
         # so the caller (api) can record `newly` completed cards in the stats
         # layer without changing this method's bool return contract.
@@ -481,13 +490,42 @@ class DailySet:
             from .new_dashboard import NewDashboardDailySet
 
             handler = NewDashboardDailySet(logger=self.logger)
+            self._new_handler = handler
             result = handler.perform(driver, human, stop_event=stop_event)
             # Surface the new-dashboard run's counts for the stats layer so
             # per-account statistics stay accurate on migrated accounts.
             self.last_totals = dict(handler.last_totals)
+            if handler.visual_search_url:
+                self.visual_search_url = handler.visual_search_url
+            self.visual_search_progress = handler.visual_search_progress
             return result
 
         return self._perform_legacy(driver, human, stop_event=stop_event)
+
+    def read_visual_search_progress(self, driver):
+        """
+        Re-read the new dashboard's "visual search streak" progress.
+
+        Returns:
+            tuple: (done, total), or None on the legacy dashboard, when the
+                mission isn't offered, or when this account hasn't run a
+                new-dashboard pass in this session.
+        """
+        handler = self._new_handler
+
+        if handler is None:
+            # The daily-set pass may not have run this session (already done
+            # today, or "Daily tasks only" skipped it). Build a handler on
+            # demand — except for accounts pinned to the legacy dashboard,
+            # which has no such mission and would just cost a page load.
+            if (self.dashboard_variant or "auto") == "legacy":
+                return None
+
+            from .new_dashboard import NewDashboardDailySet
+
+            handler = NewDashboardDailySet(logger=self.logger)
+
+        return handler.read_visual_search_progress(driver)
 
     def _detect_variant(self, driver):
         """

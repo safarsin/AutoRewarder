@@ -23,6 +23,7 @@ Welcome! This guide will help you get started with AutoRewarder and explain all 
 - [Understanding the Settings](#understanding-the-settings)
 - [Rewards Dashboard](#rewards-dashboard)
 - [Hide Browser](#hide-browser)
+- [Force daily tasks & visual search](#force-daily-tasks--visual-search)
 - [Autostart & Daily Run Time](#autostart--daily-run-time)
 - [AI-generated search terms (LLM)](#ai-generated-search-terms-llm)
 - [Scheduled runs](#scheduled-runs)
@@ -152,17 +153,21 @@ If a new version is available, AutoRewarder can show an update notification and 
 
 If you've already done your searches manually (or just want to clean up the dashboard quickly), enable the **"Daily tasks only"** toggle before starting. The run skips both Bing search phases and goes straight to the Rewards dashboard to harvest the Daily Set/More Activities cards + Visual Search task.
 
+Anything already marked as done for today is skipped, and the log says so — see [Force daily tasks & visual search](#force-daily-tasks--visual-search) to run it again anyway.
+
 ### Visual Search
 
 This feature uses a rotating pool of base images, random cropping, and varied JPEG compression to create a large number of distinct upload variants, which helps the bot behave more like a real user while reducing the chance of hash-based detection.
 
 The visual-search flow is designed to:
 - run as part of the daily task cycle or after the PC phase, if the task is not already completed
+- start from the Rewards **"Visual search streak"** mission's own link, read off your dashboard — Rewards credits the mission only for a search started there, so a search from a bare `bing.com` runs without ever ticking it
 - produce 54,684 unique variations per image, generating over 1.6 million different upload variants to keep your account safe
 - keep the process human-like with natural mouse movement, randomized delays, and natural page scrolling after upload
+- re-read the mission's progress afterwards (`Activity: 0/1` → `1/1`) and leave the day unmarked when Rewards did not count the search, so the next run tries again
 
 > [!NOTE]
-> The app tracks visual-search completion per day and per account, so the task does not get repeated.
+> The app tracks visual-search completion per day and per account, so the task does not get repeated. Enable **"Force visual search"** in the Settings window to run it again anyway.
 
 ### After Completion
 
@@ -194,6 +199,15 @@ This toggle controls whether you can see Microsoft Edge while searches are happe
 **Why would you use hide-browser?**
 - Less distracting if you're working on something else
 - Slightly faster performance since it doesn't have to render the browser window what will save system resources (RAM/CPU)
+
+### Force daily tasks & visual search
+
+AutoRewarder records, per account and per day, that the Daily Set and the Visual Search have been done, so a second run of the same day skips them. Two toggles in the **Daily tasks** group of the Settings window let you override that record:
+
+- **Force daily tasks:** runs the Daily Set and More Activities even when today is already marked as done. Cards that are genuinely complete are still skipped by the card-level detection, so a forced run on a real already-done day just confirms the state.
+- **Force visual search:** runs the visual search even when today is already marked as done. A different image is picked each time, so nothing is uploaded twice.
+
+Both are **off by default**, which keeps the normal behaviour: what already ran today is not redone. Turn one on when you don't trust the saved status — for instance a task that was marked as done but did not credit.
 
 ### AI-generated search terms (LLM)
 

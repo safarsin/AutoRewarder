@@ -11,6 +11,44 @@ from selenium.webdriver.common.by import By
 from ..utils import human_typing
 from ..emulator import HumanBehavior
 
+# Rewards' "visual search streak" mission credits a search only when it starts
+# from the mission's own link: the Bing homepage carrying its promo code. The
+# dashboard handler reads that link off the payload each run; this is the
+# fallback for when it can't (mission not offered, legacy dashboard, daily-set
+# pass skipped).
+REWARDS_VISUAL_SEARCH_URL = (
+    "https://www.bing.com/?features=vsstreak,vstooltip&form=ML2XES"
+)
+
+# Entry points for the "search by image" widget, tried in order. The homepage
+# only injects the camera button through a lazy fragment, and some flights ship
+# no fragment at all, while the Images vertical always renders it server-side.
+VISUAL_SEARCH_URLS = (
+    REWARDS_VISUAL_SEARCH_URL,
+    "https://www.bing.com",
+    "https://www.bing.com/images",
+)
+
+# Selectors for the camera button, from the most to the least specific.
+VISUAL_SEARCH_BUTTON_LOCATORS = (
+    (By.ID, "sb_sbi"),
+    (By.CSS_SELECTOR, "#sbiarea [role='button']"),
+    (By.ID, "sbi_b"),
+)
+
+# Selectors for the hidden file input of the upload flyout.
+VISUAL_SEARCH_INPUT_LOCATORS = (
+    (By.ID, "sb_fileinput"),
+    (By.CSS_SELECTOR, "input.fileinput[type='file']"),
+    (By.CSS_SELECTOR, "input[type='file'][accept*='image']"),
+)
+
+# URL fragments Bing redirects to once an uploaded image has been searched.
+# Depending on what the image matches, results land either on the image detail
+# page (view=detailv2&iss=sbi...) or on a web SERP for the detected entity
+# (/search?q=...&bcid=...&FORM=SBIIRP), hence several markers.
+VISUAL_SEARCH_RESULT_URL_MARKERS = ("form=sbi", "iss=sbi", "bcid=", "view=detailv2")
+
 
 class SearchEngine:
     """
@@ -290,7 +328,161 @@ class SearchEngine:
 
         return successful
 
-    def perform_visual_search(self, driver, image_path, stop_event=None):
+    def _find_visual_search_element(
+        self,
+        driver,
+        locators,
+        timeout,
+        poll_interval,
+        require_displayed=False,
+        stop_event=None,
+    ):
+        """
+        Poll the page until one of the given locators matches an element.
+
+        Bing renames the ids of its "search by image" widget from time to time,
+        so every step tries a few known selectors instead of a single one.
+
+        Args:
+            driver (WebDriver): An instance of Selenium WebDriver to control the browser.
+            locators (tuple): Tuples of (By, selector) to try, in order of preference.
+            timeout (float): How long to keep polling, in seconds.
+            poll_interval (float): Delay between two polling rounds, in seconds.
+            require_displayed (bool): Whether the element must be visible and enabled.
+                Hidden file inputs still accept send_keys, so this stays False for them.
+            stop_event (threading.Event, optional): When set, polling gives up at
+                once instead of running to the timeout.
+
+        Returns:
+            WebElement: The first matching element, or None if the timeout
+                expired or Stop was requested.
+        """
+
+        deadline = time.monotonic() + timeout
+
+        while True:
+            if stop_event is not None and stop_event.is_set():
+                return None
+
+            for by, selector in locators:
+                try:
+                    element = driver.find_element(by, selector)
+
+                    if require_displayed and not (
+                        element.is_displayed() and element.is_enabled()
+                    ):
+                        continue
+
+                    return element
+
+                except WebDriverException:
+                    continue
+
+            if time.monotonic() >= deadline:
+                return None
+
+            time.sleep(poll_interval)
+
+    def _wait_for_visual_search_results(
+        self, driver, start_url, timeout, poll_interval, stop_event=None
+    ):
+        """
+        Wait until the uploaded image actually lands on a visual search result page.
+
+        Args:
+            driver (WebDriver): An instance of Selenium WebDriver to control the browser.
+            start_url (str): The URL the upload was started from.
+            timeout (float): How long to keep polling, in seconds.
+            poll_interval (float): Delay between two polling rounds, in seconds.
+            stop_event (threading.Event, optional): When set, polling gives up at
+                once instead of running to the timeout.
+
+        Returns:
+            bool: True if the results page was reached, False if the timeout
+                expired or Stop was requested.
+        """
+
+        deadline = time.monotonic() + timeout
+
+        while True:
+            if stop_event is not None and stop_event.is_set():
+                return False
+
+            try:
+                current_url = driver.current_url or ""
+            except WebDriverException:
+                current_url = ""
+
+            if current_url != start_url and any(
+                marker in current_url.lower()
+                for marker in VISUAL_SEARCH_RESULT_URL_MARKERS
+            ):
+                return True
+
+            if time.monotonic() >= deadline:
+                return False
+
+            time.sleep(poll_interval)
+
+    def _search_surface(self, driver):
+        """Return the FORM code of the current page, or its path as a fallback."""
+        try:
+            current_url = driver.current_url or ""
+        except WebDriverException:
+            return "URL unknown"
+
+        for part in current_url.split("?", 1)[-1].split("&"):
+            if part.upper().startswith("FORM="):
+                return part
+        return urlparse(current_url).path or "no FORM code"
+
+    def _log_visual_search_failure(self, driver, step, error=None, stop_event=None):
+        """
+        Log a visual search failure with the step that broke, for debugging.
+
+        Selenium timeouts carry an empty message and a raw msedgedriver
+        stacktrace, so the step name and the current URL are what make the
+        failure readable in the logs.
+
+        Args:
+            driver (WebDriver): An instance of Selenium WebDriver to control the browser.
+            step (str): A short description of the step that failed.
+            error (Exception, optional): The exception that was raised, if any.
+            stop_event (threading.Event, optional): When set, the step didn't
+                fail — it was cancelled — so say that instead.
+
+        Returns:
+            bool: Always False, so callers can `return self._log_visual_search_failure(...)`.
+        """
+
+        if stop_event is not None and stop_event.is_set():
+            self._log("Visual search stopped because Stop was requested.")
+            return False
+
+        try:
+            current_url = driver.current_url
+        except WebDriverException:
+            current_url = "unknown"
+
+        if error is None:
+            reason = "timed out"
+        else:
+            short_error = str(error).split("\n")[0][:80].strip()
+            reason = (
+                f"{type(error).__name__}: {short_error}"
+                if short_error
+                else type(error).__name__
+            )
+
+        self._log(
+            f"[ERROR] Visual search failed while {step} ({reason}). URL: {current_url}"
+        )
+
+        return False
+
+    def perform_visual_search(
+        self, driver, image_path, stop_event=None, entry_url=None
+    ):
         """
         Perform a visual search on Bing using an image file.
 
@@ -298,59 +490,109 @@ class SearchEngine:
             driver (WebDriver): An instance of Selenium WebDriver to control the browser.
             image_path (str): The path to the image file to use for the visual search.
             stop_event (threading.Event, optional): If provided and set, the search will be cancelled.
+            entry_url (str, optional): Page to start from, tried before the
+                defaults. Used for the Rewards mission link read off the
+                dashboard, which is what makes the search credit the streak.
 
         Returns:
             bool: True if the visual search was successful, False otherwise.
         """
-        from selenium.webdriver.support import expected_conditions as EC
-        from selenium.webdriver.support.ui import WebDriverWait
-
         from ..config import APP_DIR
 
-        # In --onefile environments, aggressive WebDriverWait polling overloads
-        # msedgedriver, causing a GetHandleVerifier crash. This flag switches
-        # the script to a time.sleep + static find_element approach which works.
-        if "config" in APP_DIR:
-            portable_mode = True
-        else:
-            portable_mode = False
+        # In --onefile environments, aggressive polling overloads msedgedriver
+        # and causes a GetHandleVerifier crash, so portable builds look for
+        # elements at a slower pace.
+        portable_mode = "config" in APP_DIR
+        poll_interval = 1.5 if portable_mode else 0.5
 
         if stop_event is not None and stop_event.is_set():
             self._log("Skipping visual search because Stop was requested.")
             return False
 
         human = HumanBehavior(driver, show_cursor=True, mobile=False)
+        step = "opening Bing"
+        start_url = ""
+        visual_search_button = None
+
+        entry_urls = list(VISUAL_SEARCH_URLS)
+        if entry_url and entry_url not in entry_urls:
+            entry_urls.insert(0, entry_url)
 
         try:
-            driver.get("https://www.bing.com")
-            wait = WebDriverWait(driver, 15)
+            for url in entry_urls:
+                if stop_event is not None and stop_event.is_set():
+                    self._log("Visual search stopped because Stop was requested.")
+                    return False
 
-            time.sleep(random.uniform(1, 4))
+                driver.get(url)
+                start_url = driver.current_url
 
-            if not portable_mode:
-                visual_search_button = wait.until(
-                    EC.element_to_be_clickable((By.ID, "sb_sbi"))
+                time.sleep(random.uniform(1, 4))
+
+                step = f"looking for the visual search button on {url}"
+                visual_search_button = self._find_visual_search_element(
+                    driver,
+                    VISUAL_SEARCH_BUTTON_LOCATORS,
+                    timeout=15,
+                    poll_interval=poll_interval,
+                    require_displayed=True,
+                    stop_event=stop_event,
                 )
-            else:
-                visual_search_button = driver.find_element(By.ID, "sb_sbi")
-                time.sleep(random.uniform(1, 3))
+
+                if visual_search_button is not None:
+                    break
+
+                if stop_event is not None and stop_event.is_set():
+                    self._log("Visual search stopped because Stop was requested.")
+                    return False
+
+                self._log(
+                    f"[WARNING] No visual search button on {url}. Trying another entry point."
+                )
+
+            if visual_search_button is None:
+                return self._log_visual_search_failure(
+                    driver,
+                    "looking for the visual search button",
+                    stop_event=stop_event,
+                )
 
             human.click_element(visual_search_button)
 
-            if not portable_mode:
-                upload_input = wait.until(
-                    EC.presence_of_element_located((By.ID, "sb_fileinput"))
+            time.sleep(random.uniform(1, 3))
+
+            step = "looking for the image upload field"
+            upload_input = self._find_visual_search_element(
+                driver,
+                VISUAL_SEARCH_INPUT_LOCATORS,
+                timeout=15,
+                poll_interval=poll_interval,
+                stop_event=stop_event,
+            )
+
+            if upload_input is None:
+                return self._log_visual_search_failure(
+                    driver, step, stop_event=stop_event
                 )
-            else:
-                upload_input = driver.find_element(By.ID, "sb_fileinput")
 
             time.sleep(random.uniform(1, 4))
 
             # Send the file path to the hidden type="file" input element
+            step = "uploading the image"
             upload_input.send_keys(image_path)
 
-            # Wait until the visual search results ("All") page is rendered
-            wait.until(EC.visibility_of_element_located((By.ID, "b-scopeListItem-web")))
+            # Wait until the visual search results page is actually rendered
+            step = "waiting for the visual search results"
+            if not self._wait_for_visual_search_results(
+                driver,
+                start_url,
+                timeout=30,
+                poll_interval=poll_interval,
+                stop_event=stop_event,
+            ):
+                return self._log_visual_search_failure(
+                    driver, step, stop_event=stop_event
+                )
 
             time.sleep(random.uniform(4, 8))
 
@@ -366,12 +608,20 @@ class SearchEngine:
                 self._log("Visual search stopped because Stop was requested.")
                 return False
 
-            self._log("Visual search completed successfully.")
+            # Log where the search landed: Bing's FORM code identifies the
+            # surface that credited it (SBIHMP from the homepage, SBIIRP from
+            # the Images vertical, a promo code when started from a Rewards
+            # offer link), which is the first thing to check when the search
+            # runs but the Rewards task stays uncredited.
+            self._log(
+                f"Visual search completed successfully ({self._search_surface(driver)})."
+            )
             return True
 
         except Exception as e:
-            self._log(f"[ERROR] Visual search failed: {e}")
-            return False
+            return self._log_visual_search_failure(
+                driver, step, e, stop_event=stop_event
+            )
 
     def get_next_image_id(self, used_images_list):
         """
