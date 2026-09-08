@@ -27,6 +27,8 @@ Welcome! This guide will help you get started with AutoRewarder and explain all 
 - [Autostart & Daily Run Time](#autostart--daily-run-time)
 - [AI-generated search terms (LLM)](#ai-generated-search-terms-llm)
 - [Scheduled runs](#scheduled-runs)
+- [Managing accounts](#managing-accounts)
+- [About](#about)
 - [System Tray & Application Exit](#system-tray--application-exit)
 
 ### Activity
@@ -181,9 +183,11 @@ The visual-search flow is designed to:
 
 ## Understanding the Settings
 
+Open the Settings window with the gear icon in the top-right corner. The left-hand navigation has two parts: **Application** sections (General, Daily tasks, Search terms) and one entry per **account**. Each account page gathers everything about that account — rename, re-run setup, delete, its Rewards dashboard and its scheduled run. Sections you have edited show a marker in the navigation, and the footer counts the pending changes until you click **Save**.
+
 ### Rewards Dashboard
 
-This setting determines which version of the Microsoft Rewards page layout the bot should interact with. You can choose from the following options:
+This per-account setting lives at the top of each account page (**Settings → Accounts → _account_ → Microsoft Rewards**). It determines which version of the Microsoft Rewards page layout the bot should interact with. You can choose from the following options:
 
 - **Auto (detect):** The bot will automatically identify and use the correct dashboard layout for your account.
 - **Legacy:** Forces the bot to use the older Rewards dashboard layout.
@@ -202,7 +206,7 @@ This toggle controls whether you can see Microsoft Edge while searches are happe
 
 ### Force daily tasks & visual search
 
-AutoRewarder records, per account and per day, that the Daily Set and the Visual Search have been done, so a second run of the same day skips them. Two toggles in the **Daily tasks** group of the Settings window let you override that record:
+AutoRewarder records, per account and per day, that the Daily Set and the Visual Search have been done, so a second run of the same day skips them. Two toggles in the **Daily tasks** section of the Settings window let you override that record:
 
 - **Force daily tasks:** runs the Daily Set and More Activities even when today is already marked as done. Cards that are genuinely complete are still skipped by the card-level detection, so a forced run on a real already-done day just confirms the state.
 - **Force visual search:** runs the visual search even when today is already marked as done. A different image is picked each time, so nothing is uploaded twice.
@@ -211,10 +215,10 @@ Both are **off by default**, which keeps the normal behaviour: what already ran 
 
 ### AI-generated search terms (LLM)
 
-By default, AutoRewarder draws its searches from a large built-in list of English queries. If you'd prefer searches that look natural in **your own language**, enable **"Generate search terms with AI (LLM)"** in the Settings window and provide your own LLM API key (bring-your-own-key).
+By default, AutoRewarder draws its searches from a large built-in list of English queries. If you'd prefer searches that look natural in **your own language**, enable **"Generate search terms with AI (LLM)"** in the **Search terms** section of the Settings window and provide your own LLM API key (bring-your-own-key).
 
-- **Provider & model:** Choose OpenAI, Anthropic, or Google Gemini, and optionally a specific model (leave blank to use a sensible default for that provider).
-- **API key:** Paste a key from your chosen provider. It is stored locally in your `settings.json` (plain text) and is only sent to that provider to request queries — no personal data is shared.
+- **Provider & model:** Choose OpenAI, Anthropic, or Google Gemini. Leave the model on **Default** to use a sensible model for that provider, or click the refresh button next to the model field: it asks the provider which models your key can use and lets you pick one from the list, so you can follow new releases without typing anything. **Custom…** still lets you enter a model id by hand.
+- **API key:** Paste a key from your chosen provider — the **Get an API key** link under the field opens the right page (OpenAI Platform, Anthropic Console or Google AI Studio). The key is stored locally in your `settings.json` (plain text) and is only sent to that provider to request queries or list its models — no personal data is shared.
 - **Language:** Leave **`auto`** to follow the language of the computer running AutoRewarder (detected automatically), or type a locale such as `fr-FR`, `it-IT`, or `en-US` to force one.
 
 On each run, AutoRewarder asks the provider for a fresh batch of queries in your language. If generation fails for any reason — no key, an invalid key, an exceeded quota, or no internet — it silently falls back to the built-in list, so your run always completes.
@@ -225,7 +229,7 @@ On each run, AutoRewarder asks the provider for a fresh batch of queries in your
 ### Autostart & Daily Run Time
 When enabled, AutoRewarder uses your operating system's native task scheduler (Windows Task Scheduler or Linux systemd) to launch headless runs in the background.
 
-- **Independent Schedules:** You can set a specific **Daily run time** (HH:MM) for each account individually in their respective settings cards.
+- **Independent Schedules:** You can set a specific **Daily run time** (HH:MM) for each account individually on its account page in Settings.
 - **Missed Run Catch-up:** If your computer is turned off or asleep during a scheduled time, the run is not lost. The system will automatically catch up and execute the task a few minutes after your next boot.
 - **Smart Deduplication:** If you manually start a run before a delayed catch-up task fires, AutoRewarder detects this and safely skips the scheduled run to prevent double execution.
 
@@ -233,6 +237,14 @@ To disable automated background runs, turn off **Enable Background Auto-Run** or
 
 > [!TIP]
 > **For Multi-Account Users:** If you have multiple accounts configured, it is **highly recommended to stagger their run times**. Since accounts have independent OS tasks, setting them to the exact same time will launch them at the same time, which spikes RAM/CPU usage and can look suspicious to Microsoft (if from the same IP).
+
+### Managing accounts
+
+Every account has its own page in Settings, listed under **Accounts** in the left-hand navigation (the dot next to a name is green when its schedule is on and amber while its first setup is still pending). From the page header you can **rename** the account, **re-run its setup** (for example after the Edge profile got corrupted) or **delete** it — deleting removes the browser profile, history and daily-set status for good. **Add account** at the bottom of the list starts the setup flow for a new account. Switching the active account is still done from the account picker on the main screen.
+
+### About
+
+The **About** section shows the installed version, lets you **check for updates** on demand, opens the folder where AutoRewarder keeps its data (profiles, `settings.json`, background logs) and links to the GitHub repository.
 
 ### System Tray & Application Exit
 By default, clicking the "X" on the main window sends AutoRewarder to the system tray. This allows the application to remain active for background tasks.
@@ -260,7 +272,7 @@ For background runs (Autostart or CLI mode) where there's no visible window, use
 
 ### Scheduled runs
 
-Each account has its own schedule card in the Settings window. The main schedule toggle turns on automated background runs, but it also controls how your manual GUI runs behave.
+Each account has its own page in the Settings window (pick it under **Accounts** in the left-hand navigation); the **Scheduled run** group sits at the bottom of that page. The main schedule toggle turns on automated background runs, but it also controls how your manual GUI runs behave.
 
 **Standard Schedule**
 Turn on the main Schedule toggle, but leave Advanced scheduling *off*. The bot will run automatically at a random minute, processing the PC and Mobile queries in one go.
@@ -361,17 +373,17 @@ If your issue isn't listed, please open an issue on GitHub.
 - Ensure Microsoft Edge is installed
 - Try restarting the application (Selenium Manager will auto-download driver)
 - Check that Edge version is up to date
-- In **Manage accounts**, choose **Re-run setup** for the affected account
+- In **Settings**, open the affected account under **Accounts** and choose **Re-run setup**
 
 **`session not created: DevToolsActivePort file doesn't exist` / Edge failed to start:**
 - Close AutoRewarder and any Edge windows
 - Open Windows Task Manager and kill all `msedge.exe` processes (and `msedgedriver.exe` if present)
 - Open Edge normally and complete any pending updates at `edge://settings/help`
 - Re-run AutoRewarder
-- If it still fails, use **Manage accounts** -> **Re-run setup** for the account
+- If it still fails, open the account in **Settings** and choose **Re-run setup**
 
 **Application crashes on startup:**
-- In **Manage accounts**, delete or re-run setup for the affected account
+- In **Settings**, open the affected account under **Accounts** and delete it or re-run its setup
 - Verify dependencies: `pip install -r requirements.txt` if running from source
 - Check Windows Event Viewer for error details
 

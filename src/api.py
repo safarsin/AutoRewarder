@@ -18,6 +18,7 @@ import webbrowser
 # display-layer requirements.
 
 from .config import (
+    APP_DIR,
     GUI_DIR,
     REPO,
     CURRENT_VERSION,
@@ -383,6 +384,65 @@ class AutoRewarderAPI:
         """Open a URL in the system default browser."""
         webbrowser.open(url)
 
+    # ------------------------------------------------------------------
+    # Exposed to JS: Settings > About
+    # ------------------------------------------------------------------
+
+    def get_app_info(self):
+        """Return version and storage details for the About panel."""
+        return {
+            "version": CURRENT_VERSION,
+            "app_dir": APP_DIR,
+            "repo_url": f"https://github.com/{REPO}",
+            "platform": platform.system(),
+        }
+
+    def open_data_folder(self):
+        """
+        Open the app data folder (profiles, settings.json, logs) in the OS
+        file manager.
+
+        Returns:
+            bool: True if the file manager was launched, False otherwise.
+        """
+        try:
+            if sys.platform == "win32":
+                os.startfile(APP_DIR)
+            else:
+                subprocess.Popen(
+                    ["xdg-open", APP_DIR],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            return True
+        except Exception as e:
+            self.log(f"[ERROR] Could not open the data folder: {e}")
+            return False
+
+    def check_updates_now(self):
+        """
+        Check GitHub for a newer release on demand (About panel button).
+
+        Unlike the launch-time check, the result is returned to the caller
+        instead of being pushed into the activity log.
+
+        Returns:
+            dict: {ok, update_available, latest, current, url}. `ok` is False
+                when GitHub could not be reached; `latest` is None then.
+        """
+        try:
+            needs_update, latest = check_for_updates(logger=self.log)
+        except Exception as e:
+            self.log(f"[ERROR] Error checking for updates: {e}")
+            needs_update, latest = False, None
+        return {
+            "ok": latest is not None,
+            "update_available": bool(needs_update and latest),
+            "latest": latest,
+            "current": CURRENT_VERSION,
+            "url": f"https://github.com/{REPO}/releases/latest",
+        }
+
     def load_driver_in_background(self):
         """Warmup the WebDriver download, only if an account is selected."""
         if self.account_manager.current_id() is None:
@@ -536,6 +596,9 @@ class AutoRewarderAPI:
         """
         cfg = self.global_settings.get_llm_config()
         cfg["effective_locale"] = self.global_settings.get_effective_locale()
+        # Lets the Settings UI label the blank model choice with the actual
+        # default id for the selected provider.
+        cfg["default_models"] = dict(llm.DEFAULT_MODELS)
         return cfg
 
     def set_llm_config(
@@ -557,6 +620,16 @@ class AutoRewarderAPI:
         except Exception as e:
             self.log(f"[WARNING] Failed to save LLM config: {e}")
             return False
+
+    def list_llm_models(self, provider, api_key):
+        """
+        Fetch the chat models `api_key` can use at `provider`, for the model
+        picker in Settings > Search terms. Never raises.
+
+        Returns:
+            dict: {ok, models: [{id, label}], error?} — see llm.list_models.
+        """
+        return llm.list_models(provider, api_key, logger=self.log)
 
     def set_detected_locale(self, locale):
         """

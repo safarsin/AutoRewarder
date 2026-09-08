@@ -581,10 +581,10 @@ function render_account_menu() {
     manageBtn.style.color = 'var(--text-muted)';
     manageBtn.innerHTML =
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
-      '<span>Manage accounts…</span>';
+      '<span>Account settings…</span>';
     manageBtn.addEventListener('click', () => {
       toggle_account_menu(false);
-      open_accounts_modal();
+      open_settings_modal(currentAccountId ? account_panel_id(currentAccountId) : 'general');
     });
     menu.appendChild(manageBtn);
   }
@@ -648,30 +648,111 @@ async function prompt_and_create_account() {
 }
 
 // =========================================================================
-// Accounts management modal (opens from the header button or dropdown action)
+// Settings modal — side navigation, one panel per section / per account
+//
+// Panel ids: "general", "tasks", "search", "about" (static markup in
+// index.html) and "acc:<account_id>" (built here from get_all_schedules()).
+// The per-account identity header, setup banner and rename / re-run setup /
+// delete actions live in settings.js.
 // =========================================================================
 
-function open_accounts_modal() {
-  const backdrop = document.getElementById('accounts_modal');
-  if (!backdrop) return;
-  backdrop.hidden = false;
-  if (typeof render_accounts_section === 'function') {
-    render_accounts_section(accountsCache);
+// Panel ids with unsaved edits. Drives the nav markers, the footer summary
+// and the "Discard changes?" prompt on close.
+const settingsDirty = new Set();
+let settingsActivePanel = 'general';
+// False while the modal is loading (or after a failed load): Save is
+// disabled and save_settings() refuses to run, so stale or default field
+// values can never be persisted.
+let settingsLoaded = false;
+let aboutRepoUrl = 'https://github.com/safarsin/AutoRewarder';
+
+function account_panel_id(accountId) {
+  return 'acc:' + accountId;
+}
+
+function settings_panels() {
+  return Array.from(document.querySelectorAll('#settings_pane_body .settings-panel'));
+}
+
+function settings_nav_items() {
+  return Array.from(document.querySelectorAll('#settings_nav .settings-nav-item'));
+}
+
+function settings_is_open() {
+  const backdrop = document.getElementById('settings_modal');
+  return Boolean(backdrop && !backdrop.hidden);
+}
+
+// Show one panel, highlight its nav entry and update the pane header. Falls
+// back to General when the requested panel no longer exists (deleted account).
+function settings_go(panelId) {
+  const panels = settings_panels();
+  let target = panels.find(p => p.dataset.panel === panelId);
+  if (!target) {
+    target = panels.find(p => p.dataset.panel === 'general');
+    if (!target) return;
+    panelId = 'general';
   }
+  settingsActivePanel = panelId;
+
+  panels.forEach(p => p.classList.toggle('active', p === target));
+  settings_nav_items().forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.panel === panelId);
+  });
+
+  const title = document.getElementById('settings_pane_title');
+  const desc = document.getElementById('settings_pane_desc');
+  if (title) title.textContent = target.dataset.title || '';
+  if (desc) desc.textContent = target.dataset.desc || '';
+
+  const body = document.getElementById('settings_pane_body');
+  if (body) body.scrollTop = 0;
 }
 
-function close_accounts_modal() {
-  const backdrop = document.getElementById('accounts_modal');
-  if (backdrop) backdrop.hidden = true;
+function settings_mark_dirty(panelId) {
+  if (!panelId) return;
+  settingsDirty.add(panelId);
+  settings_refresh_dirty();
 }
 
-// =========================================================================
-// Settings modal (general + scheduled run)
-// =========================================================================
+function settings_clear_dirty() {
+  settingsDirty.clear();
+  settings_refresh_dirty();
+}
 
-function open_settings_modal() {
+function settings_refresh_dirty() {
+  settings_nav_items().forEach(btn => {
+    btn.dataset.dirty = settingsDirty.has(btn.dataset.panel) ? '1' : '0';
+  });
+  const summary = document.getElementById('settings_dirty');
+  if (!summary) return;
+  const n = settingsDirty.size;
+  summary.textContent =
+    n === 0 ? 'No changes' : (n === 1 ? '1 section changed' : `${n} sections changed`);
+  summary.classList.toggle('has-changes', n > 0);
+}
+
+/**
+ * Open the Settings modal. `panelId` selects the section to land on
+ * (e.g. account_panel_id(id) from the account dropdown); anything else —
+ * including the click Event passed by a plain listener — opens General.
+ */
+function open_settings_modal(panelId) {
   const backdrop = document.getElementById('settings_modal');
   if (!backdrop) return;
+  const initialPanel = typeof panelId === 'string' ? panelId : 'general';
+
+  // Static panels can be shown right away; account panels exist only after
+  // the schedules have loaded, so settings_go() runs again below.
+  settings_clear_dirty();
+  settings_go(initialPanel.startsWith('acc:') ? 'general' : initialPanel);
+
+  // Nothing can be saved until every value below has been loaded into the
+  // fields; otherwise a click during loading would persist stale or default
+  // values.
+  settingsLoaded = false;
+  const saveBtn = document.getElementById('settingsSave');
+  if (saveBtn) saveBtn.disabled = true;
 
   Promise.all([
     pywebview.api.get_all_schedules(),
@@ -679,10 +760,11 @@ function open_settings_modal() {
     pywebview.api.get_close_to_tray(),
     pywebview.api.get_llm_config(),
     pywebview.api.get_force_tasks(),
-  ]).then(([schedules, startup, closeToTray, llmConfig, forceTasks]) => {
-    render_schedule_cards(schedules || []);
+    pywebview.api.get_app_info(),
+  ]).then(([schedules, startup, closeToTray, llmConfig, forceTasks, appInfo]) => {
+    render_account_panels(Array.isArray(schedules) ? schedules : []);
 
-    // Start-with-Windows toggle — disable row on unsupported OS.
+    // Background auto-run toggle — disable row on unsupported OS.
     const startupToggle = document.getElementById('startupToggle');
     const startupRow = startupToggle.closest('.settings-row');
     const startupHint = document.getElementById('startup_hint');
@@ -714,14 +796,18 @@ function open_settings_modal() {
     const cfg = llmConfig || {};
     const llmToggle = document.getElementById('llmToggle');
     const providerSel = document.getElementById('llmProvider');
-    const modelInput = document.getElementById('llmModel');
     const keyInput = document.getElementById('llmApiKey');
     const localeInput = document.getElementById('llmLocale');
     const localeHint = document.getElementById('llm_locale_hint');
     if (llmToggle) llmToggle.checked = Boolean(cfg.use_llm_queries);
     if (providerSel && cfg.llm_provider) providerSel.value = cfg.llm_provider;
-    if (modelInput) modelInput.value = cfg.llm_model || '';
-    if (keyInput) keyInput.value = cfg.llm_api_key || '';
+    llmDefaultModels = cfg.default_models || {};
+    llm_render_model_options(cfg.llm_model || '');
+    llm_update_key_link();
+    if (keyInput) {
+      keyInput.value = cfg.llm_api_key || '';
+      set_api_key_visible(false);
+    }
     if (localeInput) localeInput.value = cfg.search_locale || 'auto';
     if (localeHint) {
       const eff = cfg.effective_locale || 'en-US';
@@ -729,17 +815,58 @@ function open_settings_modal() {
         `Detected language: ${eff}. Leave "auto" to follow your system, or enter a locale like fr-FR.`;
     }
     apply_llm_field_state();
+    // Fill the model picker once per session when the feature is usable;
+    // the refresh button re-fetches on demand.
+    if (cfg.use_llm_queries && cfg.llm_api_key) {
+      if (llmModelCache[llm_provider()]) llm_set_model_hint(llm_loaded_hint(), false);
+      else llm_load_models();
+    } else {
+      llm_set_model_hint(LLM_MODEL_HINT_IDLE, false);
+    }
+
+    render_about_panel(appInfo || {});
+
+    // Filling the fields above fired no input/change events (values were set
+    // programmatically), so nothing is dirty yet — but clear defensively.
+    settings_clear_dirty();
+    settings_go(initialPanel);
+    settingsLoaded = true;
+    if (saveBtn) saveBtn.disabled = false;
   }).catch(err => {
     console.error('Failed to load settings:', err);
     show_toast('Could not load settings.', 'error');
+    // The fields hold defaults or stale values: close rather than let the
+    // user edit and save them.
+    close_settings_modal({ force: true });
   });
 
   backdrop.hidden = false;
 }
 
-function close_settings_modal() {
+/**
+ * Close the Settings modal. With unsaved edits, asks for confirmation first
+ * unless `opts.force` is true (used right after a successful save). A DOM
+ * Event passed by a plain click listener is ignored.
+ */
+async function close_settings_modal(opts) {
   const backdrop = document.getElementById('settings_modal');
-  if (backdrop) backdrop.hidden = true;
+  if (!backdrop || backdrop.hidden) return;
+
+  const force = Boolean(opts && opts.force === true);
+  if (!force && settingsDirty.size > 0) {
+    const n = settingsDirty.size;
+    const discard = await confirm_modal(
+      'Discard changes?',
+      n === 1
+        ? 'One section has unsaved changes. Close without saving?'
+        : `${n} sections have unsaved changes. Close without saving?`,
+      { confirmLabel: 'Discard' }
+    );
+    if (!discard) return;
+  }
+
+  backdrop.hidden = true;
+  settings_clear_dirty();
 }
 
 // Dim + disable the LLM config fields when the feature is toggled off.
@@ -750,25 +877,240 @@ function apply_llm_field_state() {
   fields.classList.toggle('dim', !(toggle && toggle.checked));
 }
 
-function render_schedule_cards(schedules) {
-  const container = document.getElementById('schedule_accounts_list');
-  const empty = document.getElementById('schedule_empty');
-  if (!container || !empty) return;
+function set_api_key_visible(visible) {
+  const key = document.getElementById('llmApiKey');
+  const btn = document.getElementById('llmApiKeyToggle');
+  if (!key) return;
+  key.type = visible ? 'text' : 'password';
+  if (btn) {
+    const label = visible ? 'Hide API key' : 'Show API key';
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
+  }
+}
 
-  container.innerHTML = '';
+// -------------------------------------------------------------------------
+// Search terms: key portals + model picker
+// -------------------------------------------------------------------------
 
-  if (!schedules || schedules.length === 0) {
-    container.hidden = true;
-    empty.hidden = false;
+const LLM_PROVIDERS = {
+  openai:    { label: 'OpenAI',        keyLabel: 'the OpenAI Platform',   keyUrl: 'https://platform.openai.com/api-keys' },
+  anthropic: { label: 'Anthropic',     keyLabel: 'the Anthropic Console', keyUrl: 'https://console.anthropic.com/settings/keys' },
+  gemini:    { label: 'Google Gemini', keyLabel: 'Google AI Studio',      keyUrl: 'https://aistudio.google.com/app/apikey' },
+};
+const LLM_CUSTOM_MODEL = '__custom__';
+const LLM_MODEL_HINT_IDLE = 'Load the list to pick a model, or keep the provider default.';
+
+// Models fetched this session, per provider: switching providers back and
+// forth refills the picker without another network call.
+let llmModelCache = {};
+// Provider -> default model id (from get_llm_config); labels the blank choice.
+let llmDefaultModels = {};
+
+function llm_provider() {
+  const sel = document.getElementById('llmProvider');
+  const value = sel ? sel.value : 'openai';
+  return LLM_PROVIDERS[value] ? value : 'openai';
+}
+
+function llm_update_key_link() {
+  const link = document.getElementById('llmKeyLink');
+  if (!link) return;
+  const info = LLM_PROVIDERS[llm_provider()];
+  link.textContent = info.keyLabel;
+  link.dataset.url = info.keyUrl;
+}
+
+// The model id as it will be saved; '' means the provider default.
+function llm_model_value() {
+  const sel = document.getElementById('llmModel');
+  if (!sel) return '';
+  if (sel.value === LLM_CUSTOM_MODEL) {
+    const custom = document.getElementById('llmModelCustom');
+    return custom ? custom.value.trim() : '';
+  }
+  return sel.value;
+}
+
+function llm_apply_custom_state() {
+  const sel = document.getElementById('llmModel');
+  const field = document.getElementById('llm_model_custom_field');
+  if (!sel || !field) return;
+  field.hidden = sel.value !== LLM_CUSTOM_MODEL;
+}
+
+/**
+ * Rebuild the model picker: provider default, the models loaded for the
+ * current provider, the configured id when it is not among them, then
+ * "Custom…" for a hand-typed id.
+ */
+function llm_render_model_options(selectedId) {
+  const sel = document.getElementById('llmModel');
+  if (!sel) return;
+  const provider = llm_provider();
+  const wanted = (selectedId || '').trim();
+  const loaded = llmModelCache[provider] || [];
+
+  sel.innerHTML = '';
+  const add = (value, label, title) => {
+    const o = document.createElement('option');
+    o.value = value;
+    o.textContent = label;
+    if (title) o.title = title;
+    sel.appendChild(o);
+  };
+  const def = llmDefaultModels[provider];
+  add('', def ? `Default (${def})` : 'Default for provider');
+  loaded.forEach(m => add(m.id, m.label || m.id, m.id));
+  if (wanted && !loaded.some(m => m.id === wanted)) add(wanted, wanted, wanted);
+  add(LLM_CUSTOM_MODEL, 'Custom…');
+
+  sel.value = wanted;
+  llm_apply_custom_state();
+}
+
+function llm_set_model_hint(text, isWarning) {
+  const hint = document.getElementById('llm_model_hint');
+  if (!hint) return;
+  hint.textContent = text;
+  hint.classList.toggle('warning', Boolean(isWarning));
+}
+
+function llm_loaded_hint() {
+  const n = (llmModelCache[llm_provider()] || []).length;
+  return `${n} model${n === 1 ? '' : 's'} available for this key.`;
+}
+
+// Ask the provider which models this key can use, then refill the picker.
+function llm_load_models() {
+  const provider = llm_provider();
+  const keyInput = document.getElementById('llmApiKey');
+  const key = keyInput ? keyInput.value.trim() : '';
+  const btn = document.getElementById('llmModelRefresh');
+  if (!key) {
+    llm_set_model_hint('Enter an API key to load the model list.', true);
     return;
   }
-  container.hidden = false;
-  empty.hidden = true;
+  if (btn) { btn.disabled = true; btn.classList.add('busy'); }
+  llm_set_model_hint(`Loading models from ${LLM_PROVIDERS[provider].label}…`, false);
 
-  for (const item of schedules) {
-    const card = build_schedule_card(item);
-    container.appendChild(card);
+  const done = () => {
+    if (btn) { btn.disabled = false; btn.classList.remove('busy'); }
+  };
+  pywebview.api.list_llm_models(provider, key).then(result => {
+    const r = result || {};
+    if (r.ok && Array.isArray(r.models)) {
+      llmModelCache[provider] = r.models;
+      // Only touch the picker if the user is still on that provider.
+      if (llm_provider() === provider) {
+        llm_render_model_options(llm_model_value());
+        llm_set_model_hint(llm_loaded_hint(), false);
+      }
+    } else if (llm_provider() === provider) {
+      llm_set_model_hint(r.error || 'Could not load the model list.', true);
+    }
+    done();
+  }).catch(err => {
+    console.error('list_llm_models failed:', err);
+    if (llm_provider() === provider) llm_set_model_hint('Could not load the model list.', true);
+    done();
+  });
+}
+
+function llm_on_provider_change() {
+  const provider = llm_provider();
+  const current = llm_model_value();
+  const loaded = llmModelCache[provider] || [];
+  // A model id rarely survives a provider switch: keep it only if the new
+  // provider's list knows it, otherwise fall back to that provider's default.
+  llm_render_model_options(loaded.some(m => m.id === current) ? current : '');
+  llm_update_key_link();
+  llm_set_model_hint(loaded.length ? llm_loaded_hint() : LLM_MODEL_HINT_IDLE, false);
+}
+
+function llm_on_toggle_change() {
+  apply_llm_field_state();
+  const toggle = document.getElementById('llmToggle');
+  const keyInput = document.getElementById('llmApiKey');
+  if (toggle && toggle.checked && keyInput && keyInput.value.trim() && !llmModelCache[llm_provider()]) {
+    llm_load_models();
   }
+}
+
+// -------------------------------------------------------------------------
+// Account panels (one nav entry + one panel per account)
+// -------------------------------------------------------------------------
+
+// Merge a get_all_schedules() item with the cached list_accounts() entry so
+// the identity header knows whether this is the current account.
+function account_view_model(item) {
+  const cached = accountsCache.find(a => a.id === item.id);
+  return {
+    id: item.id,
+    label: item.label,
+    first_setup_done: Boolean(item.first_setup_done),
+    is_current: Boolean(cached && cached.is_current),
+  };
+}
+
+function make_nav_empty() {
+  const el = document.createElement('div');
+  el.className = 'settings-nav-empty';
+  el.textContent = 'No accounts yet';
+  return el;
+}
+
+function render_account_panels(schedules) {
+  const navWrap = document.getElementById('settings_nav_accounts');
+  const panelWrap = document.getElementById('settings_account_panels');
+  if (!navWrap || !panelWrap) return;
+
+  navWrap.innerHTML = '';
+  panelWrap.innerHTML = '';
+
+  if (!schedules.length) {
+    navWrap.appendChild(make_nav_empty());
+    return;
+  }
+  for (const item of schedules) {
+    navWrap.appendChild(build_account_nav_item(item));
+    panelWrap.appendChild(build_account_panel(item));
+  }
+}
+
+function build_account_nav_item(item) {
+  const acc = account_view_model(item);
+  const sched = item.schedule || {};
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'settings-nav-item';
+  btn.dataset.panel = account_panel_id(acc.id);
+  btn.dataset.id = acc.id;
+
+  btn.appendChild(make_avatar(acc, 'sm'));
+
+  const label = document.createElement('span');
+  label.className = 'settings-nav-label';
+  label.textContent = acc.label;
+  btn.appendChild(label);
+
+  const status = document.createElement('span');
+  status.className = 'settings-nav-status';
+  btn.appendChild(status);
+
+  update_account_nav_status(btn, acc, Boolean(sched.enabled));
+  return btn;
+}
+
+// State dot on a nav entry: amber = setup pending, green = schedule on.
+function update_account_nav_status(btn, acc, scheduleEnabled) {
+  const status = btn.querySelector('.settings-nav-status');
+  if (!status) return;
+  const pending = !acc.first_setup_done;
+  status.classList.toggle('pending', pending);
+  status.classList.toggle('on', !pending && scheduleEnabled);
+  status.title = pending ? 'Setup pending' : (scheduleEnabled ? 'Schedule on' : 'Schedule off');
 }
 
 function format_schedule_summary(item, sched, enabled) {
@@ -785,51 +1127,65 @@ function format_schedule_summary(item, sched, enabled) {
   return `${prefix}${time} · PC ${pc} / Mobile ${mobile}`;
 }
 
-function build_schedule_card(item) {
-  const acc = { id: item.id, label: item.label };
+/**
+ * Build the full panel for one account: identity header (+ setup banner),
+ * the Rewards dashboard choice, then the schedule. Field class names are
+ * what save_settings() reads back.
+ */
+function build_account_panel(item) {
+  const acc = account_view_model(item);
   const sched = item.schedule || {};
 
-  const card = document.createElement('div');
-  card.className = 'schedule-card' + (sched.enabled ? '' : ' disabled');
-  card.dataset.id = item.id;
+  const panel = document.createElement('div');
+  panel.className = 'settings-panel settings-account-panel';
+  panel.dataset.panel = account_panel_id(acc.id);
+  panel.dataset.id = acc.id;
+  panel.dataset.title = acc.label;
+  panel.dataset.desc = 'Identity, Rewards dashboard and scheduled run for this account.';
 
-  // Header: accordion trigger (avatar + info + chevron) + enable toggle.
+  panel.appendChild(build_account_identity(acc));
+  if (!acc.first_setup_done) panel.appendChild(build_setup_note(acc));
+
+  // --- Microsoft Rewards: which dashboard this account uses. Applies to
+  // every run, not just scheduled ones, hence its own group. ---
+  const rewards = document.createElement('section');
+  rewards.className = 'settings-group';
+
+  const rewardsTitle = document.createElement('div');
+  rewardsTitle.className = 'settings-group-title';
+  rewardsTitle.textContent = 'Microsoft Rewards';
+  rewards.appendChild(rewardsTitle);
+
+  const DASHBOARD_VARIANTS = ['auto', 'legacy', 'new'];
+  const dashDefault = DASHBOARD_VARIANTS.includes(item.dashboard_variant)
+    ? item.dashboard_variant : 'auto';
+  rewards.appendChild(make_select_field('Dashboard', 'schedule-dashboard', dashDefault, [
+    { value: 'auto', label: 'Auto (detect)' },
+    { value: 'legacy', label: 'Legacy' },
+    { value: 'new', label: 'New' },
+  ]));
+
+  const rewardsHint = document.createElement('p');
+  rewardsHint.className = 'form-hint';
+  rewardsHint.textContent =
+    'Which Microsoft Rewards page this account uses for the Daily Set. Applies to every run, scheduled or not.';
+  rewards.appendChild(rewardsHint);
+  panel.appendChild(rewards);
+
+  // --- Scheduled run ---
+  const schedGroup = document.createElement('section');
+  schedGroup.className = 'settings-group';
+
   const header = document.createElement('div');
-  header.className = 'schedule-card-header';
+  header.className = 'settings-group-header';
 
-  const trigger = document.createElement('button');
-  trigger.type = 'button';
-  trigger.className = 'schedule-card-trigger';
-  trigger.setAttribute('aria-expanded', 'false');
+  const schedTitle = document.createElement('div');
+  schedTitle.className = 'settings-group-title';
+  schedTitle.textContent = 'Scheduled run';
 
-  trigger.appendChild(make_avatar(acc));
-
-  const title = document.createElement('div');
-  title.className = 'schedule-card-title';
-  const name = document.createElement('div');
-  name.className = 'schedule-card-name';
-  name.textContent = acc.label;
-  const status = document.createElement('div');
-  status.className = 'schedule-card-status';
-  status.textContent = format_schedule_summary(item, sched, Boolean(sched.enabled));
-  title.appendChild(name);
-  title.appendChild(status);
-  trigger.appendChild(title);
-
-  const chev = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  chev.setAttribute('class', 'schedule-card-chev');
-  chev.setAttribute('width', '14');
-  chev.setAttribute('height', '14');
-  chev.setAttribute('viewBox', '0 0 24 24');
-  chev.setAttribute('fill', 'none');
-  chev.setAttribute('stroke', 'currentColor');
-  chev.setAttribute('stroke-width', '2');
-  chev.setAttribute('stroke-linecap', 'round');
-  chev.setAttribute('stroke-linejoin', 'round');
-  chev.innerHTML = '<polyline points="6 9 12 15 18 9"></polyline>';
-  trigger.appendChild(chev);
-
-  header.appendChild(trigger);
+  const summary = document.createElement('span');
+  summary.className = 'settings-group-summary';
+  summary.textContent = format_schedule_summary(item, sched, Boolean(sched.enabled));
 
   const toggleWrap = document.createElement('label');
   toggleWrap.className = 'toggle-compact';
@@ -843,24 +1199,29 @@ function build_schedule_card(item) {
   togglePill.className = 'toggle-pill';
   toggleWrap.appendChild(toggleInput);
   toggleWrap.appendChild(togglePill);
+
+  header.appendChild(schedTitle);
+  header.appendChild(summary);
   header.appendChild(toggleWrap);
+  schedGroup.appendChild(header);
 
-  card.appendChild(header);
+  // Fields dim while the schedule is off (same pattern as the LLM block).
+  const fields = document.createElement('div');
+  fields.className = 'settings-fields schedule-fields';
+  if (!toggleInput.checked) fields.classList.add('dim');
 
-  // Body (collapsed by default via CSS).
-  const body = document.createElement('div');
-  body.className = 'schedule-card-body';
-
-  // Dashboard variant row (applies to any run, not just scheduled ones):
-  // which Microsoft Rewards dashboard this account uses for the Daily Set.
-  const DASHBOARD_VARIANTS = ['auto', 'legacy', 'new'];
-  const dashDefault = DASHBOARD_VARIANTS.includes(item.dashboard_variant)
-    ? item.dashboard_variant : 'auto';
-  body.appendChild(make_select_field('Rewards dashboard', 'schedule-dashboard', dashDefault, [
-    { value: 'auto', label: 'Auto (detect)' },
-    { value: 'legacy', label: 'Legacy' },
-    { value: 'new', label: 'New' },
-  ]));
+  // Daily fire time + PC/Mobile counts on one row. The time is when the
+  // OS-level scheduled task triggers for this account — only effective when
+  // Background auto-run is on AND this schedule is enabled.
+  const rowMain = document.createElement('div');
+  rowMain.className = 'form-grid-3';
+  const timeDefault = (sched.run_time && /^\d{2}:\d{2}$/.test(sched.run_time)) ? sched.run_time : '09:00';
+  const pcDefault = sched.queries_pc != null ? sched.queries_pc : 30;
+  const mobileDefault = sched.queries_mobile != null ? sched.queries_mobile : 20;
+  rowMain.appendChild(make_form_field('Daily run time', 'time', 'schedule-run-time', timeDefault, {}));
+  rowMain.appendChild(make_form_field('PC queries', 'number', 'schedule-queries-pc', pcDefault, { min: 0, max: 130 }));
+  rowMain.appendChild(make_form_field('Mobile queries', 'number', 'schedule-queries-mobile', mobileDefault, { min: 0, max: 99 }));
+  fields.appendChild(rowMain);
 
   // Advanced scheduling sub-toggle row.
   const advRow = document.createElement('label');
@@ -880,22 +1241,7 @@ function build_schedule_card(item) {
   advWrap.appendChild(advPill);
   advRow.appendChild(advWrap);
   advRow.appendChild(advLabel);
-  body.appendChild(advRow);
-
-  // PC + Mobile row.
-  const rowPcMobile = document.createElement('div');
-  rowPcMobile.className = 'form-grid-2';
-  const pcDefault = sched.queries_pc != null ? sched.queries_pc : 30;
-  const mobileDefault = sched.queries_mobile != null ? sched.queries_mobile : 20;
-  rowPcMobile.appendChild(make_form_field('PC queries', 'number', 'schedule-queries-pc', pcDefault, { min: 0, max: 130 }));
-  rowPcMobile.appendChild(make_form_field('Mobile queries', 'number', 'schedule-queries-mobile', mobileDefault, { min: 0, max: 99 }));
-  body.appendChild(rowPcMobile);
-
-  // Daily fire time row — when the OS-level scheduled task triggers for
-  // this account. Only effective when the global Start-with-Windows
-  // toggle is on AND this account's schedule is enabled.
-  const timeDefault = (sched.run_time && /^\d{2}:\d{2}$/.test(sched.run_time)) ? sched.run_time : '09:00';
-  body.appendChild(make_form_field('Daily run time', 'time', 'schedule-run-time', timeDefault, {}));
+  fields.appendChild(advRow);
 
   // Duration + qph row (only meaningful when advancedScheduling is on).
   const rowAdv = document.createElement('div');
@@ -905,63 +1251,191 @@ function build_schedule_card(item) {
   rowAdv.appendChild(make_form_field('Run duration (h)', 'number', 'schedule-run-duration', durDefault, { min: 1, max: 24 }));
   rowAdv.appendChild(make_form_field('Queries / hour', 'number', 'schedule-queries-per-hour', qphDefault, { min: 1, max: 99 }));
   if (!advInput.checked) rowAdv.classList.add('dim');
-  body.appendChild(rowAdv);
+  fields.appendChild(rowAdv);
 
-  card.appendChild(body);
+  const schedHint = document.createElement('p');
+  schedHint.className = 'form-hint';
+  schedHint.textContent =
+    'Background runs fire at a random minute after this time and need "Background auto-run" (General) to be on. ' +
+    'Advanced scheduling also paces manual runs started from the main screen.';
+  fields.appendChild(schedHint);
 
-  // Accordion expand/collapse on trigger click — one open at a time.
-  trigger.addEventListener('click', () => {
-    const wasExpanded = card.classList.contains('expanded');
-    const container = document.getElementById('schedule_accounts_list');
-    if (container) {
-      container.querySelectorAll('.schedule-card.expanded').forEach(other => {
-        other.classList.remove('expanded');
-        const otherTrig = other.querySelector('.schedule-card-trigger');
-        if (otherTrig) otherTrig.setAttribute('aria-expanded', 'false');
-      });
-    }
-    if (!wasExpanded) {
-      card.classList.add('expanded');
-      trigger.setAttribute('aria-expanded', 'true');
-      // Bring the freshly-expanded card into view inside its scrollable
-      // container so its body fields aren't clipped when there are many
-      // accounts. Wait for the max-height transition to start so we know
-      // the final layout height.
-      setTimeout(() => {
-        try {
-          card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        } catch (_) { /* older webview engines */ }
-      }, 240);
-    }
-  });
+  schedGroup.appendChild(fields);
+  panel.appendChild(schedGroup);
 
-  // Live summary refresh whenever a field changes.
+  // Live summary + nav dot refresh whenever a field changes.
   const refreshSummary = () => {
     const liveSched = {
       advancedScheduling: advInput.checked,
-      queries_pc: parseInt(card.querySelector('.schedule-queries-pc').value, 10),
-      queries_mobile: parseInt(card.querySelector('.schedule-queries-mobile').value, 10),
-      runDuration: parseInt(card.querySelector('.schedule-run-duration').value, 10),
-      queriesPerHour: parseInt(card.querySelector('.schedule-queries-per-hour').value, 10),
-      run_time: card.querySelector('.schedule-run-time').value,
+      queries_pc: parseInt(panel.querySelector('.schedule-queries-pc').value, 10),
+      queries_mobile: parseInt(panel.querySelector('.schedule-queries-mobile').value, 10),
+      runDuration: parseInt(panel.querySelector('.schedule-run-duration').value, 10),
+      queriesPerHour: parseInt(panel.querySelector('.schedule-queries-per-hour').value, 10),
+      run_time: panel.querySelector('.schedule-run-time').value,
     };
-    status.textContent = format_schedule_summary(item, liveSched, toggleInput.checked);
+    summary.textContent = format_schedule_summary(item, liveSched, toggleInput.checked);
   };
 
   toggleInput.addEventListener('change', () => {
-    card.classList.toggle('disabled', !toggleInput.checked);
+    fields.classList.toggle('dim', !toggleInput.checked);
+    const navItem = settings_nav_items().find(b => b.dataset.panel === panel.dataset.panel);
+    if (navItem) update_account_nav_status(navItem, acc, toggleInput.checked);
     refreshSummary();
   });
   advInput.addEventListener('change', () => {
     rowAdv.classList.toggle('dim', !advInput.checked);
     refreshSummary();
   });
-  body.querySelectorAll('input[type="number"], input[type="time"]').forEach(f => {
+  fields.querySelectorAll('input[type="number"], input[type="time"]').forEach(f => {
     f.addEventListener('input', refreshSummary);
   });
 
-  return card;
+  return panel;
 }
+
+/**
+ * Called from refresh_account_ui() whenever the account list changes while
+ * Settings is open (rename, delete, create, setup finished, account switch).
+ * Reconciles nav entries and panels in place so unsaved schedule edits on
+ * untouched accounts survive.
+ */
+function sync_settings_accounts() {
+  if (!settings_is_open()) return;
+
+  pywebview.api.get_all_schedules().then(schedules => {
+    const list = Array.isArray(schedules) ? schedules : [];
+    const navWrap = document.getElementById('settings_nav_accounts');
+    const panelWrap = document.getElementById('settings_account_panels');
+    if (!navWrap || !panelWrap) return;
+
+    const known = new Set(list.map(item => item.id));
+
+    // Drop what no longer exists.
+    Array.from(panelWrap.children).forEach(panel => {
+      if (!known.has(panel.dataset.id)) {
+        settingsDirty.delete(panel.dataset.panel);
+        panel.remove();
+      }
+    });
+    Array.from(navWrap.children).forEach(el => {
+      if (el.classList.contains('settings-nav-empty') || !known.has(el.dataset.id)) el.remove();
+    });
+
+    // Add new accounts, refresh the identity of existing ones.
+    for (const item of list) {
+      const panel = Array.from(panelWrap.children).find(p => p.dataset.id === item.id);
+      const navItem = Array.from(navWrap.children).find(b => b.dataset.id === item.id);
+
+      if (!panel || !navItem) {
+        if (panel) panel.remove();
+        if (navItem) navItem.remove();
+        navWrap.appendChild(build_account_nav_item(item));
+        panelWrap.appendChild(build_account_panel(item));
+        continue;
+      }
+
+      const acc = account_view_model(item);
+      panel.dataset.title = acc.label;
+
+      const head = panel.querySelector('.settings-account-head');
+      if (head) head.replaceWith(build_account_identity(acc));
+
+      const note = panel.querySelector('.settings-setup-note');
+      if (acc.first_setup_done && note) note.remove();
+      if (!acc.first_setup_done && !note) {
+        const newHead = panel.querySelector('.settings-account-head');
+        if (newHead) newHead.insertAdjacentElement('afterend', build_setup_note(acc));
+      }
+
+      const label = navItem.querySelector('.settings-nav-label');
+      if (label) label.textContent = acc.label;
+      const avatar = navItem.querySelector('.avatar');
+      if (avatar) avatar.replaceWith(make_avatar(acc, 'sm'));
+      const enabledInput = panel.querySelector('.schedule-enabled');
+      update_account_nav_status(navItem, acc, Boolean(enabledInput && enabledInput.checked));
+    }
+
+    if (!list.length) navWrap.appendChild(make_nav_empty());
+
+    settings_refresh_dirty();
+    // Re-applies the header (label may have changed) or falls back to
+    // General if the active account was just deleted.
+    settings_go(settingsActivePanel);
+  }).catch(err => {
+    console.error('sync_settings_accounts failed:', err);
+  });
+}
+
+// -------------------------------------------------------------------------
+// About panel
+// -------------------------------------------------------------------------
+
+function render_about_panel(info) {
+  const version = document.getElementById('about_version');
+  const dir = document.getElementById('about_app_dir');
+  const status = document.getElementById('about_status');
+  if (version) version.textContent = 'AutoRewarder ' + (info.version || '');
+  if (dir) {
+    dir.textContent = info.app_dir || '—';
+    dir.title = info.app_dir || '';
+  }
+  if (status) {
+    status.className = 'about-status';
+    status.textContent = 'Updates are checked once at launch.';
+  }
+  if (info.repo_url) aboutRepoUrl = String(info.repo_url);
+}
+
+function about_check_updates() {
+  const btn = document.getElementById('aboutCheckUpdates');
+  const status = document.getElementById('about_status');
+  if (!btn || !status) return;
+
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  status.className = 'about-status';
+  status.textContent = 'Contacting GitHub…';
+
+  const restore = () => {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  };
+
+  pywebview.api.check_updates_now().then(result => {
+    const r = result || {};
+    status.textContent = '';
+    if (!r.ok) {
+      status.className = 'about-status warning';
+      status.textContent = 'Could not reach GitHub. Try again later.';
+    } else if (r.update_available) {
+      status.className = 'about-status warning';
+      status.appendChild(document.createTextNode(`Version ${r.latest} is available. `));
+      // Anchor built via createElement so the URL is never parsed as HTML.
+      const a = document.createElement('a');
+      a.href = '#';
+      a.textContent = 'Download';
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        pywebview.api.open_link(String(r.url));
+      });
+      status.appendChild(a);
+    } else {
+      status.className = 'about-status ok';
+      status.textContent = `You're up to date (${r.current}).`;
+    }
+    restore();
+  }).catch(err => {
+    console.error('check_updates_now failed:', err);
+    status.className = 'about-status warning';
+    status.textContent = 'Update check failed.';
+    restore();
+  });
+}
+
+// -------------------------------------------------------------------------
+// Form field factories
+// -------------------------------------------------------------------------
 
 function make_select_field(labelText, className, value, options) {
   const wrap = document.createElement('div');
@@ -1006,50 +1480,63 @@ function make_form_field(labelText, inputType, className, value, opts) {
   return wrap;
 }
 
+// -------------------------------------------------------------------------
+// Save
+// -------------------------------------------------------------------------
+
 async function save_settings() {
-  const cards = Array.from(document.querySelectorAll('#schedule_accounts_list .schedule-card'));
+  if (!settingsLoaded) {
+    show_toast('Settings are still loading.', 'warning');
+    return;
+  }
+  const panels = Array.from(document.querySelectorAll('#settings_account_panels .settings-account-panel'));
   const closeToTrayWanted = document.getElementById('closeToTrayToggle').checked;
   const startupWanted = document.getElementById('startupToggle').checked;
 
-  // Validate + collect payloads per account.
+  // Validate + collect payloads per account. On a validation error, jump to
+  // the offending account so the toast points at a visible field.
   const payloads = [];
-  for (const card of cards) {
-    const id = card.dataset.id;
-    const enabled = card.querySelector('.schedule-enabled').checked;
-    const advancedScheduling = card.querySelector('.schedule-advanced').checked;
-    const pc = parseInt(card.querySelector('.schedule-queries-pc').value, 10);
-    const mobile = parseInt(card.querySelector('.schedule-queries-mobile').value, 10);
-    const runDuration = parseInt(card.querySelector('.schedule-run-duration').value, 10);
-    const queriesPerHour = parseInt(card.querySelector('.schedule-queries-per-hour').value, 10);
-    const runTime = card.querySelector('.schedule-run-time').value;
-    const dashEl = card.querySelector('.schedule-dashboard');
+  for (const panel of panels) {
+    const id = panel.dataset.id;
+    const enabled = panel.querySelector('.schedule-enabled').checked;
+    const advancedScheduling = panel.querySelector('.schedule-advanced').checked;
+    const pc = parseInt(panel.querySelector('.schedule-queries-pc').value, 10);
+    const mobile = parseInt(panel.querySelector('.schedule-queries-mobile').value, 10);
+    const runDuration = parseInt(panel.querySelector('.schedule-run-duration').value, 10);
+    const queriesPerHour = parseInt(panel.querySelector('.schedule-queries-per-hour').value, 10);
+    const runTime = panel.querySelector('.schedule-run-time').value;
+    const dashEl = panel.querySelector('.schedule-dashboard');
     const dashboardVariant = dashEl && ['auto', 'legacy', 'new'].includes(dashEl.value)
       ? dashEl.value : 'auto';
 
     if (enabled) {
+      const reject = (message) => {
+        settings_go(panel.dataset.panel);
+        show_toast(message, 'warning');
+      };
       if (isNaN(pc) || pc < 0 || pc > 130) {
-        show_toast('PC queries must be between 0 and 130.', 'warning');
+        reject('PC queries must be between 0 and 130.');
         return;
       }
       if (isNaN(mobile) || mobile < 0 || mobile > 99) {
-        show_toast('Mobile queries must be between 0 and 99.', 'warning');
+        reject('Mobile queries must be between 0 and 99.');
         return;
       }
       if ((pc || 0) + (mobile || 0) === 0) {
-        show_toast('Set at least one of PC or Mobile queries above 0.', 'warning');
+        reject('Set at least one of PC or Mobile queries above 0.');
         return;
       }
       if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(runTime || '')) {
-        show_toast('Daily run time must be a valid HH:MM value.', 'warning');
+        reject('Daily run time must be a valid HH:MM value.');
         return;
       }
       if (advancedScheduling) {
         if (isNaN(runDuration) || runDuration < 1 || runDuration > 24) {
-          show_toast('Run duration must be between 1 and 24 hours.', 'warning');
+          reject('Run duration must be between 1 and 24 hours.');
           return;
         }
         if (isNaN(queriesPerHour) || queriesPerHour < 1 || queriesPerHour > 99) {
-          show_toast('Queries per hour must be between 1 and 99.', 'warning');
+          reject('Queries per hour must be between 1 and 99.');
           return;
         }
       }
@@ -1089,8 +1576,8 @@ async function save_settings() {
     const llmToggleEl = document.getElementById('llmToggle');
     await pywebview.api.set_llm_config(
       Boolean(llmToggleEl && llmToggleEl.checked),
-      document.getElementById('llmProvider').value,
-      document.getElementById('llmModel').value,
+      llm_provider(),
+      llm_model_value(),
       document.getElementById('llmApiKey').value,
       document.getElementById('llmLocale').value
     );
@@ -1123,7 +1610,8 @@ async function save_settings() {
     } else {
       show_toast('Settings saved.', 'success');
     }
-    close_settings_modal();
+    settings_clear_dirty();
+    close_settings_modal({ force: true });
   } catch (err) {
     console.error('save_settings failed:', err);
     show_toast('Save failed.', 'error');
@@ -1171,10 +1659,8 @@ function refresh_account_ui() {
     // Stats are per-account — refresh the compact card for the new selection.
     refresh_stats_ui();
 
-    // Re-render the accounts management modal list if open.
-    if (typeof render_accounts_section === 'function') {
-      render_accounts_section(accountsCache);
-    }
+    // Keep the Settings modal's account entries in sync if it is open.
+    sync_settings_accounts();
   }).catch(err => {
     console.error('refresh_account_ui failed:', err);
   });
@@ -1275,40 +1761,106 @@ document.addEventListener('DOMContentLoaded', function() {
     if (e.key === 'Escape') toggle_account_menu(false);
   });
 
-  // Header "manage accounts" button.
-  const manageBtn = document.getElementById('manageBtn');
-  if (manageBtn) manageBtn.addEventListener('click', open_accounts_modal);
-
   // Header settings button.
   const settingsBtn = document.getElementById('settingsBtn');
   if (settingsBtn) settingsBtn.addEventListener('click', open_settings_modal);
 
-  // Settings modal close + save.
-  const settingsClose = document.getElementById('settingsModalClose');
-  if (settingsClose) settingsClose.addEventListener('click', close_settings_modal);
+  // Settings navigation (delegated: account entries are built dynamically).
+  const settingsNav = document.getElementById('settings_nav');
+  if (settingsNav) {
+    settingsNav.addEventListener('click', (e) => {
+      const item = e.target.closest('.settings-nav-item');
+      if (item && item.dataset.panel) settings_go(item.dataset.panel);
+    });
+  }
+  const settingsAddAccount = document.getElementById('settingsAddAccount');
+  if (settingsAddAccount) settingsAddAccount.addEventListener('click', prompt_and_create_account);
+
+  // Unsaved-changes tracking: any edit inside a panel marks that panel.
+  const settingsBody = document.getElementById('settings_pane_body');
+  if (settingsBody) {
+    const markFromEvent = (e) => {
+      if (!e.target.matches('input, select, textarea')) return;
+      const panel = e.target.closest('.settings-panel');
+      if (panel) settings_mark_dirty(panel.dataset.panel);
+    };
+    settingsBody.addEventListener('change', markFromEvent);
+    settingsBody.addEventListener('input', markFromEvent);
+  }
+
+  // Settings modal leaves only through Save or Cancel (no close cross, no
+  // click-outside), so a change is never dropped by accident.
   const settingsCancel = document.getElementById('settingsCancel');
-  if (settingsCancel) settingsCancel.addEventListener('click', close_settings_modal);
+  if (settingsCancel) settingsCancel.addEventListener('click', () => close_settings_modal());
   const settingsSave = document.getElementById('settingsSave');
   if (settingsSave) settingsSave.addEventListener('click', save_settings);
+  // Escape behaves like Cancel. Deferred so the generic modal's own Escape
+  // handler (registered below) runs first and cannot cancel the
+  // "Discard changes?" prompt this may open.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const appModal = document.getElementById('app_modal');
+    if (appModal && !appModal.hidden) return;
+    if (settings_is_open()) setTimeout(() => close_settings_modal(), 0);
+  });
 
-  // LLM feature toggle dims/undims its config fields live.
+  // LLM feature toggle dims/undims its config fields live (and fills the
+  // model picker the first time it is switched on); eye button shows or
+  // hides the API key.
   const llmToggle = document.getElementById('llmToggle');
-  if (llmToggle) llmToggle.addEventListener('change', apply_llm_field_state);
-  const settingsModal = document.getElementById('settings_modal');
-  if (settingsModal) {
-    settingsModal.addEventListener('click', (e) => {
-      if (e.target === settingsModal) close_settings_modal();
+  if (llmToggle) llmToggle.addEventListener('change', llm_on_toggle_change);
+  const llmKeyToggle = document.getElementById('llmApiKeyToggle');
+  if (llmKeyToggle) {
+    llmKeyToggle.addEventListener('click', () => {
+      const key = document.getElementById('llmApiKey');
+      set_api_key_visible(Boolean(key && key.type === 'password'));
     });
   }
-  // Accounts modal close.
-  const accountsModalClose = document.getElementById('accountsModalClose');
-  if (accountsModalClose) accountsModalClose.addEventListener('click', close_accounts_modal);
-  const accountsModal = document.getElementById('accounts_modal');
-  if (accountsModal) {
-    accountsModal.addEventListener('click', (e) => {
-      if (e.target === accountsModal) close_accounts_modal();
+
+  // Model picker: provider switch refills it, "Custom…" reveals a text
+  // field, the refresh button and a freshly pasted key load the list, and
+  // the key-portal link opens the provider's page in the browser.
+  const llmProviderSel = document.getElementById('llmProvider');
+  if (llmProviderSel) llmProviderSel.addEventListener('change', llm_on_provider_change);
+  const llmModelSel = document.getElementById('llmModel');
+  if (llmModelSel) {
+    llmModelSel.addEventListener('change', () => {
+      llm_apply_custom_state();
+      if (llmModelSel.value === LLM_CUSTOM_MODEL) {
+        const custom = document.getElementById('llmModelCustom');
+        if (custom) custom.focus();
+      }
     });
   }
+  const llmRefresh = document.getElementById('llmModelRefresh');
+  if (llmRefresh) llmRefresh.addEventListener('click', llm_load_models);
+  const llmKeyInput = document.getElementById('llmApiKey');
+  if (llmKeyInput) {
+    llmKeyInput.addEventListener('change', () => {
+      if (llmKeyInput.value.trim()) llm_load_models();
+    });
+  }
+  const llmKeyLink = document.getElementById('llmKeyLink');
+  if (llmKeyLink) {
+    llmKeyLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (llmKeyLink.dataset.url) pywebview.api.open_link(llmKeyLink.dataset.url);
+    });
+  }
+
+  // About panel actions.
+  const aboutCheck = document.getElementById('aboutCheckUpdates');
+  if (aboutCheck) aboutCheck.addEventListener('click', about_check_updates);
+  const aboutFolder = document.getElementById('aboutOpenFolder');
+  if (aboutFolder) {
+    aboutFolder.addEventListener('click', () => {
+      pywebview.api.open_data_folder().then(ok => {
+        if (!ok) show_toast('Could not open the data folder.', 'error');
+      });
+    });
+  }
+  const aboutGithub = document.getElementById('aboutGithub');
+  if (aboutGithub) aboutGithub.addEventListener('click', () => pywebview.api.open_link(aboutRepoUrl));
 
   // Generic modal wiring.
   const modalConfirm = document.getElementById('modal_confirm');
