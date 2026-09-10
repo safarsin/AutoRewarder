@@ -2572,62 +2572,90 @@ class AutoRewarderAPI:
         self._visual_search_attempted = True
 
         used_images = self.daily_set.get_used_visual_search_images()
+        mission_url = getattr(self.daily_set, "visual_search_url", None)
 
-        image_id, updated_images = self.search_engine.get_next_image_id(used_images)
+        # Surface to search from: None lets the engine use its own order; the
+        # second pass forces the other one when Rewards ignored the first.
+        search_url = None
 
-        image_path = self.search_engine.prepare_unique_image(image_id)
+        for attempt in (1, 2):
+            image_id, updated_images = self.search_engine.get_next_image_id(used_images)
 
-        if image_path is None:
-            return False
+            image_path = self.search_engine.prepare_unique_image(image_id)
 
-        try:
-            success = self.search_engine.perform_visual_search(
-                self._driver,
-                image_path,
-                stop_event=self._stop_event,
-                entry_url=getattr(self.daily_set, "visual_search_url", None),
-            )
-
-            # Rewards is the authority, in both directions: a results page is
-            # not proof of credit, and Bing rendering the results somewhere we
-            # didn't recognise is not proof of failure. So ask the mission.
-            stopped = self._stop_event is not None and self._stop_event.is_set()
-            credited = None if stopped else self._check_visual_search_credited()
-
-            # The image reached Bing in either of these cases, so don't offer it
-            # again on the next run.
-            if success or credited is True:
-                self.daily_set.save_used_visual_search_images(updated_images)
-
-            if not success:
-                if credited is not True:
-                    return False
-                self.log(
-                    "Bing's results page never loaded, but Rewards counted the "
-                    "search anyway."
-                )
-            elif credited is False:
-                self.log(
-                    "[WARNING] Rewards did not count the visual search. "
-                    "Not marked as done for today."
-                )
+            if image_path is None:
                 return False
 
-            self.daily_set.mark_visual_search_as_completed()
-            self.log("Visual search marked as done for today.")
+            try:
+                success = self.search_engine.perform_visual_search(
+                    self._driver,
+                    image_path,
+                    stop_event=self._stop_event,
+                    entry_url=mission_url,
+                    search_url=search_url,
+                )
 
-            return True
+                # Rewards is the authority, in both directions: a results page
+                # is not proof of credit, and Bing rendering the results
+                # somewhere we didn't recognise is not proof of failure. So ask
+                # the mission.
+                stopped = self._stop_event is not None and self._stop_event.is_set()
+                credited = None if stopped else self._check_visual_search_credited()
 
-        except Exception as e:
-            self.log(f"[WARNING] Visual search failed: {e}")
-            return False
+                # The image reached Bing in either of these cases, so don't
+                # offer it again on the next run.
+                if success or credited is True:
+                    self.daily_set.save_used_visual_search_images(updated_images)
+                    used_images = updated_images
 
-        finally:
-            if os.path.exists(image_path):
-                try:
-                    os.remove(image_path)
-                except Exception as e:
-                    self.log(f"[WARNING] Failed to remove temporary image file: {e}")
+                if not success:
+                    if credited is not True:
+                        return False
+                    self.log(
+                        "Bing's results page never loaded, but Rewards counted "
+                        "the search anyway."
+                    )
+                elif credited is False:
+                    # Which surface Rewards credits is Microsoft's call and has
+                    # changed before, so one refusal doesn't write the day off:
+                    # search again from the other surface, once, with a fresh
+                    # image.
+                    other = self.search_engine.other_surface_url()
+
+                    if attempt == 1 and other and not stopped:
+                        self.log(
+                            f"Rewards ignored a search from "
+                            f"{self.search_engine.last_search_url}. "
+                            f"Trying again from {other}."
+                        )
+                        search_url = other
+                        continue
+
+                    self.log(
+                        "[WARNING] Rewards did not count the visual search. "
+                        "Not marked as done for today."
+                    )
+                    return False
+
+                self.daily_set.mark_visual_search_as_completed()
+                self.log("Visual search marked as done for today.")
+
+                return True
+
+            except Exception as e:
+                self.log(f"[WARNING] Visual search failed: {e}")
+                return False
+
+            finally:
+                if os.path.exists(image_path):
+                    try:
+                        os.remove(image_path)
+                    except Exception as e:
+                        self.log(
+                            f"[WARNING] Failed to remove temporary image file: {e}"
+                        )
+
+        return False
 
     def _check_visual_search_credited(self):
         """
