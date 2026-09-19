@@ -275,14 +275,21 @@ try {
   for (var i = 0; i < imgs.length; i++) {
     var card = imgs[i].parentElement;
     for (var up = 0; card && up < 8; up++) {
+      var text = (card.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 90);
       var bar = card.querySelector('[role="progressbar"][aria-valuemax]');
       if (bar) {
         var now = parseInt(bar.getAttribute('aria-valuenow'), 10);
         var max = parseInt(bar.getAttribute('aria-valuemax'), 10);
-        if (!isNaN(now) && !isNaN(max) && max > 0) return {done: now, total: max};
+        if (!isNaN(now) && !isNaN(max) && max > 0) {
+          return {done: now, total: max, source: 'progressbar',
+                  card: text || bar.getAttribute('aria-label') || ''};
+        }
       }
       var m = (card.textContent || '').replace(/\s+/g, ' ').match(/(\d+)\s*\/\s*(\d+)/);
-      if (m) return {done: parseInt(m[1], 10), total: parseInt(m[2], 10)};
+      if (m) {
+        return {done: parseInt(m[1], 10), total: parseInt(m[2], 10),
+                source: 'counter', card: text};
+      }
       card = card.parentElement;
     }
   }
@@ -803,12 +810,27 @@ class NewDashboardDailySet:
             return None
 
         if not isinstance(data, dict):
+            self._log(
+                "[INFO] No visual search streak card on the dashboard "
+                "(mission not offered, or its markup changed)."
+            )
             return None
 
         try:
-            return int(data["done"]), int(data["total"])
+            done, total = int(data["done"]), int(data["total"])
         except (KeyError, TypeError, ValueError):
             return None
+
+        # A zero is the reading that decides whether the day counts, so show
+        # what it was read from: a card that isn't the mission's, or a stale
+        # page, would otherwise look exactly like "Rewards didn't count it".
+        if done == 0:
+            self._log(
+                f"[INFO] Streak read as {done}/{total} from the "
+                f"{data.get('source', '?')} of: {data.get('card', '?')!r}"
+            )
+
+        return done, total
 
     def _find_claim_tile(self, driver):
         """
