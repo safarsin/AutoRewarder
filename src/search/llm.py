@@ -73,6 +73,15 @@ def _log_http_error(logger, provider, resp):
     logger(f"[WARNING] LLM ({provider}) request failed: {reason}. {snippet}")
 
 
+def _normalize_base_url(base_url):
+    """Normalize the base URL to ensure it ends with '/v1'."""
+    url = base_url.strip().rstrip("/")
+
+    if not url.endswith("/v1"):
+        url += "/v1"
+    return url
+
+
 def _call_openai(prompt, model, api_key, max_tokens, logger):
     """OpenAI Chat Completions. Returns the model's text answer or ''."""
     resp = requests.post(
@@ -91,6 +100,29 @@ def _call_openai(prompt, model, api_key, max_tokens, logger):
     )
     if resp.status_code != 200:
         _log_http_error(logger, "openai", resp)
+        return ""
+    data = resp.json()
+    return data["choices"][0]["message"]["content"] or ""
+
+
+def _call_openai_compatible(prompt, base_url, model, api_key, max_tokens, logger):
+    """OpenAI-compatible Chat Completions. Returns the model's text answer or ''."""
+    resp = requests.post(
+        f"{_normalize_base_url(base_url)}/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 1.0,
+            "max_tokens": max_tokens,
+        },
+        timeout=_TIMEOUT,
+    )
+    if resp.status_code != 200:
+        _log_http_error(logger, "openai-compatible", resp)
         return ""
     data = resp.json()
     return data["choices"][0]["message"]["content"] or ""
@@ -151,6 +183,7 @@ def _call_gemini(prompt, model, api_key, max_tokens, logger):
 
 _DISPATCH = {
     "openai": _call_openai,
+    "openai-compatible": _call_openai_compatible,
     "anthropic": _call_anthropic,
     "gemini": _call_gemini,
 }
@@ -261,6 +294,8 @@ _OPENAI_NON_CHAT_MARKERS = (
     "embedding",
     "moderation",
     "computer-use",
+    "embed",
+    "guard",
 )
 _MAX_LIST_PAGES = 10
 
@@ -294,6 +329,29 @@ def _list_openai(api_key):
         if mid and _is_openai_chat_model(mid):
             rows.append((m.get("created") or 0, mid))
     # Newest first, then alphabetical for models sharing a timestamp.
+    rows.sort(key=lambda r: (-r[0], r[1]))
+    return [{"id": mid, "label": mid} for _, mid in rows]
+
+
+def _is_openai_compatible_chat_model(model_id):
+    mid = model_id.lower()
+    return not any(marker in mid for marker in _OPENAI_NON_CHAT_MARKERS)
+
+
+def _list_openai_compatible(base_url, api_key):
+    url = f"{_normalize_base_url(base_url)}/models"
+    resp = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=_LIST_TIMEOUT,
+    )
+    _check_list_response(resp)
+    rows = []
+    for m in resp.json().get("data", []):
+        mid = m.get("id") if isinstance(m, dict) else None
+        if mid and _is_openai_compatible_chat_model(mid):
+            rows.append((m.get("created") or 0, mid))
+
     rows.sort(key=lambda r: (-r[0], r[1]))
     return [{"id": mid, "label": mid} for _, mid in rows]
 
@@ -370,6 +428,7 @@ def _list_gemini(api_key):
 
 _LIST_DISPATCH = {
     "openai": _list_openai,
+    "openai-compatible": _list_openai_compatible,
     "anthropic": _list_anthropic,
     "gemini": _list_gemini,
 }
