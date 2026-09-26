@@ -1857,6 +1857,18 @@ document.addEventListener('DOMContentLoaded', function() {
       if (llmKeyInput.value.trim()) llm_load_models();
     });
   }
+  const llmBaseUrlInput = document.getElementById('llmBaseUrl');
+  if (llmBaseUrlInput) {
+    llmBaseUrlInput.addEventListener('change', () => {
+      delete llmModelCache['openai-compatible'];
+      if (llmBaseUrlInput.value.trim() && llmKeyInput && llmKeyInput.value.trim()) {
+        llm_load_models();
+      } else {
+        llm_render_model_options('');
+        llm_set_model_hint(LLM_MODEL_HINT_IDLE, false);
+      }
+    });
+  }
   const llmKeyLink = document.getElementById('llmKeyLink');
   if (llmKeyLink) {
     llmKeyLink.addEventListener('click', (e) => {
