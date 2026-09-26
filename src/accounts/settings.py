@@ -138,9 +138,10 @@ class GlobalSettingsManager:
             # static assets/queries.json. The key is stored in plain text here,
             # consistent with the rest of settings.json.
             "use_llm_queries": False,
-            "llm_provider": "openai",  # openai | anthropic | gemini
+            "llm_provider": "openai",  # openai | openai-compatible | anthropic | gemini
             "llm_model": "",  # blank = provider default
             "llm_api_key": "",
+            "llm_base_url": "",
             # Language of generated queries. "auto" resolves from
             # detected_locale (navigator.language) or OS detection.
             "search_locale": "auto",
@@ -286,12 +287,19 @@ class GlobalSettingsManager:
             "llm_provider": s.get("llm_provider", "openai"),
             "llm_model": s.get("llm_model", ""),
             "llm_api_key": s.get("llm_api_key", ""),
+            "llm_base_url": s.get("llm_base_url", ""),
             "search_locale": s.get("search_locale", "auto"),
             "detected_locale": s.get("detected_locale", ""),
         }
 
     def set_llm_config(
-        self, use_llm_queries, provider, model, api_key, search_locale="auto"
+        self,
+        use_llm_queries,
+        provider,
+        model,
+        api_key,
+        search_locale="auto",
+        base_url="",
     ):
         """Persist the LLM query-generation config.
 
@@ -312,6 +320,7 @@ class GlobalSettingsManager:
         settings["llm_provider"] = provider
         settings["llm_model"] = str(model or "").strip()
         settings["llm_api_key"] = str(api_key or "").strip()
+        settings["llm_base_url"] = str(base_url or "").strip()
         settings["search_locale"] = locale
         self.save_settings(settings)
 

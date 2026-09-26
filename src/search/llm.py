@@ -23,6 +23,7 @@ from .locale import language_name
 # code change.
 DEFAULT_MODELS = {
     "openai": "gpt-5.4-nano",
+    "openai-compatible": "",
     "anthropic": "claude-haiku-4-5",
     "gemini": "gemini-3.1-flash-lite",
 }
@@ -225,14 +226,15 @@ def _extract_queries(text, count):
 
 
 def generate_queries(
-    count, locale, provider="openai", model="", api_key="", logger=None
+    count, locale, provider="openai", model="", api_key="", base_url="", logger=None
 ):
     """Generate up to `count` search queries in `locale`'s language via an LLM.
 
     Args:
         count (int): number of queries to request.
         locale (str): BCP-47 locale (e.g. ``"fr-FR"``) driving the language.
-        provider (str): one of ``openai`` / ``anthropic`` / ``gemini``.
+        provider (str): one of ``openai`` / ``openai-compatible`` /
+            ``anthropic`` / ``gemini``.
         model (str): model id; falls back to the provider default when blank.
         api_key (str): the user's own API key.
         logger (callable, optional): logging function.
@@ -258,7 +260,10 @@ def generate_queries(
     prompt = _build_prompt(count, locale)
 
     try:
-        text = caller(prompt, model, api_key, _max_tokens(count), logger)
+        if provider == "openai-compatible":
+            text = caller(prompt, base_url, model, api_key, _max_tokens(count), logger)
+        else:
+            text = caller(prompt, model, api_key, _max_tokens(count), logger)
     except requests.RequestException as e:
         if logger:
             logger(f"[WARNING] LLM ({provider}) network error: {e}")
@@ -339,6 +344,8 @@ def _is_openai_compatible_chat_model(model_id):
 
 
 def _list_openai_compatible(base_url, api_key):
+    if not (base_url or "").strip():
+        raise _ListError("base URL is required")
     url = f"{_normalize_base_url(base_url)}/models"
     resp = requests.get(
         url,
@@ -434,7 +441,7 @@ _LIST_DISPATCH = {
 }
 
 
-def list_models(provider, api_key, logger=None):
+def list_models(provider, api_key, base_url="", logger=None):
     """List the chat models `api_key` can use at `provider`.
 
     Meant for the Settings UI, so the outcome is returned rather than logged
@@ -457,7 +464,10 @@ def list_models(provider, api_key, logger=None):
         return {"ok": False, "models": [], "error": "Enter an API key first."}
 
     try:
-        models = lister(api_key)
+        if provider == "openai-compatible":
+            models = lister(base_url, api_key)
+        else:
+            models = lister(api_key)
     except _ListError as e:
         reason = str(e)
         return {

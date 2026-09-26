@@ -317,6 +317,7 @@
                   <label for="llmProvider">Provider</label>
                   <select id="llmProvider">
                     <option value="openai">OpenAI</option>
+                    <option value="openai-compatible">OpenAI-compatible</option>
                     <option value="anthropic">Anthropic</option>
                     <option value="gemini">Google Gemini</option>
                   </select>
@@ -341,6 +342,10 @@
                 <input type="text" id="llmModelCustom" placeholder="e.g. gpt-5.4-nano" autocomplete="off" spellcheck="false">
               </div>
               <p class="form-hint" id="llm_model_hint">Load the list to pick a model, or keep the provider default.</p>
+              <div class="form-field" id="llm_base_url_field" hidden>
+                <label for="llmBaseUrl">Base URL</label>
+                <input type="url" id="llmBaseUrl" placeholder="https://api.example.com/v1" autocomplete="off" spellcheck="false">
+              </div>
               <div class="form-grid-2">
                 <div class="form-field">
                   <label for="llmApiKey">API key</label>

@@ -1590,6 +1590,7 @@ input[type="number"]:focus {
 .form-field input[type="number"],
 .form-field input[type="text"],
 .form-field input[type="password"],
+.form-field input[type="url"],
 .form-field select {
   width: 100%;
   padding: 8px 10px;

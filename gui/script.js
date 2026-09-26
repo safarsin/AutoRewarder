@@ -797,17 +797,20 @@ function open_settings_modal(panelId) {
     const llmToggle = document.getElementById('llmToggle');
     const providerSel = document.getElementById('llmProvider');
     const keyInput = document.getElementById('llmApiKey');
+    const baseUrlInput = document.getElementById('llmBaseUrl');
     const localeInput = document.getElementById('llmLocale');
     const localeHint = document.getElementById('llm_locale_hint');
     if (llmToggle) llmToggle.checked = Boolean(cfg.use_llm_queries);
     if (providerSel && cfg.llm_provider) providerSel.value = cfg.llm_provider;
     llmDefaultModels = cfg.default_models || {};
     llm_render_model_options(cfg.llm_model || '');
+    llm_apply_base_url_state();
     llm_update_key_link();
     if (keyInput) {
       keyInput.value = cfg.llm_api_key || '';
       set_api_key_visible(false);
     }
+    if (baseUrlInput) baseUrlInput.value = cfg.llm_base_url || '';
     if (localeInput) localeInput.value = cfg.search_locale || 'auto';
     if (localeHint) {
       const eff = cfg.effective_locale || 'en-US';
@@ -895,6 +898,7 @@ function set_api_key_visible(visible) {
 
 const LLM_PROVIDERS = {
   openai:    { label: 'OpenAI',        keyLabel: 'the OpenAI Platform',   keyUrl: 'https://platform.openai.com/api-keys' },
+  'openai-compatible': { label: 'OpenAI-compatible', keyLabel: 'your provider', keyUrl: '' },
   anthropic: { label: 'Anthropic',     keyLabel: 'the Anthropic Console', keyUrl: 'https://console.anthropic.com/settings/keys' },
   gemini:    { label: 'Google Gemini', keyLabel: 'Google AI Studio',      keyUrl: 'https://aistudio.google.com/app/apikey' },
 };
@@ -919,6 +923,11 @@ function llm_update_key_link() {
   const info = LLM_PROVIDERS[llm_provider()];
   link.textContent = info.keyLabel;
   link.dataset.url = info.keyUrl;
+}
+
+function llm_apply_base_url_state() {
+  const field = document.getElementById('llm_base_url_field');
+  if (field) field.hidden = llm_provider() !== 'openai-compatible';
 }
 
 // The model id as it will be saved; '' means the provider default.
@@ -985,10 +994,16 @@ function llm_loaded_hint() {
 function llm_load_models() {
   const provider = llm_provider();
   const keyInput = document.getElementById('llmApiKey');
+  const baseUrlInput = document.getElementById('llmBaseUrl');
   const key = keyInput ? keyInput.value.trim() : '';
+  const baseUrl = baseUrlInput ? baseUrlInput.value.trim() : '';
   const btn = document.getElementById('llmModelRefresh');
   if (!key) {
     llm_set_model_hint('Enter an API key to load the model list.', true);
+    return;
+  }
+  if (provider === 'openai-compatible' && !baseUrl) {
+    llm_set_model_hint('Enter a base URL to load the model list.', true);
     return;
   }
   if (btn) { btn.disabled = true; btn.classList.add('busy'); }
@@ -997,7 +1012,7 @@ function llm_load_models() {
   const done = () => {
     if (btn) { btn.disabled = false; btn.classList.remove('busy'); }
   };
-  pywebview.api.list_llm_models(provider, key).then(result => {
+  pywebview.api.list_llm_models(provider, key, baseUrl).then(result => {
     const r = result || {};
     if (r.ok && Array.isArray(r.models)) {
       llmModelCache[provider] = r.models;
@@ -1025,6 +1040,7 @@ function llm_on_provider_change() {
   // provider's list knows it, otherwise fall back to that provider's default.
   llm_render_model_options(loaded.some(m => m.id === current) ? current : '');
   llm_update_key_link();
+  llm_apply_base_url_state();
   llm_set_model_hint(loaded.length ? llm_loaded_hint() : LLM_MODEL_HINT_IDLE, false);
 }
 
@@ -1579,7 +1595,8 @@ async function save_settings() {
       llm_provider(),
       llm_model_value(),
       document.getElementById('llmApiKey').value,
-      document.getElementById('llmLocale').value
+      document.getElementById('llmLocale').value,
+      document.getElementById('llmBaseUrl').value
     );
 
     const scheduleCalls = payloads.map(p =>

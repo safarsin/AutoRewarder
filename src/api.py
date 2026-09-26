@@ -592,6 +592,7 @@ class AutoRewarderAPI:
 
         Returns:
             dict: use_llm_queries, llm_provider, llm_model, llm_api_key,
+            llm_base_url,
             search_locale, detected_locale, effective_locale.
         """
         cfg = self.global_settings.get_llm_config()
@@ -602,7 +603,13 @@ class AutoRewarderAPI:
         return cfg
 
     def set_llm_config(
-        self, use_llm_queries, provider, model, api_key, search_locale="auto"
+        self,
+        use_llm_queries,
+        provider,
+        model,
+        api_key,
+        search_locale="auto",
+        base_url="",
     ):
         """
         Persist the LLM query-generation config from the Settings modal.
@@ -612,7 +619,7 @@ class AutoRewarderAPI:
         """
         try:
             self.global_settings.set_llm_config(
-                use_llm_queries, provider, model, api_key, search_locale
+                use_llm_queries, provider, model, api_key, search_locale, base_url
             )
             state = "ON" if use_llm_queries else "OFF"
             self.log(f"LLM query generation: {state} ({provider}).")
@@ -621,7 +628,7 @@ class AutoRewarderAPI:
             self.log(f"[WARNING] Failed to save LLM config: {e}")
             return False
 
-    def list_llm_models(self, provider, api_key):
+    def list_llm_models(self, provider, api_key, base_url=""):
         """
         Fetch the chat models `api_key` can use at `provider`, for the model
         picker in Settings > Search terms. Never raises.
@@ -629,7 +636,7 @@ class AutoRewarderAPI:
         Returns:
             dict: {ok, models: [{id, label}], error?} — see llm.list_models.
         """
-        return llm.list_models(provider, api_key, logger=self.log)
+        return llm.list_models(provider, api_key, base_url, logger=self.log)
 
     def set_detected_locale(self, locale):
         """
@@ -2569,6 +2576,7 @@ class AutoRewarderAPI:
                     provider=cfg["llm_provider"],
                     model=cfg["llm_model"],
                     api_key=cfg["llm_api_key"],
+                    base_url=cfg["llm_base_url"],
                     logger=self.log,
                 )
                 if not queries:
