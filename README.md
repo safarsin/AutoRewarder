@@ -254,7 +254,7 @@ AutoRewarder/
 │   └── normalize.css          # CSS reset
 ├── assets/
 │   ├── icon.ico               # App icon
-│   ├── queries.json           # Queries list (8154 unique queries)
+│   ├── queries.json           # Search query dataset
 │   ├── visual_search_assets/  # Visual search assets
 │   └── screenshots/           # Screenshots and GIFs for documentation
 ├── src/
@@ -285,10 +285,14 @@ AutoRewarder/
 ├── AutoRewarder.py            # Python backend and webview window
 ├── AutoRewarder_CLI.py        # Headless runner (multi-account aware)
 ├── AutoRewarder.spec          # PyInstaller build spec
+├── AutoRewarder_Portable.spec # Portable PyInstaller build spec
 ├── AutoRewarder.iss           # Inno Setup installer script
+├── update_badges.py           # README badge data updater
 ├── .pre-commit-config.yaml    # Pre-commit hooks configuration
 ├── requirements.txt           # Production dependencies
 ├── requirements-dev.txt       # Development & testing dependencies
+├── CODE_OF_CONDUCT.md         # Community guidelines
+├── CONTRIBUTING.md            # Contribution guidelines
 ├── LICENSE                    # MIT License
 ├── USER_GUIDE.md              # End-user documentation
 └── README.md                  # Project overview and developer setup
@@ -358,12 +362,11 @@ For common issues and solutions, see the [Troubleshooting](USER_GUIDE.md#trouble
 - [x] Simulated human typos in search queries (via nlpaug)
 - [x] Visual search integration
 - [ ] View background logs directly in the UI
-- [ ] Custom OpenAI compatible endpoints
+- [x] Custom OpenAI compatible endpoints
 - [ ] Human typos simulation for different keyboard/language layouts (AZERTY, QWERTZ, etc.)
 - [ ] Human-like typing with random spaces/backspaces
 - [ ] Per-account proxy support
 - [ ] Explore on Bing support
-- [ ] Run all accounts feature
 - [ ] Region-specific search query datasets (US, UK, CA, AU, IN, etc.)
 - [ ] Browser choice (Chrome, Firefox support in addition to Edge)
 - [ ] Keyboard shortcuts

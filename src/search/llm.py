@@ -23,6 +23,7 @@ from .locale import language_name
 # code change.
 DEFAULT_MODELS = {
     "openai": "gpt-5.4-nano",
+    "openai-compatible": "",
     "anthropic": "claude-haiku-4-5",
     "gemini": "gemini-3.1-flash-lite",
 }
@@ -73,6 +74,15 @@ def _log_http_error(logger, provider, resp):
     logger(f"[WARNING] LLM ({provider}) request failed: {reason}. {snippet}")
 
 
+def _normalize_base_url(base_url):
+    """Normalize the base URL to ensure it ends with '/v1'."""
+    url = base_url.strip().rstrip("/")
+
+    if not url.endswith("/v1"):
+        url += "/v1"
+    return url
+
+
 def _call_openai(prompt, model, api_key, max_tokens, logger):
     """OpenAI Chat Completions. Returns the model's text answer or ''."""
     resp = requests.post(
@@ -91,6 +101,29 @@ def _call_openai(prompt, model, api_key, max_tokens, logger):
     )
     if resp.status_code != 200:
         _log_http_error(logger, "openai", resp)
+        return ""
+    data = resp.json()
+    return data["choices"][0]["message"]["content"] or ""
+
+
+def _call_openai_compatible(prompt, base_url, model, api_key, max_tokens, logger):
+    """OpenAI-compatible Chat Completions. Returns the model's text answer or ''."""
+    resp = requests.post(
+        f"{_normalize_base_url(base_url)}/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 1.0,
+            "max_tokens": max_tokens,
+        },
+        timeout=_TIMEOUT,
+    )
+    if resp.status_code != 200:
+        _log_http_error(logger, "openai-compatible", resp)
         return ""
     data = resp.json()
     return data["choices"][0]["message"]["content"] or ""
@@ -151,6 +184,7 @@ def _call_gemini(prompt, model, api_key, max_tokens, logger):
 
 _DISPATCH = {
     "openai": _call_openai,
+    "openai-compatible": _call_openai_compatible,
     "anthropic": _call_anthropic,
     "gemini": _call_gemini,
 }
@@ -192,14 +226,15 @@ def _extract_queries(text, count):
 
 
 def generate_queries(
-    count, locale, provider="openai", model="", api_key="", logger=None
+    count, locale, provider="openai", model="", api_key="", base_url="", logger=None
 ):
     """Generate up to `count` search queries in `locale`'s language via an LLM.
 
     Args:
         count (int): number of queries to request.
         locale (str): BCP-47 locale (e.g. ``"fr-FR"``) driving the language.
-        provider (str): one of ``openai`` / ``anthropic`` / ``gemini``.
+        provider (str): one of ``openai`` / ``openai-compatible`` /
+            ``anthropic`` / ``gemini``.
         model (str): model id; falls back to the provider default when blank.
         api_key (str): the user's own API key.
         logger (callable, optional): logging function.
@@ -225,7 +260,10 @@ def generate_queries(
     prompt = _build_prompt(count, locale)
 
     try:
-        text = caller(prompt, model, api_key, _max_tokens(count), logger)
+        if provider == "openai-compatible":
+            text = caller(prompt, base_url, model, api_key, _max_tokens(count), logger)
+        else:
+            text = caller(prompt, model, api_key, _max_tokens(count), logger)
     except requests.RequestException as e:
         if logger:
             logger(f"[WARNING] LLM ({provider}) network error: {e}")
@@ -261,6 +299,8 @@ _OPENAI_NON_CHAT_MARKERS = (
     "embedding",
     "moderation",
     "computer-use",
+    "embed",
+    "guard",
 )
 _MAX_LIST_PAGES = 10
 
@@ -294,6 +334,31 @@ def _list_openai(api_key):
         if mid and _is_openai_chat_model(mid):
             rows.append((m.get("created") or 0, mid))
     # Newest first, then alphabetical for models sharing a timestamp.
+    rows.sort(key=lambda r: (-r[0], r[1]))
+    return [{"id": mid, "label": mid} for _, mid in rows]
+
+
+def _is_openai_compatible_chat_model(model_id):
+    mid = model_id.lower()
+    return not any(marker in mid for marker in _OPENAI_NON_CHAT_MARKERS)
+
+
+def _list_openai_compatible(base_url, api_key):
+    if not (base_url or "").strip():
+        raise _ListError("base URL is required")
+    url = f"{_normalize_base_url(base_url)}/models"
+    resp = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=_LIST_TIMEOUT,
+    )
+    _check_list_response(resp)
+    rows = []
+    for m in resp.json().get("data", []):
+        mid = m.get("id") if isinstance(m, dict) else None
+        if mid and _is_openai_compatible_chat_model(mid):
+            rows.append((m.get("created") or 0, mid))
+
     rows.sort(key=lambda r: (-r[0], r[1]))
     return [{"id": mid, "label": mid} for _, mid in rows]
 
@@ -370,12 +435,13 @@ def _list_gemini(api_key):
 
 _LIST_DISPATCH = {
     "openai": _list_openai,
+    "openai-compatible": _list_openai_compatible,
     "anthropic": _list_anthropic,
     "gemini": _list_gemini,
 }
 
 
-def list_models(provider, api_key, logger=None):
+def list_models(provider, api_key, base_url="", logger=None):
     """List the chat models `api_key` can use at `provider`.
 
     Meant for the Settings UI, so the outcome is returned rather than logged
@@ -398,7 +464,10 @@ def list_models(provider, api_key, logger=None):
         return {"ok": False, "models": [], "error": "Enter an API key first."}
 
     try:
-        models = lister(api_key)
+        if provider == "openai-compatible":
+            models = lister(base_url, api_key)
+        else:
+            models = lister(api_key)
     except _ListError as e:
         reason = str(e)
         return {
