@@ -43,15 +43,19 @@ def _iso_now():
     return datetime.now().isoformat(timespec="seconds")
 
 
-def console_log(message):
+def console_log(message, account_label=None):
     """
     Print to stdout and append to the rotating background log file.
 
     Args:
         message (str): The message to log.
+        account_label (str): The label of the account to log.
     """
-    line = f"[{_iso_now()}] {message}"
+    account_prefix = f"[{account_label}] " if account_label else ""
+    line = f"[{_iso_now()}] {account_prefix} {message}"
+
     print(line)
+
     try:
         if (
             os.path.exists(LOG_FILE_PATH)
@@ -65,6 +69,22 @@ def console_log(message):
             fh.write(line + "\n")
     except Exception as e:
         print(f"[ERROR] Can't write log file: {e}")
+
+
+def make_account_logger(account_label):
+    """
+    Create a logger function that bounds to a specific account label.
+
+    Args:
+        account_label (str): The label of the account to log.
+    Returns:
+        function: A logging function that automatically includes the account label.
+    """
+
+    def account_log(message):
+        console_log(message, account_label)
+
+    return account_log
 
 
 # ---------------------------------------------------------------------------
@@ -296,15 +316,21 @@ def _run_account(api, acc, pc_override=None, mobile_override=None, force=False):
         console_log(f"Switching to account '{label}'.")
         api.account_manager.select(aid)
         api._rebuild_account_context()
-        # Keep logger rebound after context rebuild.
-        if api.history is not None:
-            api.history._logger = console_log
-        if api.daily_set is not None:
-            api.daily_set.logger = console_log
-        if api.search_engine is not None:
-            api.search_engine._logger = console_log
-        if api.stats is not None:
-            api.stats._logger = console_log
+
+    account_log = make_account_logger(label)
+
+    api.log = account_log
+    api._safe_log = account_log
+
+    # Keep logger rebound after context rebuild.
+    if api.history is not None:
+        api.history._logger = account_log
+    if api.daily_set is not None:
+        api.daily_set.logger = account_log
+    if api.search_engine is not None:
+        api.search_engine._logger = account_log
+    if api.stats is not None:
+        api.stats._logger = account_log
 
     # Mark triggered BEFORE the run so a crash doesn't produce a second run.
     if pc_override is None and mobile_override is None:
