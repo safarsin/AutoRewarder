@@ -135,13 +135,22 @@
     <section class="card activity-card">
       <div class="card-header">
         <div class="card-label">Activity</div>
-        <button id="history_btn" class="ghost-link" type="button" onclick="show_history()">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="10"></circle>
-            <polyline points="12 6 12 12 16 14"></polyline>
-          </svg>
-          View history
-        </button>
+        <div>
+          <button id="history_btn" class="ghost-link" type="button" onclick="show_history()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            History
+          </button>
+          <button id="logs_btn" class="ghost-link" type="button" onclick="show_background_logs()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 17l6-6-6-6"></path>
+              <path d="M12 19h8"></path>
+            </svg>
+            Background logs
+          </button>
+        </div>
       </div>
       <div id="log_area" class="activity-feed"></div>
     </section>

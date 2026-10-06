@@ -18,6 +18,7 @@ body {
   justify-content: space-between;
   gap: 16px;
   flex-shrink: 0;
+  user-select: none;
 }
 
 .logs-title-wrap {
