@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Background Logs</title>
+
+  <link rel="stylesheet" href="normalize.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="background_logs.css">
+</head>
+<body>
+
+  <header class="logs-header">
+    <div class="logs-title-wrap">
+      <h2 class="logs-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round"
+             stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 17l6-6-6-6"></path>
+            <path d="M12 19h8"></path>
+        </svg>
+        Background logs
+      </h2>
+      <p class="logs-subtitle">Logs from scheduled and headless runs.</p>
+    </div>
+
+    <div class="logs-toolbar">
+      <button id="logs_refresh" class="logs-refresh" type="button">
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  <main id="logs_panel" class="logs-panel">
+    <pre id="logs_content" class="logs-content">Loading…</pre>
+  </main>
+
+  <script>
+    const logsContent = document.getElementById('logs_content');
+    const logsPanel = document.getElementById('logs_panel');
+    const refreshButton = document.getElementById('logs_refresh');
+
+    function set_logs_message(message, className) {
+      logsContent.className = 'logs-content' + (className ? ' ' + className : '');
+      logsContent.textContent = message;
+    }
+
+    async function load_background_logs() {
+      refreshButton.disabled = true;
+
+      const wasAtBottom =
+        logsPanel.scrollHeight - logsPanel.scrollTop - logsPanel.clientHeight < 24;
+
+      try {
+        const data = await pywebview.api.get_background_logs();
+
+        if (!data) {
+          set_logs_message('No background logs yet.', 'logs-empty');
+        } else {
+          set_logs_message(data, '');
+          if (wasAtBottom) logsPanel.scrollTop = logsPanel.scrollHeight;
+        }
+      } catch (error) {
+        console.error('Failed to load background logs:', error);
+        set_logs_message('Could not load background logs.', 'logs-error');
+      } finally {
+        refreshButton.disabled = false;
+      }
+    }
+
+    refreshButton.addEventListener('click', load_background_logs);
+
+    window.addEventListener('pywebviewready', load_background_logs);
+  </script>
+
+</body>
+</html>
