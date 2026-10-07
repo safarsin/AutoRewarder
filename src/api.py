@@ -1879,20 +1879,29 @@ class AutoRewarderAPI:
 
     def get_background_logs(self):
         """
-        Return the last 1000 lines of the background log file, or an empty
-        string if the file doesn't exist.
+        Return the last 1000 lines of the background log file.
+
+        Returns:
+            dict: {"ok": True, "content": str} on success,
+                or {"ok": False, "error": str} on failure.
         """
 
-        if LOG_FILE_PATH is None or not os.path.exists(LOG_FILE_PATH):
-            return ""
+        if not os.path.exists(LOG_FILE_PATH):
+            return {"ok": True, "content": ""}
 
         try:
             with open(LOG_FILE_PATH, "r", encoding="utf-8") as f:
                 lines = f.readlines()
-                return "".join(lines[-1000:])
+                return {
+                    "ok": True,
+                    "content": "".join(lines[-1000:]),
+                }
         except Exception as e:
-            self.log(f"[ERROR] Error reading background logs: {e}")
-            return ""
+            print(f"[ERROR] Error reading background logs: {e}")
+            return {
+                "ok": False,
+                "error": f"[ERROR] Error reading background logs: {e}",
+            }
 
     # ------------------------------------------------------------------
     # Statistics (scoped to current account)

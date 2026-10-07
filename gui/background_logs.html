@@ -52,12 +52,22 @@
         logsPanel.scrollHeight - logsPanel.scrollTop - logsPanel.clientHeight < 24;
 
       try {
-        const data = await pywebview.api.get_background_logs();
+        const result = await pywebview.api.get_background_logs();
 
-        if (!data) {
+        if (!result || result.ok !== true) {
+          const errorMessage =
+            result && result.error
+              ? result.error
+              : 'Could not load background logs.';
+
+          set_logs_message(errorMessage, 'logs-error');
+          return;
+        }
+
+        if (!result.content) {
           set_logs_message('No background logs yet.', 'logs-empty');
         } else {
-          set_logs_message(data, '');
+          set_logs_message(result.content, '');
           if (wasAtBottom) logsPanel.scrollTop = logsPanel.scrollHeight;
         }
       } catch (error) {
