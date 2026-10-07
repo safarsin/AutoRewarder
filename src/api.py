@@ -23,6 +23,7 @@ from .config import (
     REPO,
     CURRENT_VERSION,
     JSON_FILE_PATH,
+    LOG_FILE_PATH,
     BASE_DIR,
     edge_profile_path,
     history_path,
@@ -88,6 +89,7 @@ class AutoRewarderAPI:
         # backend rendering a blank window after a few opens.
         self._stats_window = None
         self._history_window = None
+        self._background_logs_window = None
         self._driver = None
         self.is_driver_loading = False
         self._run_lock = threading.Lock()
@@ -247,6 +249,26 @@ class AutoRewarderAPI:
 
         self._history_window = webview.create_window(
             title="Query History",
+            url=url,
+            js_api=self,
+            width=700,
+            height=500,
+            resizable=True,
+            background_color="#0d1117",
+            text_select=True,
+        )
+
+    def open_background_logs_window(self):
+        """Open (or refocus + reload) the background logs viewer window."""
+
+        import webview
+
+        url = os.path.join(GUI_DIR, "background_logs.html")
+        if self._reuse_window(self._background_logs_window, url):
+            return
+
+        self._background_logs_window = webview.create_window(
+            title="Background Logs",
             url=url,
             js_api=self,
             width=700,
@@ -1850,6 +1872,36 @@ class AutoRewarderAPI:
         if self.history is None:
             return []
         return self.history.get_history()
+
+    # ------------------------------------------------------------------
+    # Background logs
+    # ------------------------------------------------------------------
+
+    def get_background_logs(self):
+        """
+        Return the last 1000 lines of the background log file.
+
+        Returns:
+            dict: {"ok": True, "content": str} on success,
+                or {"ok": False, "error": str} on failure.
+        """
+
+        if not os.path.exists(LOG_FILE_PATH):
+            return {"ok": True, "content": ""}
+
+        try:
+            with open(LOG_FILE_PATH, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+                return {
+                    "ok": True,
+                    "content": "".join(lines[-1000:]),
+                }
+        except Exception as e:
+            print(f"[ERROR] Error reading background logs: {e}")
+            return {
+                "ok": False,
+                "error": f"[ERROR] Error reading background logs: {e}",
+            }
 
     # ------------------------------------------------------------------
     # Statistics (scoped to current account)
