@@ -52,7 +52,7 @@ def console_log(message, account_label=None):
         account_label (str): The label of the account to log.
     """
     account_prefix = f"[{account_label}] " if account_label else ""
-    line = f"[{_iso_now()}] {account_prefix} {message}"
+    line = f"[{_iso_now()}] {account_prefix}{message}"
 
     print(line)
 
@@ -73,7 +73,7 @@ def console_log(message, account_label=None):
 
 def make_account_logger(account_label):
     """
-    Create a logger function that bounds to a specific account label.
+    Create a logger function that binds to a specific account label.
 
     Args:
         account_label (str): The label of the account to log.
@@ -92,7 +92,7 @@ def make_account_logger(account_label):
 # ---------------------------------------------------------------------------
 
 
-def _run_once(api, pc, mobile):
+def _run_once(api, pc, mobile, account_log):
     """
     Single burst: PC then Mobile, all in one go.
 
@@ -100,15 +100,16 @@ def _run_once(api, pc, mobile):
         api: AutoRewarderAPI instance (must already be headless-configured)
         pc: number of PC queries to run
         mobile: number of Mobile queries to run
+        account_log: logger function for the current account
     """
-    console_log(f"Single run: PC={pc}, Mobile={mobile}")
+    account_log(f"Single run: PC={pc}, Mobile={mobile}")
     try:
         api.main(int(pc), int(mobile))
     except Exception as e:
-        console_log(f"[ERROR] Run failed: {e}")
+        account_log(f"[ERROR] Run failed: {e}")
 
 
-def _run_scheduled(api, pc, mobile, duration_hours, queries_per_hour):
+def _run_scheduled(api, pc, mobile, duration_hours, queries_per_hour, account_log):
     """
     Drip-feed `pc + mobile` queries across `duration_hours` at ~queries_per_hour.
 
@@ -130,12 +131,12 @@ def _run_scheduled(api, pc, mobile, duration_hours, queries_per_hour):
     duration_hours = float(duration_hours)
     qph = int(queries_per_hour) if queries_per_hour else 0
 
-    console_log(
+    account_log(
         f"Scheduled run: PC={pc}, Mobile={mobile} over {duration_hours}h (qph={qph})"
     )
 
     if total <= 0:
-        console_log("Nothing scheduled (PC + Mobile = 0).")
+        account_log("Nothing scheduled (PC + Mobile = 0).")
         return
 
     # Batch sizing heuristic identical to v3.1 main's runner.
@@ -149,7 +150,7 @@ def _run_scheduled(api, pc, mobile, duration_hours, queries_per_hour):
     total_seconds = duration_hours * 3600
     interval = total_seconds / max(num_batches, 1)
 
-    console_log(
+    account_log(
         f"Planning {num_batches} batches of ~{per_batch} queries, interval ~{interval:.1f}s"
     )
 
@@ -168,14 +169,14 @@ def _run_scheduled(api, pc, mobile, duration_hours, queries_per_hour):
         if batch_pc == 0 and batch_mobile == 0:
             break
 
-        console_log(
+        account_log(
             f"Batch {i+1}/{num_batches}: PC={batch_pc}, Mobile={batch_mobile} "
             f"(PC left {pc_left}, Mobile left {mobile_left})"
         )
         try:
             api.main(batch_pc, batch_mobile)
         except Exception as e:
-            console_log(f"[ERROR] Batch {i+1} failed: {e}")
+            account_log(f"[ERROR] Batch {i+1} failed: {e}")
 
         pc_left -= batch_pc
         mobile_left -= batch_mobile
@@ -184,10 +185,10 @@ def _run_scheduled(api, pc, mobile, duration_hours, queries_per_hour):
             break
 
         sleep_time = max(5.0, interval * random.uniform(0.75, 1.25))
-        console_log(f"Sleeping {sleep_time:.1f}s until next batch")
+        account_log(f"Sleeping {sleep_time:.1f}s until next batch")
         time.sleep(sleep_time)
 
-    console_log("Scheduled run complete.")
+    account_log("Scheduled run complete.")
 
 
 # ---------------------------------------------------------------------------
@@ -284,8 +285,10 @@ def _run_account(api, acc, pc_override=None, mobile_override=None, force=False):
     aid = acc["id"]
     label = acc["label"]
 
+    account_log = make_account_logger(label)
+
     if not acc["first_setup_done"]:
-        console_log(f"Skipping '{label}': First Setup not completed.")
+        account_log(f"Skipping '{label}': First Setup not completed.")
         return False
 
     meta = AccountMetaManager(aid)
@@ -293,11 +296,11 @@ def _run_account(api, acc, pc_override=None, mobile_override=None, force=False):
 
     if pc_override is None and mobile_override is None:
         if not sched.get("enabled"):
-            console_log(f"Skipping '{label}': schedule disabled.")
+            account_log(f"Skipping '{label}': schedule disabled.")
             return False
         today = date.today().isoformat()
         if not force and sched.get("last_triggered_date") == today:
-            console_log(f"Skipping '{label}': already triggered today.")
+            account_log(f"Skipping '{label}': already triggered today.")
             return False
 
     pc = int(pc_override if pc_override is not None else sched.get("queries_pc", 0))
@@ -308,16 +311,14 @@ def _run_account(api, acc, pc_override=None, mobile_override=None, force=False):
     )
 
     if pc + mobile <= 0:
-        console_log(f"Skipping '{label}': both PC and Mobile counts are 0.")
+        account_log(f"Skipping '{label}': both PC and Mobile counts are 0.")
         return False
 
     # Make this the current account so api.main() targets it.
     if api.account_manager.current_id() != aid:
-        console_log(f"Switching to account '{label}'.")
+        account_log(f"Switching to account '{label}'.")
         api.account_manager.select(aid)
         api._rebuild_account_context()
-
-    account_log = make_account_logger(label)
 
     api.log = account_log
     api._safe_log = account_log
@@ -345,9 +346,10 @@ def _run_account(api, acc, pc_override=None, mobile_override=None, force=False):
             mobile,
             sched.get("runDuration", 3),
             sched.get("queriesPerHour", 10),
+            account_log,
         )
     else:
-        _run_once(api, pc, mobile)
+        _run_once(api, pc, mobile, account_log)
 
     return True
 
