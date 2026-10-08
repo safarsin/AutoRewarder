@@ -146,6 +146,9 @@ class GlobalSettingsManager:
             # detected_locale (navigator.language) or OS detection.
             "search_locale": "auto",
             "detected_locale": "",  # filled by the GUI from navigator.language
+            # Delay range for normal manual searches
+            "manual_search_delay_min": 4.0,
+            "manual_search_delay_max": 10.0,
         }
 
         if APP_DIR and not os.path.exists(APP_DIR):
@@ -275,6 +278,49 @@ class GlobalSettingsManager:
         settings["queries_mobile"] = max(0, min(99, int(count)))
         self.save_settings(settings)
 
+    def get_manual_search_delay(self):
+        """
+        Return the saved delay range for normal manual searches.
+
+        Returns:
+            tuple[float, float]: minimum and maximum delay in seconds.
+        """
+        settings = self.get_settings()
+
+        try:
+            minimum = float(settings.get("manual_search_delay_min", 4.0))
+            maximum = float(settings.get("manual_search_delay_max", 10.0))
+        except (TypeError, ValueError):
+            return 4.0, 10.0
+
+        if minimum < 0 or maximum < 0 or minimum > maximum:
+            return 4.0, 10.0
+
+        return minimum, maximum
+
+    def set_manual_search_delay(self, minimum, maximum):
+        """
+        Persist the delay range for normal manual searches.
+
+        Returns:
+            bool: True when the values were accepted and saved.
+        """
+        try:
+            minimum = float(minimum)
+            maximum = float(maximum)
+        except (TypeError, ValueError):
+            return False
+
+        if minimum < 0 or maximum < 0 or minimum > maximum:
+            return False
+
+        settings = self.settings_for_update()
+        settings["manual_search_delay_min"] = minimum
+        settings["manual_search_delay_max"] = maximum
+        self.save_settings(settings)
+
+        return True
+
     # ------------------------------------------------------------------
     # LLM-generated search terms + locale
     # ------------------------------------------------------------------
@@ -301,7 +347,8 @@ class GlobalSettingsManager:
         search_locale="auto",
         base_url="",
     ):
-        """Persist the LLM query-generation config.
+        """
+        Persist the LLM query-generation config.
 
         Unknown providers fall back to "openai"; an empty locale becomes
         "auto". The API key is stored as-is (plain text) alongside the other
