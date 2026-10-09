@@ -1362,6 +1362,15 @@ input[type="number"]:focus {
   cursor: pointer;
 }
 
+.settings-row-stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.manual-search-delay-fields {
+  width: 100%;
+}
+
 .settings-row + .settings-row { border-top: 1px solid var(--border-soft); }
 
 .settings-row-text { flex: 1; min-width: 0; }
