@@ -104,7 +104,7 @@ def _run_once(api, pc, mobile, account_log):
     """
     account_log(f"Single run: PC={pc}, Mobile={mobile}")
     try:
-        api.main(int(pc), int(mobile))
+        api.main(int(pc), int(mobile), run_context="scheduled")
     except Exception as e:
         account_log(f"[ERROR] Run failed: {e}")
 
@@ -174,7 +174,7 @@ def _run_scheduled(api, pc, mobile, duration_hours, queries_per_hour, account_lo
             f"(PC left {pc_left}, Mobile left {mobile_left})"
         )
         try:
-            api.main(batch_pc, batch_mobile)
+            api.main(batch_pc, batch_mobile, run_context="scheduled")
         except Exception as e:
             account_log(f"[ERROR] Batch {i+1} failed: {e}")
 

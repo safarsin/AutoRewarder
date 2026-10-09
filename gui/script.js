@@ -285,7 +285,7 @@ function start_bot() {
   }
 
   update_status_indicator('executing');
-  pywebview.api.main(pc, mobile, dailyOnly);
+  pywebview.api.main(pc, mobile, dailyOnly, 'manual');
 }
 
 function _sync_daily_only_ui() {
