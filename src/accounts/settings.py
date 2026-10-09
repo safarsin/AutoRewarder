@@ -7,6 +7,7 @@ from ..config import APP_DIR, GLOBAL_SETTINGS_PATH
 
 SCHEMA_VERSION = 3
 
+MAX_MANUAL_SEARCH_DELAY = 1800.0  # 30 min
 
 # Returned by _read_json when the file is there but couldn't be read. Distinct
 # from `default`, which means "there is nothing to read": a file we failed to
@@ -293,7 +294,12 @@ class GlobalSettingsManager:
         except (TypeError, ValueError):
             return 4.0, 10.0
 
-        if minimum < 0 or maximum < 0 or minimum > maximum:
+        if (
+            minimum < 0
+            or maximum < 0
+            or minimum > maximum
+            or maximum > MAX_MANUAL_SEARCH_DELAY
+        ):
             return 4.0, 10.0
 
         return minimum, maximum
@@ -311,7 +317,12 @@ class GlobalSettingsManager:
         except (TypeError, ValueError):
             return False
 
-        if minimum < 0 or maximum < 0 or minimum > maximum:
+        if (
+            minimum < 0
+            or maximum < 0
+            or minimum > maximum
+            or maximum > MAX_MANUAL_SEARCH_DELAY
+        ):
             return False
 
         settings = self.settings_for_update()

@@ -604,6 +604,34 @@ class AutoRewarderAPI:
             self.log(f"[WARNING] Failed to save search counts: {e}")
             return False
 
+    def get_manual_search_delay(self):
+        """
+        Return the min/max delay for normal manual searches, in seconds.
+
+        Returns:
+            dict: {"minimum": min_delay, "maximum": max_delay}
+        """
+        minimum, maximum = self.global_settings.get_manual_search_delay()
+
+        return {"minimum": minimum, "maximum": maximum}
+
+    def set_manual_search_delay(self, minimum, maximum):
+        """
+        Persist the min/max delay for normal manual searches, in seconds.
+
+        Args:
+            minimum (float): Minimum delay in seconds.
+            maximum (float): Maximum delay in seconds.
+
+        Returns:
+            bool: True if successfully saved, False otherwise.
+        """
+        try:
+            return self.global_settings.set_manual_search_delay(minimum, maximum)
+        except Exception as e:
+            self.log(f"[WARNING] Failed to save manual search delay: {e}")
+            return False
+
     # ------------------------------------------------------------------
     # Exposed to JS: LLM-generated search terms + locale
     # ------------------------------------------------------------------
