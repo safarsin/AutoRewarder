@@ -285,7 +285,7 @@ function start_bot() {
   }
 
   update_status_indicator('executing');
-  pywebview.api.main(pc, mobile, dailyOnly);
+  pywebview.api.main(pc, mobile, dailyOnly, 'manual');
 }
 
 function _sync_daily_only_ui() {
@@ -765,7 +765,8 @@ function open_settings_modal(panelId) {
     pywebview.api.get_llm_config(),
     pywebview.api.get_force_tasks(),
     pywebview.api.get_app_info(),
-  ]).then(([schedules, startup, closeToTray, llmConfig, forceTasks, appInfo]) => {
+    pywebview.api.get_manual_search_delay(),
+  ]).then(([schedules, startup, closeToTray, llmConfig, forceTasks, appInfo, manualSearchDelay]) => {
     render_account_panels(Array.isArray(schedules) ? schedules : []);
 
     // Background auto-run toggle — disable row on unsupported OS.
@@ -787,6 +788,19 @@ function open_settings_modal(panelId) {
     const trayToggle = document.getElementById('closeToTrayToggle');
     if (trayToggle) {
       trayToggle.checked = closeToTray !== false;
+    }
+
+    // Manual search delay fields.
+    const delay = manualSearchDelay || {};
+    const minInput = document.getElementById('manualSearchDelayMin');
+    const maxInput = document.getElementById('manualSearchDelayMax');
+
+    if (minInput) {
+      minInput.value = delay.minimum ?? 4;
+    }
+
+    if (maxInput) {
+      maxInput.value = delay.maximum ?? 10;
     }
 
     // Force toggles — default to off if the API failed.
@@ -1504,6 +1518,49 @@ function make_form_field(labelText, inputType, className, value, opts) {
 // Save
 // -------------------------------------------------------------------------
 
+function read_manual_search_delay() {
+  const minInput = document.getElementById("manualSearchDelayMin");
+  const maxInput = document.getElementById("manualSearchDelayMax");
+
+  const minRaw = minInput.value.trim();
+  const maxRaw = maxInput.value.trim();
+
+  if (minRaw === '') {
+    settings_go('general');
+    show_toast("Minimum pause must be a valid number.", "warning");
+    return null;
+  }
+
+  if (maxRaw === '') {
+    settings_go('general');
+    show_toast("Maximum pause must be a valid number.", "warning");
+    return null;
+  }
+
+  const minimum = Number(minRaw);
+  const maximum = Number(maxRaw);
+
+  if (!Number.isFinite(minimum) || minimum < 0 || minimum > 1800) {
+    settings_go('general');
+    show_toast("Minimum pause must be between 0 and 1800 seconds.", "warning");
+    return null;
+  }
+
+  if (!Number.isFinite(maximum) || maximum < 0 || maximum > 1800) {
+    settings_go('general');
+    show_toast("Maximum pause must be between 0 and 1800 seconds.", "warning");
+    return null;
+  }
+
+  if (minimum > maximum) {
+    settings_go('general');
+    show_toast("Minimum pause cannot be greater than maximum pause.", "warning");
+    return null;
+  }
+
+  return {minimum, maximum};
+}
+
 async function save_settings() {
   if (!settingsLoaded) {
     show_toast('Settings are still loading.', 'warning');
@@ -1512,6 +1569,11 @@ async function save_settings() {
   const panels = Array.from(document.querySelectorAll('#settings_account_panels .settings-account-panel'));
   const closeToTrayWanted = document.getElementById('closeToTrayToggle').checked;
   const startupWanted = document.getElementById('startupToggle').checked;
+  const manualSearchDelay = read_manual_search_delay();
+
+  if (!manualSearchDelay) {
+    return;
+  }
 
   // Validate + collect payloads per account. On a validation error, jump to
   // the offending account so the toast points at a visible field.
@@ -1602,6 +1664,21 @@ async function save_settings() {
       document.getElementById('llmLocale').value,
       document.getElementById('llmBaseUrl').value
     );
+
+    // Persist the manual search delay
+    const manualDelayOk = await pywebview.api.set_manual_search_delay(
+      manualSearchDelay.minimum,
+      manualSearchDelay.maximum
+    );
+
+    if (!manualDelayOk) {
+      show_toast(
+        'Some settings were saved, but manual search delay failed to save. '
+        + 'Schedules, startup, and close-to-tray settings were not saved.',
+        'error'
+      );
+      return;
+    }
 
     const scheduleCalls = payloads.map(p =>
       pywebview.api.set_schedule(p.id, p.payload)

@@ -279,6 +279,26 @@
                 <span class="toggle-pill"></span>
               </span>
             </label>
+
+            <div class="settings-row settings-row-stack">
+              <div class="settings-row-text">
+                <div class="settings-row-label">Pause between manual searches</div>
+                <div class="settings-row-hint">
+                  Sets a random pause between search queries during a normal manual run.
+                  It does not apply to scheduled runs or GUI runs with Advanced scheduling enabled.
+                </div>
+              </div>
+              <div class="form-grid-2 manual-search-delay-fields">
+                <div class="form-field">
+                  <label for="manualSearchDelayMin">MINIMUM, SECONDS</label>
+                  <input type="number" id="manualSearchDelayMin" min="0" max="1800" step="0.1">
+                </div>
+                <div class="form-field">
+                  <label for="manualSearchDelayMax">MAXIMUM, SECONDS</label>
+                  <input type="number" id="manualSearchDelayMax" min="0" max="1800" step="0.1">
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Daily tasks -->

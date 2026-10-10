@@ -60,6 +60,9 @@ AUTOSTART_TIME = "09:00"
 _AUTOSTART_TASK_NAME = "AutoRewarder"
 _SYSTEMD_UNIT_NAME = "autorewarder"
 
+# Default min/max delay for normal manual searches, in seconds.
+DEFAULT_SEARCH_DELAY = (4.0, 10.0)
+
 # HH:MM validator — accepts 00:00..23:59.
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
@@ -602,6 +605,34 @@ class AutoRewarderAPI:
             return True
         except Exception as e:
             self.log(f"[WARNING] Failed to save search counts: {e}")
+            return False
+
+    def get_manual_search_delay(self):
+        """
+        Return the min/max delay for normal manual searches, in seconds.
+
+        Returns:
+            dict: {"minimum": min_delay, "maximum": max_delay}
+        """
+        minimum, maximum = self.global_settings.get_manual_search_delay()
+
+        return {"minimum": minimum, "maximum": maximum}
+
+    def set_manual_search_delay(self, minimum, maximum):
+        """
+        Persist the min/max delay for normal manual searches, in seconds.
+
+        Args:
+            minimum (float): Minimum delay in seconds.
+            maximum (float): Maximum delay in seconds.
+
+        Returns:
+            bool: True if successfully saved, False otherwise.
+        """
+        try:
+            return self.global_settings.set_manual_search_delay(minimum, maximum)
+        except Exception as e:
+            self.log(f"[WARNING] Failed to save manual search delay: {e}")
             return False
 
     # ------------------------------------------------------------------
@@ -2211,7 +2242,12 @@ class AutoRewarderAPI:
             return self._stop_event.is_set()
 
     def _run_advanced_schedule(
-        self, pc_count, mobile_count, duration_hours, queries_per_hour
+        self,
+        pc_count,
+        mobile_count,
+        duration_hours,
+        queries_per_hour,
+        search_delay_range,
     ):
         """
         Drip-feed queries across a duration using the GUI run pipeline.
@@ -2221,6 +2257,7 @@ class AutoRewarderAPI:
             mobile_count (int): total Mobile queries to run
             duration_hours (float|int): how many hours to spread the queries across
             queries_per_hour (int): target queries per hour (overrides duration_hours if > 0)
+            search_delay_range (tuple): the range of delays to use for each search
         """
         try:
             pc = max(0, int(pc_count or 0))
@@ -2292,10 +2329,20 @@ class AutoRewarderAPI:
             )
 
             if batch_pc > 0 and not self._stop_event.is_set():
-                self._run_phase(mobile=False, count=batch_pc, do_daily_set=True)
+                self._run_phase(
+                    mobile=False,
+                    count=batch_pc,
+                    do_daily_set=True,
+                    search_delay_range=search_delay_range,
+                )
 
             if batch_mobile > 0 and not self._stop_event.is_set():
-                self._run_phase(mobile=True, count=batch_mobile, do_daily_set=False)
+                self._run_phase(
+                    mobile=True,
+                    count=batch_mobile,
+                    do_daily_set=False,
+                    search_delay_range=search_delay_range,
+                )
 
             pc_left -= batch_pc
             mobile_left -= batch_mobile
@@ -2313,7 +2360,13 @@ class AutoRewarderAPI:
         if not self._stop_event.is_set() and pc_left <= 0 and mobile_left <= 0:
             self.log("Advanced schedule completed!")
 
-    def main(self, pc_count, mobile_count=0, daily_only=False):
+    def main(
+        self,
+        pc_count,
+        mobile_count=0,
+        daily_only=False,
+        run_context="manual",
+    ):
         """
         Run the bot against the currently-selected account.
 
@@ -2331,7 +2384,15 @@ class AutoRewarderAPI:
             pc_count (int): how many searches to do in the PC phase (ignored if daily_only)
             mobile_count (int): how many searches to do in the Mobile phase (ignored if daily_only)
             daily_only (bool): whether to skip searches and just run the Daily Set
+            run_context (str): The context in which the bot is running. Can be "manual" or "scheduled"
         """
+        if run_context not in ("manual", "scheduled"):
+            self.log(
+                f"[WARNING] Unknown run context '{run_context}'. "
+                "Using scheduled mode."
+            )
+            run_context = "scheduled"
+
         if self.account_manager.current_id() is None:
             self.log("[ERROR] No account selected. Add one via the dropdown.")
             if self._webview_window:
@@ -2366,11 +2427,27 @@ class AutoRewarderAPI:
                 schedule = {}
 
         schedule_enabled = isinstance(schedule, dict) and bool(schedule.get("enabled"))
+
         use_advanced = (
             not daily_only
             and schedule_enabled
             and bool(schedule.get("advancedScheduling"))
         )
+
+        # 4 scenarios:
+        # 1. manual run, no advanced scheduling: use configured search delay
+        # 2. manual run, advanced scheduling: use default search delay
+        # 3. scheduled run, no advanced scheduling: use default search delay
+        # 4. scheduled run, advanced scheduling: use default search delay
+        if run_context == "manual" and not use_advanced:
+            search_delay_range = self.global_settings.get_manual_search_delay()
+            self.log(
+                "Normal manual run: using configured search delay "
+                f"{search_delay_range[0]:.1f}-"
+                f"{search_delay_range[1]:.1f}s."
+            )
+        else:
+            search_delay_range = DEFAULT_SEARCH_DELAY
 
         if (
             not daily_only
@@ -2422,14 +2499,28 @@ class AutoRewarderAPI:
                     duration = schedule.get("runDuration", 3)
                     qph = schedule.get("queriesPerHour", 10)
                     self.log("Advanced scheduling enabled. Using scheduled pacing.")
-                    self._run_advanced_schedule(pc_count, mobile_count, duration, qph)
+                    self._run_advanced_schedule(
+                        pc_count,
+                        mobile_count,
+                        duration,
+                        qph,
+                        search_delay_range,
+                    )
                 else:
                     if pc_count > 0 and not self._stop_event.is_set():
-                        self._run_phase(mobile=False, count=pc_count, do_daily_set=True)
+                        self._run_phase(
+                            mobile=False,
+                            count=pc_count,
+                            do_daily_set=True,
+                            search_delay_range=search_delay_range,
+                        )
 
                     if mobile_count > 0 and not self._stop_event.is_set():
                         self._run_phase(
-                            mobile=True, count=mobile_count, do_daily_set=False
+                            mobile=True,
+                            count=mobile_count,
+                            do_daily_set=False,
+                            search_delay_range=search_delay_range,
                         )
 
             if self._stop_event.is_set():
@@ -2816,7 +2907,7 @@ class AutoRewarderAPI:
 
         return done > 0
 
-    def _run_phase(self, mobile, count, do_daily_set):
+    def _run_phase(self, mobile, count, do_daily_set, search_delay_range):
         """
         Open a driver for a single phase (PC or Mobile), do `count` searches,
         optionally run the Daily Set, then quit.
@@ -2847,6 +2938,7 @@ class AutoRewarderAPI:
                 queries_to_search,
                 mobile=mobile,
                 stop_event=self._stop_event,
+                search_delay_range=search_delay_range,
             )
             # Tally successful searches against the right platform bucket.
             bucket = "mobile" if mobile else "pc"

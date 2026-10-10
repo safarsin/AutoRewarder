@@ -212,7 +212,14 @@ class SearchEngine:
         else:
             return random.randint(10, 15)
 
-    def perform_searches(self, driver, queries, mobile=False, stop_event=None):
+    def perform_searches(
+        self,
+        driver,
+        queries,
+        mobile=False,
+        stop_event=None,
+        search_delay_range=(4.0, 10.0),
+    ):
         """
         Perform searches on Bing using Selenium WebDriver with human-like behavior.
 
@@ -224,6 +231,8 @@ class SearchEngine:
             stop_event (threading.Event, optional): If provided and set, the
                 loop bails out at the next checkpoint and any in-progress
                 coffee break is interrupted immediately.
+            search_delay_range (tuple): A tuple specifying the range of delays (min, max)
+                to use for each search.
 
         Returns:
             int: the number of searches that completed successfully (used by
@@ -231,6 +240,8 @@ class SearchEngine:
         """
 
         human = HumanBehavior(driver, show_cursor=True, mobile=mobile)
+
+        delay_min, delay_max = search_delay_range
 
         next_coffee_break = self.get_coffee_break_count()
         searches_since_break = 0
@@ -247,7 +258,8 @@ class SearchEngine:
             try:
                 # Open Bing homepage
                 driver.get("https://www.bing.com")
-                time.sleep(random.uniform(4, 8))  # Random delay to mimic human behavior
+                # Random delay to mimic human behavior
+                time.sleep(random.uniform(delay_min, delay_max))
 
                 searches_since_break += 1
 
