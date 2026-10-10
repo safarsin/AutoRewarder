@@ -1672,7 +1672,11 @@ async function save_settings() {
     );
 
     if (!manualDelayOk) {
-      show_toast('Manual search delay failed to save.', 'error');
+      show_toast(
+        'Some settings were saved, but manual search delay failed to save. '
+        + 'Schedules, startup, and close-to-tray settings were not saved.',
+        'error'
+      );
       return;
     }
 

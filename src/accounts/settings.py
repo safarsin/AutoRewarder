@@ -286,6 +286,8 @@ class GlobalSettingsManager:
         Returns:
             tuple[float, float]: minimum and maximum delay in seconds.
         """
+        import math
+
         settings = self.get_settings()
 
         try:
@@ -295,7 +297,9 @@ class GlobalSettingsManager:
             return 4.0, 10.0
 
         if (
-            minimum < 0
+            not math.isfinite(minimum)
+            or not math.isfinite(maximum)
+            or minimum < 0
             or maximum < 0
             or minimum > maximum
             or maximum > MAX_MANUAL_SEARCH_DELAY
@@ -311,6 +315,8 @@ class GlobalSettingsManager:
         Returns:
             bool: True when the values were accepted and saved.
         """
+        import math
+
         try:
             minimum = float(minimum)
             maximum = float(maximum)
@@ -318,7 +324,9 @@ class GlobalSettingsManager:
             return False
 
         if (
-            minimum < 0
+            not math.isfinite(minimum)
+            or not math.isfinite(maximum)
+            or minimum < 0
             or maximum < 0
             or minimum > maximum
             or maximum > MAX_MANUAL_SEARCH_DELAY

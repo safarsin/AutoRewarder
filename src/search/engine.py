@@ -216,9 +216,9 @@ class SearchEngine:
         self,
         driver,
         queries,
-        search_delay_range,
         mobile=False,
         stop_event=None,
+        search_delay_range=(4.0, 10.0),
     ):
         """
         Perform searches on Bing using Selenium WebDriver with human-like behavior.
@@ -226,13 +226,13 @@ class SearchEngine:
         Args:
             driver (WebDriver): An instance of Selenium WebDriver to control the browser.
             queries (list): A list of search queries to perform.
-            search_delay_range (tuple): A tuple specifying the range of delays (min, max)
-                to use for each search.
             mobile (bool): When True, HumanBehavior emits touch gestures instead
                 of mouse events — pair with a mobile-emulated driver.
             stop_event (threading.Event, optional): If provided and set, the
                 loop bails out at the next checkpoint and any in-progress
                 coffee break is interrupted immediately.
+            search_delay_range (tuple): A tuple specifying the range of delays (min, max)
+                to use for each search.
 
         Returns:
             int: the number of searches that completed successfully (used by
