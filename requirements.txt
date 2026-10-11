@@ -1,5 +1,7 @@
-selenium==4.41.0
-pywebview==6.1
-requests==2.33.1
+selenium==4.50.0
+pywebview==6.2.1
+requests==2.34.2
 pystray==0.19.5
-Pillow==10.4.0
+Pillow==12.3.0
+nlpaug==1.1.11
+appnope==1.0.0

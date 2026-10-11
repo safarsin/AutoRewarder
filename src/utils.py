@@ -21,6 +21,49 @@ def human_typing(element, text):
         time.sleep(random.uniform(0.05, 0.18))
 
 
+def humanize_queries(queries):
+    """
+    Substitute character by keyboard distance to simulate human typing errors.
+
+    Args:
+        queries (list): A list of query strings.
+    Returns:
+        humanized_queries (list): Modified query strings with simulated typing errors.
+    """
+    import nlpaug.augmenter.char as nac  # type: ignore
+
+    mod = nac.KeyboardAug(
+        # 100% probability because the 20% overall chance
+        # handled outside by the `random` module
+        aug_char_p=1.0,
+        aug_word_p=1.0,
+        # Only one typo per query
+        aug_char_max=1,
+        aug_word_max=1,
+        # Ignore short words
+        min_char=4,
+        include_upper_case=False,
+        include_special_char=False,
+        include_numeric=True,
+    )
+
+    humanized_queries = []
+
+    for query in queries:
+        if random.random() < 0.2:
+            modified_query = mod.augment(query)
+            typo_query = (
+                modified_query[0]
+                if isinstance(modified_query, list)
+                else modified_query
+            )
+            humanized_queries.append(typo_query)
+        else:
+            humanized_queries.append(query)
+
+    return humanized_queries
+
+
 def check_for_updates(logger=None):
     """
     Check GitHub API for the latest release and compare it to the current version.

@@ -1,11 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_data_files
 
 
 a = Analysis(
     ['AutoRewarder.py'],
     pathex=[],
     binaries=[],
-    datas=[('gui', 'gui'), ('assets', 'assets')],
+    datas=[('gui', 'gui'), ('assets', 'assets')] + collect_data_files('nlpaug'),
     hiddenimports=[
         'selenium.webdriver.edge.webdriver',
         'pystray',

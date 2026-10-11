@@ -10,7 +10,7 @@ import os
 import platform
 import sys
 
-CURRENT_VERSION = "v4.0"
+CURRENT_VERSION = "v4.3"
 REPO = "safarsin/AutoRewarder"
 
 PLATFORM_NAME = platform.system()
@@ -23,10 +23,20 @@ APP_DIR = ""
 if PLATFORM_NAME == "Linux":
     APP_DIR = os.path.expanduser("~/.local/share/AutoRewarder")
 
+# Get macOS app directory
+elif PLATFORM_NAME == "Darwin":
+    APP_DIR = os.path.expanduser("~/Library/Application Support/AutoRewarder")
+
 # Get Windows app directory
 elif PLATFORM_NAME == "Windows":
     APP_DIR = os.path.join(
         os.environ["USERPROFILE"], "AppData", "Local", "AutoRewarder"
+    )
+
+# Get MacOS app directory
+elif PLATFORM_NAME == "Darwin":
+    APP_DIR = os.path.join(
+        os.path.expanduser("~"), "Library", "Application Support", "AutoRewarder"
     )
 
 # Quit on invalid platform
@@ -37,6 +47,7 @@ else:
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GUI_DIR = os.path.join(BASE_DIR, "gui")
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
+VISUAL_SEARCH_ASSETS_DIR = os.path.join(ASSETS_DIR, "visual_search_assets")
 
 # Portable config takes precedence
 if getattr(sys, "frozen", False):

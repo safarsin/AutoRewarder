@@ -4,7 +4,7 @@
 
 ![Downloads](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/safarsin/023d6f9c9aa602f6afbb7f5c1e2fe9ee/raw/downloads.json)
 
-An advanced, set-and-forget automation tool for Microsoft Rewards (supporting both the legacy and new dashboards). AutoRewarder performs Bing searches for PC and mobile point collection, completes Daily Sets and More Activities, and uses mathematically driven, human-like input simulation (W3C Actions, Bezier curves, and smart scrolling).
+An advanced, set-and-forget automation tool for Microsoft Rewards (supporting both the legacy and new dashboards). AutoRewarder performs Bing searches for PC and mobile point collection using a massive dataset of realistic queries (with optional, bring-your-own-key AI generation), completes Daily Sets and More Activities, includes Bing Visual Search tasks, and uses mathematically driven, human-like input simulation (W3C Actions, Bezier curves, smart scrolling and realistic keyboard typos).
 
 Built with a robust Python/Selenium backend, it offers two modes of operation: a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview, and a headless runner (CLI) for scheduled background runs and automation scripts. Packaged as an executable Windows app (via Inno Setup) for a seamless, plug-and-play experience.
 
@@ -14,15 +14,20 @@ Built with a robust Python/Selenium backend, it offers two modes of operation: a
 
 ## Table of Contents
 
+### Getting Started
 - [Installation](#installation)
-- [Screenshots & Demo](#screenshots--demo)
-- [Tech Stack](#tech-stack)
-- [System Requirements](#system-requirements)
-- [Features](#features)
 - [Quick Start (For Users)](#quick-start-for-users)
 - [Development Setup (For Developers)](#development-setup-for-developers)
+
+### Product Overview
+- [Screenshots & Demo](#screenshots--demo)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [System Requirements](#system-requirements)
 - [CLI Usage](#cli-usage)
 - [Build & Distribution](#build--distribution)
+
+### Reference
 - [Project Structure](#project-structure)
 - [Runtime Data](#runtime-data)
 - [Troubleshooting](#troubleshooting)
@@ -43,7 +48,7 @@ Download `AutoRewarder.zip` from the [latest release](https://github.com/safarsi
 > **Note:** Because the portable version is a single-file build, it may take a few seconds longer to start up compared to the installed version while it unpacks core components. Once open, it works at full speed.
 
 **Manual Way (Source):**
-Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
+See the [Development Setup](#development-setup-for-developers) section.
 
 ---
 
@@ -51,11 +56,15 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 | Perform Searches | App Demo |
 | :---: | :---: |
-|<img src="assets/screenshots/perform_demo.gif">|<img src="assets/screenshots/app_demo_v4.0.gif">|
+|<img src="assets/screenshots/perform_demo.gif">|<img src="assets/screenshots/app_demo_v4.1.gif">|
 
 | Daily Sets (New Dashboard) & Claim action | Tab Switching |
 | :---: | :---: |
 |<img src="assets/screenshots/daily_sets_demo_v4.0.gif">|<img src="assets/screenshots/tab_perform.gif">|
+
+| Visual Search |
+| :---: |
+|<img src="assets/screenshots/visual_search_demo_v4.2.gif">|
 
 <details>
   <summary><b>View Legacy Dashboard Demo (click to expand)</b></summary>
@@ -72,8 +81,8 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 | Main Window & Account Management | Settings |
 | :---: | :---: |
-| <img src="assets/screenshots/main_window_v4.0.jpg"> | <img src="assets/screenshots/settings_1_v4.0.jpg"> |
-| <img src="assets/screenshots/account_management_v4.0.jpg"> | <img src="assets/screenshots/settings_2_v4.0.jpg"> |
+| <img src="assets/screenshots/main_window_v4.0.jpg"> | <img src="assets/screenshots/settings_1_v4.1.jpg"> |
+| <img src="assets/screenshots/account_management_v4.0.jpg"> | <img src="assets/screenshots/settings_2_v4.1.jpg"> |
 
 | History | Statistics Dashboard |
 | :---: | :---: |
@@ -85,7 +94,7 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 
 | Layer | Technology |
 |-------|------------|
-| Backend | Python 3.12, [selenium](https://www.selenium.dev/), [pywebview](https://pywebview.flowrl.com/), pystray, Pillow |
+| Backend | Python 3.12, [selenium](https://www.selenium.dev/), [pywebview](https://pywebview.flowrl.com/), pystray, Pillow, [nlpaug](https://github.com/makcedward/nlpaug/tree/master) |
 | Frontend | HTML, CSS, JavaScript |
 | Bridge | pywebview JS API (pywebview.api) |
 | Build | [PyInstaller](https://pyinstaller.org/), [Inno Setup](https://jrsoftware.org/isinfo.php) |
@@ -124,13 +133,18 @@ Clone this repo, create virtual environment, and run `python AutoRewarder.py`.
 - Configurable run pacing (advanced scheduling with run duration and queries per hour)
 - Background WebDriver warmup at startup for faster execution
 - Human-like search behavior (typing delays, random pauses, smooth scrolling)
+- Visual Search integration for Bing tasks in both daily-task and standard workflows
+- Hash-bypass architecture that generates a large pool of image variants to avoid file-hash checks
 - Mobile emulation for Rewards credit (iPhone UA and touch)
 - Uses real-world queries from assets/queries.json (8154 unique entries from google-trends dataset)
 - Randomized delays to reduce repetitive patterns
 - Optional tab switching between result categories (Images/Videos/News)
-- Natural mouse movement/clicking (W3C Actions)
+- Natural mouse movement/clicking (W3C Actions/randomized Bezier trajectories)
 - Daily Set task collection (runs once per day, per account)
 - Separate browser profile per account
+- AI-generated search queries in your language (bring-your-own-key LLM)
+- Localization detection (language, region)
+- Simulated human typos in search queries (via nlpaug)
 - Smart dashboard selection (automatic detection and switching between legacy and new versions at runtime)
 
 **Developer & Code Quality:**
@@ -210,12 +224,17 @@ python AutoRewarder.py --headless --account "Main" --pc 30 --force
 .\.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean AutoRewarder.spec
 ```
 
+**Build Portable EXE (Standalone Onefile):**
+```bash
+.\.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean AutoRewarder_Portable.spec
+```
+
 **Create Windows Installer:**
 ```bash
 "C:\Program Files (x86)\Inno Setup 6\iscc.exe" AutoRewarder.iss
 ```
 Or use the Inno Setup IDE to open `AutoRewarder.iss` and compile it.
-Output: `dist/AutoRewarder-Setup.exe`
+Output: `dist/AutoRewarder-Setup.exe` (Installer) and `dist/AutoRewarder.exe` (Portable)
 
 ---
 
@@ -235,7 +254,8 @@ AutoRewarder/
 │   └── normalize.css          # CSS reset
 ├── assets/
 │   ├── icon.ico               # App icon
-│   ├── queries.json           # Queries list (8154 unique queries)
+│   ├── queries.json           # Search query dataset
+│   ├── visual_search_assets/  # Visual search assets
 │   └── screenshots/           # Screenshots and GIFs for documentation
 ├── src/
 │   ├── __init__.py            # Python package initialization
@@ -251,8 +271,10 @@ AutoRewarder/
 │   │   ├── human.py           # Human-like mouse / touch / scrolling
 │   │   └── edge_policy.py     # Windows-only Edge auto-signin opt-out
 │   ├── search/                # Bing query execution + history
-│   │   ├── engine.py          # Search loop with human-like delays
-│   │   └── history.py         # Per-account search history JSON
+│   │   ├── engine.py          # Search loop with human-like delays/Visual Search
+│   │   ├── history.py         # Per-account search history JSON
+│   │   ├── llm.py             # LLM-based query generation
+│   │   └── locale.py          # Localization detection (language, region)
 │   ├── dailytasks/            # Rewards daily-set + more-activities automation
 │   │   ├── runner.py          # DailySet orchestrator + status persistence
 │   │   ├── new_dashboard.py   # The New Dashboard support
@@ -263,10 +285,14 @@ AutoRewarder/
 ├── AutoRewarder.py            # Python backend and webview window
 ├── AutoRewarder_CLI.py        # Headless runner (multi-account aware)
 ├── AutoRewarder.spec          # PyInstaller build spec
+├── AutoRewarder_Portable.spec # Portable PyInstaller build spec
 ├── AutoRewarder.iss           # Inno Setup installer script
+├── update_badges.py           # README badge data updater
 ├── .pre-commit-config.yaml    # Pre-commit hooks configuration
 ├── requirements.txt           # Production dependencies
 ├── requirements-dev.txt       # Development & testing dependencies
+├── CODE_OF_CONDUCT.md         # Community guidelines
+├── CONTRIBUTING.md            # Contribution guidelines
 ├── LICENSE                    # MIT License
 ├── USER_GUIDE.md              # End-user documentation
 └── README.md                  # Project overview and developer setup
@@ -296,7 +322,7 @@ accounts/
 	<account_id>/
 		EdgeProfile/   # Separate Edge profile for WebDriver
 		history.json   # Search history (date, time, query, status)
-		status.json    # Daily Set completion status (per-day)
+		status.json    # Daily Set/Visual Search completion status (per-day)
 		stats.json     # Statistics: scraped points balance + activity counters
 		meta.json      # Per-account metadata (first_setup_done, schedule)
 background_log.txt # Logs from the background runner (for debugging)
@@ -332,7 +358,15 @@ For common issues and solutions, see the [Troubleshooting](USER_GUIDE.md#trouble
 - [x] Statistics dashboard (points tracking, session summaries)
 - [x] Daily "Claim" actions
 - [x] The New Dashboard Support
-- [ ] Simulated human typos during search input
+- [x] AI-generated search queries in your language (bring-your-own-key LLM)
+- [x] Simulated human typos in search queries (via nlpaug)
+- [x] Visual search integration
+- [ ] View background logs directly in the UI
+- [x] Custom OpenAI compatible endpoints
+- [ ] Human typos simulation for different keyboard/language layouts (AZERTY, QWERTZ, etc.)
+- [ ] Human-like typing with random spaces/backspaces
+- [ ] Per-account proxy support
+- [ ] Explore on Bing support
 - [ ] Region-specific search query datasets (US, UK, CA, AU, IN, etc.)
 - [ ] Browser choice (Chrome, Firefox support in addition to Edge)
 - [ ] Keyboard shortcuts

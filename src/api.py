@@ -18,10 +18,12 @@ import webbrowser
 # display-layer requirements.
 
 from .config import (
+    APP_DIR,
     GUI_DIR,
     REPO,
     CURRENT_VERSION,
     JSON_FILE_PATH,
+    LOG_FILE_PATH,
     BASE_DIR,
     edge_profile_path,
     history_path,
@@ -35,7 +37,7 @@ from .accounts import (
     GlobalSettingsManager,
 )
 from .emulator import DriverManager, HumanBehavior, edge_policy
-from .search import HistoryManager, SearchEngine
+from .search import HistoryManager, SearchEngine, llm, resolve_search_locale
 from .dailytasks import DailySet
 from .stats import (
     StatsManager,
@@ -57,6 +59,10 @@ AUTOSTART_TIME = "09:00"
 # previous single-task design and only cleaned up, never created.
 _AUTOSTART_TASK_NAME = "AutoRewarder"
 _SYSTEMD_UNIT_NAME = "autorewarder"
+_LAUNCHD_AGENT_NAME = "com.autorewarder"
+
+# Default min/max delay for normal manual searches, in seconds.
+DEFAULT_SEARCH_DELAY = (4.0, 10.0)
 
 # HH:MM validator — accepts 00:00..23:59.
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -87,6 +93,7 @@ class AutoRewarderAPI:
         # backend rendering a blank window after a few opens.
         self._stats_window = None
         self._history_window = None
+        self._background_logs_window = None
         self._driver = None
         self.is_driver_loading = False
         self._run_lock = threading.Lock()
@@ -127,6 +134,11 @@ class AutoRewarderAPI:
             "quests": 0,
         }
         self._last_scraped_balance = None
+        # Whether the Daily Set / visual search already ran in this main() call.
+        # A "Force …" setting is persistent, so without these the PC batches of
+        # an advanced schedule would each redo the task (and re-upload an image).
+        self._daily_set_attempted = False
+        self._visual_search_attempted = False
         # Last balance-scrape diagnostic ({value, via, candidates, url, title}),
         # surfaced to the dashboard so a failed read can be debugged in place.
         self._last_balance_debug = {}
@@ -241,6 +253,26 @@ class AutoRewarderAPI:
 
         self._history_window = webview.create_window(
             title="Query History",
+            url=url,
+            js_api=self,
+            width=700,
+            height=500,
+            resizable=True,
+            background_color="#0d1117",
+            text_select=True,
+        )
+
+    def open_background_logs_window(self):
+        """Open (or refocus + reload) the background logs viewer window."""
+
+        import webview
+
+        url = os.path.join(GUI_DIR, "background_logs.html")
+        if self._reuse_window(self._background_logs_window, url):
+            return
+
+        self._background_logs_window = webview.create_window(
+            title="Background Logs",
             url=url,
             js_api=self,
             width=700,
@@ -378,6 +410,65 @@ class AutoRewarderAPI:
         """Open a URL in the system default browser."""
         webbrowser.open(url)
 
+    # ------------------------------------------------------------------
+    # Exposed to JS: Settings > About
+    # ------------------------------------------------------------------
+
+    def get_app_info(self):
+        """Return version and storage details for the About panel."""
+        return {
+            "version": CURRENT_VERSION,
+            "app_dir": APP_DIR,
+            "repo_url": f"https://github.com/{REPO}",
+            "platform": platform.system(),
+        }
+
+    def open_data_folder(self):
+        """
+        Open the app data folder (profiles, settings.json, logs) in the OS
+        file manager.
+
+        Returns:
+            bool: True if the file manager was launched, False otherwise.
+        """
+        try:
+            if sys.platform == "win32":
+                os.startfile(APP_DIR)
+            else:
+                subprocess.Popen(
+                    ["xdg-open", APP_DIR],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            return True
+        except Exception as e:
+            self.log(f"[ERROR] Could not open the data folder: {e}")
+            return False
+
+    def check_updates_now(self):
+        """
+        Check GitHub for a newer release on demand (About panel button).
+
+        Unlike the launch-time check, the result is returned to the caller
+        instead of being pushed into the activity log.
+
+        Returns:
+            dict: {ok, update_available, latest, current, url}. `ok` is False
+                when GitHub could not be reached; `latest` is None then.
+        """
+        try:
+            needs_update, latest = check_for_updates(logger=self.log)
+        except Exception as e:
+            self.log(f"[ERROR] Error checking for updates: {e}")
+            needs_update, latest = False, None
+        return {
+            "ok": latest is not None,
+            "update_available": bool(needs_update and latest),
+            "latest": latest,
+            "current": CURRENT_VERSION,
+            "url": f"https://github.com/{REPO}/releases/latest",
+        }
+
     def load_driver_in_background(self):
         """Warmup the WebDriver download, only if an account is selected."""
         if self.account_manager.current_id() is None:
@@ -449,6 +540,30 @@ class AutoRewarderAPI:
         state = "ON (X → tray)" if value else "OFF (X → quit)"
         self.log(f"Close-to-tray: {state}. Restart to apply.")
 
+    def get_force_tasks(self):
+        """Return the force flags for the daily tasks and the visual search."""
+        return self.global_settings.get_force_tasks()
+
+    def set_force_tasks(self, force_daily_tasks, force_visual_search):
+        """
+        Persist the "run even if already done today" toggles.
+
+        Args:
+            force_daily_tasks (bool): Run the Daily Set even when status.json
+                says it is already done today.
+            force_visual_search (bool): Run the visual search even when
+                status.json says it is already done today.
+
+        Returns:
+            bool: True once the flags are saved.
+        """
+        self.global_settings.set_force_tasks(force_daily_tasks, force_visual_search)
+        self.log(
+            f"Force daily tasks: {'ON' if force_daily_tasks else 'OFF'} — "
+            f"Force visual search: {'ON' if force_visual_search else 'OFF'}"
+        )
+        return True
+
     def get_queries_counts(self):
         """
         Return the saved PC and Mobile query counts from global settings.
@@ -491,6 +606,104 @@ class AutoRewarderAPI:
             return True
         except Exception as e:
             self.log(f"[WARNING] Failed to save search counts: {e}")
+            return False
+
+    def get_manual_search_delay(self):
+        """
+        Return the min/max delay for normal manual searches, in seconds.
+
+        Returns:
+            dict: {"minimum": min_delay, "maximum": max_delay}
+        """
+        minimum, maximum = self.global_settings.get_manual_search_delay()
+
+        return {"minimum": minimum, "maximum": maximum}
+
+    def set_manual_search_delay(self, minimum, maximum):
+        """
+        Persist the min/max delay for normal manual searches, in seconds.
+
+        Args:
+            minimum (float): Minimum delay in seconds.
+            maximum (float): Maximum delay in seconds.
+
+        Returns:
+            bool: True if successfully saved, False otherwise.
+        """
+        try:
+            return self.global_settings.set_manual_search_delay(minimum, maximum)
+        except Exception as e:
+            self.log(f"[WARNING] Failed to save manual search delay: {e}")
+            return False
+
+    # ------------------------------------------------------------------
+    # Exposed to JS: LLM-generated search terms + locale
+    # ------------------------------------------------------------------
+
+    def get_llm_config(self):
+        """
+        Return the LLM query-generation config plus the effective locale.
+
+        Returns:
+            dict: use_llm_queries, llm_provider, llm_model, llm_api_key,
+            llm_base_url,
+            search_locale, detected_locale, effective_locale.
+        """
+        cfg = self.global_settings.get_llm_config()
+        cfg["effective_locale"] = self.global_settings.get_effective_locale()
+        # Lets the Settings UI label the blank model choice with the actual
+        # default id for the selected provider.
+        cfg["default_models"] = dict(llm.DEFAULT_MODELS)
+        return cfg
+
+    def set_llm_config(
+        self,
+        use_llm_queries,
+        provider,
+        model,
+        api_key,
+        search_locale="auto",
+        base_url="",
+    ):
+        """
+        Persist the LLM query-generation config from the Settings modal.
+
+        Returns:
+            bool: True on success, False otherwise.
+        """
+        try:
+            self.global_settings.set_llm_config(
+                use_llm_queries, provider, model, api_key, search_locale, base_url
+            )
+            state = "ON" if use_llm_queries else "OFF"
+            self.log(f"LLM query generation: {state} ({provider}).")
+            return True
+        except Exception as e:
+            self.log(f"[WARNING] Failed to save LLM config: {e}")
+            return False
+
+    def list_llm_models(self, provider, api_key, base_url=""):
+        """
+        Fetch the chat models `api_key` can use at `provider`, for the model
+        picker in Settings > Search terms. Never raises.
+
+        Returns:
+            dict: {ok, models: [{id, label}], error?} — see llm.list_models.
+        """
+        return llm.list_models(provider, api_key, base_url, logger=self.log)
+
+    def set_detected_locale(self, locale):
+        """
+        Store the locale the GUI read from navigator.language.
+
+        Returns:
+            bool: True on success, False otherwise.
+        """
+        try:
+            self.global_settings.set_detected_locale(locale)
+            return True
+        except Exception as e:
+            self.log(f"[WARNING] Failed to save detected locale: {e}")
             return False
 
     # ------------------------------------------------------------------
@@ -655,7 +868,11 @@ class AutoRewarderAPI:
         account's meta.json, so we just drop the global one. Anything
         valuable was already migrated during a previous upgrade cycle.
         """
-        settings = self.global_settings.get_settings()
+        try:
+            settings = self.global_settings.settings_for_update()
+        except OSError as e:
+            self._safe_log(f"[WARNING] Could not read settings.json: {e}")
+            return
         if "schedule" in settings:
             settings.pop("schedule", None)
             self.global_settings.save_settings(settings)
@@ -668,9 +885,10 @@ class AutoRewarderAPI:
         user has already moved to the per-account model.
 
         Recognised sources:
-          * Fire-on-login: HKCU Run (Windows) / .desktop (Linux)
+          * Fire-on-login: HKCU Run (Windows) / .desktop (Linux) /
+            LaunchAgent (macOS)
           * Single-task daily scheduler: schtasks `AutoRewarder` /
-            systemd `autorewarder.timer` (v3.3 single-task design)
+            systemd `autorewarder.timer` / macOS LaunchAgent plist(s)
         """
         system = platform.system()
         if system == "Windows":
@@ -776,7 +994,7 @@ class AutoRewarderAPI:
 
         # Mark current schema applied so we don't re-run unnecessarily.
         try:
-            settings = self.global_settings.get_settings()
+            settings = self.global_settings.settings_for_update()
             settings["autostart_schema_version"] = self._AUTOSTART_SCHEMA_VERSION
             self.global_settings.save_settings(settings)
         except Exception:
@@ -814,6 +1032,7 @@ class AutoRewarderAPI:
             candidate = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
             if os.path.exists(candidate):
                 python_exe = candidate
+
         entry = os.path.join(BASE_DIR, "AutoRewarder.py")
         return f'"{python_exe}" "{entry}" --headless --account {account_id}'
 
@@ -827,6 +1046,10 @@ class AutoRewarderAPI:
         """Base name for the systemd service + timer of a specific account."""
         return f"{_SYSTEMD_UNIT_NAME}-{account_id}"
 
+    def _launchd_agent_base(self, account_id):
+        """Base name for the per-account macOS LaunchAgent plist/label."""
+        return f"{_LAUNCHD_AGENT_NAME}.{account_id}"
+
     # ------------------------------------------------------------------
     # Autostart — daily scheduled task (Windows Task Scheduler / systemd
     # user timer). Replaces the previous "fire on login" model so a daily
@@ -835,6 +1058,9 @@ class AutoRewarderAPI:
 
     def _systemd_user_dir(self):
         return os.path.join(os.path.expanduser("~"), ".config", "systemd", "user")
+
+    def _launchd_agent_dir(self):
+        return os.path.join(os.path.expanduser("~"), "Library", "LaunchAgents")
 
     def _legacy_linux_autostart_path(self):
         """Old .desktop autostart path — kept only for migration cleanup."""
@@ -845,9 +1071,9 @@ class AutoRewarderAPI:
     def _cleanup_legacy_autostart(self):
         """
         Remove pre-per-account autostart entries:
-          * HKCU Run / .desktop (the original fire-on-login mechanism)
+          * HKCU Run / .desktop / macOS LaunchAgent (the original fire-on-login mechanism)
           * Single-task `AutoRewarder` schtasks / `autorewarder.timer`
-            systemd unit (the v3.3 single-task daily scheduler)
+            systemd unit / legacy LaunchAgent plist(s)
 
         Idempotent — safe to call on every startup. Outcomes are logged
         so that a silent failure can be diagnosed instead of leaving a
@@ -871,9 +1097,6 @@ class AutoRewarderAPI:
             except Exception:
                 pass
             # Single-task daily scheduler from the v3.3 design.
-            # Only attempt delete if it actually exists, so failures are
-            # always meaningful (don't log "delete failed" for tasks
-            # that were never there).
             try:
                 q = subprocess.run(
                     ["schtasks", "/Query", "/TN", _AUTOSTART_TASK_NAME],
@@ -903,7 +1126,6 @@ class AutoRewarderAPI:
                             f"'{_AUTOSTART_TASK_NAME}': {msg}"
                         )
             except FileNotFoundError:
-                # schtasks not on PATH — nothing we can do.
                 pass
             except Exception as e:
                 self.log(f"[WARNING] Legacy schtasks cleanup error: {e}")
@@ -915,7 +1137,6 @@ class AutoRewarderAPI:
                     self.log("Removed legacy .desktop autostart entry")
                 except OSError as e:
                     self.log(f"[WARNING] Could not remove .desktop: {e}")
-            # Single-task systemd timer from the v3.3 design.
             base = self._systemd_user_dir()
             old_service = os.path.join(base, f"{_SYSTEMD_UNIT_NAME}.service")
             old_timer = os.path.join(base, f"{_SYSTEMD_UNIT_NAME}.timer")
@@ -950,6 +1171,36 @@ class AutoRewarderAPI:
                     )
                 except Exception:
                     pass
+        elif system == "Darwin":
+            agents_dir = self._launchd_agent_dir()
+            if not os.path.isdir(agents_dir):
+                return
+            removed = False
+            for entry in os.listdir(agents_dir):
+                filename = entry.lower()
+                if not filename.endswith(".plist"):
+                    continue
+                if (
+                    filename.startswith("com.autorewarder.")
+                    or filename.startswith("autorewarder")
+                    or filename.startswith("com.github.safarsin.autorewarder")
+                ):
+                    path = os.path.join(agents_dir, entry)
+                    try:
+                        subprocess.run(
+                            ["launchctl", "unload", "-w", path],
+                            capture_output=True,
+                            check=False,
+                        )
+                    except Exception:
+                        pass
+                    try:
+                        os.remove(path)
+                        removed = True
+                    except OSError as e:
+                        self.log(f"[WARNING] Could not remove {path}: {e}")
+            if removed:
+                self.log("Removed legacy macOS LaunchAgent entries")
 
     # ---- Per-account OS-task management -------------------------------
 
@@ -1205,13 +1456,111 @@ class AutoRewarderAPI:
         except Exception:
             return False
 
+    def _register_launchd_agent(self, account_id, run_time, label=None):
+        """Write + enable a per-account launchd_agent .service + .timer."""
+
+        import plistlib
+        import shlex
+
+        try:
+            try:
+                hour, minute = map(int, run_time.split(":"))
+            except (ValueError, AttributeError):
+                self.log(f"[ERROR] Invalid run_time format: {run_time}")
+                return False
+
+            base = self._launchd_agent_dir()
+            unit_base = self._launchd_agent_base(account_id)
+            plist_path = os.path.join(base, f"{unit_base}.plist")
+
+            os.makedirs(base, exist_ok=True)
+            cmd = self._autostart_command(account_id)
+            program_args = shlex.split(cmd)
+            desc_label = label or account_id
+
+            plist_content = {
+                "Label": unit_base,
+                "ProgramArguments": program_args,
+                "StartCalendarInterval": {"Hour": hour, "Minute": minute},
+                "RunAtLoad": False,
+            }
+
+            with open(plist_path, "wb") as fh:
+                plistlib.dump(plist_content, fh)
+
+            enabled = subprocess.run(
+                ["launchctl", "print-disabled", f"gui/{os.getuid()}"],
+                capture_output=True,
+                text=True,
+            )
+
+            if re.search(rf'"{re.escape(unit_base)}"\s*=>\s*disabled', enabled.stdout):
+                subprocess.run(
+                    ["launchctl", "enable", f"gui/{os.getuid()} {unit_base}"],
+                    check=True,
+                )
+
+            try:
+                subprocess.run(
+                    ["launchctl", "bootout", f"gui/{os.getuid()}", plist_path],
+                    capture_output=True,
+                )
+            except Exception:
+                pass
+            result = subprocess.run(
+                ["launchctl", "bootstrap", f"gui/{os.getuid()}", plist_path],
+                capture_output=True,
+            )
+
+            if result.returncode != 0:
+                self.log(
+                    f"[ERROR] launchctl enable failed for {desc_label}: "
+                    f"{(result.stderr or result.stdout).strip()}"
+                )
+                return False
+
+            self.log(f"Scheduled LaunchAgent registered: '{desc_label}' at {run_time}")
+            return True
+
+        except FileNotFoundError:
+            self.log("[ERROR] launchctl not found — launchctl unavailable.")
+            return False
+
+        except Exception as e:
+            self.log(f"[ERROR] Failed to register LaunchAgent: {e}")
+            return False
+
+    def _remove_launchd_agent(self, account_id):
+        """Disable + delete an account's per-account macOS LaunchAgent plist."""
+        try:
+            base = self._launchd_agent_dir()
+            unit_base = self._launchd_agent_base(account_id)
+            plist_path = os.path.join(base, f"{unit_base}.plist")
+
+            try:
+                subprocess.run(["launchctl", "unload", plist_path], capture_output=True)
+            except Exception:
+                pass
+
+            if os.path.exists(plist_path):
+                try:
+                    os.remove(plist_path)
+                except OSError:
+                    pass
+
+            return True
+        except Exception:
+            return False
+
     def _remove_account_autostart(self, account_id):
         """Remove an account's OS-level scheduled task (platform-aware)."""
         system = platform.system()
         if system == "Windows":
             return self._remove_windows_task(account_id)
-        if system == "Linux":
+        elif system == "Linux":
             return self._remove_systemd_unit(account_id)
+        elif system == "Darwin":
+            return self._remove_launchd_agent(account_id)
         return False
 
     def _sync_account_autostart(self, account_id):
@@ -1247,9 +1596,11 @@ class AutoRewarderAPI:
         system = platform.system()
         if system == "Windows":
             return self._register_windows_task(account_id, run_time, label)
-        if system == "Linux":
+        elif system == "Linux":
             return self._register_systemd_unit(account_id, run_time, label)
-        self.log("Autostart is only supported on Windows and Linux.")
+        elif system == "Darwin":
+            return self._register_launchd_agent(account_id, run_time, label)
+        self.log("Autostart is only supported on Windows, macOS, and Linux.")
         return False
 
     def _sync_all_autostart(self):
@@ -1272,17 +1623,21 @@ class AutoRewarderAPI:
           * enable=False → autoStartUp=False; remove every per-account
                            task that we might have registered.
 
-        Legacy entries (HKCU Run, .desktop, single-task daily scheduler)
+        Legacy entries (HKCU Run, .desktop, LaunchAgent, single-task daily scheduler)
         are always cleaned up on either path.
         """
         system_name = platform.system()
-        if system_name not in ("Windows", "Linux"):
-            self.log("Autostart is only supported on Windows and Linux.")
+        if system_name not in ("Windows", "Linux", "Darwin"):
+            self.log("Autostart is only supported on Windows, macOS, and Linux.")
             return False
 
         # Persist user intent FIRST so _sync_account_autostart reads the
         # new value when it queries is_autostart_enabled().
-        settings = self.global_settings.get_settings()
+        try:
+            settings = self.global_settings.settings_for_update()
+        except OSError as e:
+            self.log(f"[ERROR] Could not save the autostart setting: {e}")
+            return False
         settings["autoStartUp"] = bool(enable)
         self.global_settings.save_settings(settings)
 
@@ -1316,7 +1671,7 @@ class AutoRewarderAPI:
         """Return OS support flag + current autostart state for the Settings UI."""
         system_name = platform.system()
         return {
-            "supported": system_name in ("Windows", "Linux"),
+            "supported": system_name in ("Windows", "Linux", "Darwin"),
             "enabled": self.is_autostart_enabled(),
         }
 
@@ -1333,9 +1688,12 @@ class AutoRewarderAPI:
         ok = self._set_autostart_registry(bool(enabled))
         if ok:
             # Mirror the state into global settings.json for the UI.
-            settings = self.global_settings.get_settings()
-            settings["autoStartUp"] = bool(enabled)
-            self.global_settings.save_settings(settings)
+            try:
+                settings = self.global_settings.settings_for_update()
+                settings["autoStartUp"] = bool(enabled)
+                self.global_settings.save_settings(settings)
+            except OSError as e:
+                self._safe_log(f"[WARNING] Could not mirror autostart state: {e}")
         return ok
 
     # ------------------------------------------------------------------
@@ -1682,6 +2040,36 @@ class AutoRewarderAPI:
         return self.history.get_history()
 
     # ------------------------------------------------------------------
+    # Background logs
+    # ------------------------------------------------------------------
+
+    def get_background_logs(self):
+        """
+        Return the last 1000 lines of the background log file.
+
+        Returns:
+            dict: {"ok": True, "content": str} on success,
+                or {"ok": False, "error": str} on failure.
+        """
+
+        if not os.path.exists(LOG_FILE_PATH):
+            return {"ok": True, "content": ""}
+
+        try:
+            with open(LOG_FILE_PATH, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+                return {
+                    "ok": True,
+                    "content": "".join(lines[-1000:]),
+                }
+        except Exception as e:
+            print(f"[ERROR] Error reading background logs: {e}")
+            return {
+                "ok": False,
+                "error": f"[ERROR] Error reading background logs: {e}",
+            }
+
+    # ------------------------------------------------------------------
     # Statistics (scoped to current account)
     # ------------------------------------------------------------------
 
@@ -1989,7 +2377,12 @@ class AutoRewarderAPI:
             return self._stop_event.is_set()
 
     def _run_advanced_schedule(
-        self, pc_count, mobile_count, duration_hours, queries_per_hour
+        self,
+        pc_count,
+        mobile_count,
+        duration_hours,
+        queries_per_hour,
+        search_delay_range,
     ):
         """
         Drip-feed queries across a duration using the GUI run pipeline.
@@ -1999,6 +2392,7 @@ class AutoRewarderAPI:
             mobile_count (int): total Mobile queries to run
             duration_hours (float|int): how many hours to spread the queries across
             queries_per_hour (int): target queries per hour (overrides duration_hours if > 0)
+            search_delay_range (tuple): the range of delays to use for each search
         """
         try:
             pc = max(0, int(pc_count or 0))
@@ -2070,10 +2464,20 @@ class AutoRewarderAPI:
             )
 
             if batch_pc > 0 and not self._stop_event.is_set():
-                self._run_phase(mobile=False, count=batch_pc, do_daily_set=True)
+                self._run_phase(
+                    mobile=False,
+                    count=batch_pc,
+                    do_daily_set=True,
+                    search_delay_range=search_delay_range,
+                )
 
             if batch_mobile > 0 and not self._stop_event.is_set():
-                self._run_phase(mobile=True, count=batch_mobile, do_daily_set=False)
+                self._run_phase(
+                    mobile=True,
+                    count=batch_mobile,
+                    do_daily_set=False,
+                    search_delay_range=search_delay_range,
+                )
 
             pc_left -= batch_pc
             mobile_left -= batch_mobile
@@ -2091,7 +2495,13 @@ class AutoRewarderAPI:
         if not self._stop_event.is_set() and pc_left <= 0 and mobile_left <= 0:
             self.log("Advanced schedule completed!")
 
-    def main(self, pc_count, mobile_count=0, daily_only=False):
+    def main(
+        self,
+        pc_count,
+        mobile_count=0,
+        daily_only=False,
+        run_context="manual",
+    ):
         """
         Run the bot against the currently-selected account.
 
@@ -2109,7 +2519,15 @@ class AutoRewarderAPI:
             pc_count (int): how many searches to do in the PC phase (ignored if daily_only)
             mobile_count (int): how many searches to do in the Mobile phase (ignored if daily_only)
             daily_only (bool): whether to skip searches and just run the Daily Set
+            run_context (str): The context in which the bot is running. Can be "manual" or "scheduled"
         """
+        if run_context not in ("manual", "scheduled"):
+            self.log(
+                f"[WARNING] Unknown run context '{run_context}'. "
+                "Using scheduled mode."
+            )
+            run_context = "scheduled"
+
         if self.account_manager.current_id() is None:
             self.log("[ERROR] No account selected. Add one via the dropdown.")
             if self._webview_window:
@@ -2144,11 +2562,27 @@ class AutoRewarderAPI:
                 schedule = {}
 
         schedule_enabled = isinstance(schedule, dict) and bool(schedule.get("enabled"))
+
         use_advanced = (
             not daily_only
             and schedule_enabled
             and bool(schedule.get("advancedScheduling"))
         )
+
+        # 4 scenarios:
+        # 1. manual run, no advanced scheduling: use configured search delay
+        # 2. manual run, advanced scheduling: use default search delay
+        # 3. scheduled run, no advanced scheduling: use default search delay
+        # 4. scheduled run, advanced scheduling: use default search delay
+        if run_context == "manual" and not use_advanced:
+            search_delay_range = self.global_settings.get_manual_search_delay()
+            self.log(
+                "Normal manual run: using configured search delay "
+                f"{search_delay_range[0]:.1f}-"
+                f"{search_delay_range[1]:.1f}s."
+            )
+        else:
+            search_delay_range = DEFAULT_SEARCH_DELAY
 
         if (
             not daily_only
@@ -2177,6 +2611,8 @@ class AutoRewarderAPI:
             "quests": 0,
         }
         self._last_scraped_balance = None
+        self._daily_set_attempted = False
+        self._visual_search_attempted = False
 
         try:
             if daily_only:
@@ -2198,14 +2634,28 @@ class AutoRewarderAPI:
                     duration = schedule.get("runDuration", 3)
                     qph = schedule.get("queriesPerHour", 10)
                     self.log("Advanced scheduling enabled. Using scheduled pacing.")
-                    self._run_advanced_schedule(pc_count, mobile_count, duration, qph)
+                    self._run_advanced_schedule(
+                        pc_count,
+                        mobile_count,
+                        duration,
+                        qph,
+                        search_delay_range,
+                    )
                 else:
                     if pc_count > 0 and not self._stop_event.is_set():
-                        self._run_phase(mobile=False, count=pc_count, do_daily_set=True)
+                        self._run_phase(
+                            mobile=False,
+                            count=pc_count,
+                            do_daily_set=True,
+                            search_delay_range=search_delay_range,
+                        )
 
                     if mobile_count > 0 and not self._stop_event.is_set():
                         self._run_phase(
-                            mobile=True, count=mobile_count, do_daily_set=False
+                            mobile=True,
+                            count=mobile_count,
+                            do_daily_set=False,
+                            search_delay_range=search_delay_range,
                         )
 
             if self._stop_event.is_set():
@@ -2301,46 +2751,62 @@ class AutoRewarderAPI:
         Open a PC driver, run only the Daily Set + More Activities, scrape
         the points balance, then quit. No Bing searches are performed.
 
-        Unlike the normal flow, this path is user-initiated (explicit toggle)
-        so it ignores `should_perform_daily_set()` — if the saved status says
-        "done today" but the user clicked Start anyway, they want it to run.
-        The card-level detection inside perform_daily_set will skip cards
-        that are genuinely complete, so re-running on a real already-done day
-        just confirms state without wasting clicks.
+        A task already marked as done today is skipped, unless the matching
+        "Force daily tasks" / "Force visual search" setting is on. When forced,
+        the card-level detection inside perform_daily_set still skips cards that
+        are genuinely complete, and the visual search picks an image it has not
+        used recently, so re-running on a real already-done day just confirms
+        state without wasting clicks.
         """
         if self.daily_set is None:
             self.log("[ERROR] Daily tasks unavailable for this account.")
             return
 
-        if not self.daily_set.should_perform_daily_set():
-            self.log(
-                "Note: today is already marked as done in status.json, "
-                "but running anyway since you asked explicitly."
-            )
+        force = self.global_settings.get_force_tasks()
+        daily_done = not self.daily_set.should_perform_daily_set()
+        run_daily_set = not daily_done or force["force_daily_tasks"]
 
-        self.log("=== Daily tasks only — no searches ===")
+        self.log("=== Daily tasks and Visual Search only ===")
+
+        if daily_done and run_daily_set:
+            self.log(
+                "Daily tasks already marked as done today, but running anyway "
+                "(Force daily tasks is ON)."
+            )
 
         self._driver = self.driver_manager.setup_driver(mobile=False)
         try:
-            human = HumanBehavior(self._driver, show_cursor=True, mobile=False)
-            success = self.daily_set.perform_daily_set(
-                self._driver, human, stop_event=self._stop_event
-            )
-            # Record cards completed + scrape the balance while we're still on
-            # the rewards dashboard, before any Stop check returns early.
-            totals = self.daily_set.last_totals
-            self._session_counts["cards"] += totals.get("newly", 0)
-            self._session_counts["earn"] += totals.get("earn", 0)
-            self._session_counts["quests"] += totals.get("quests", 0)
-            self._try_scrape_balance()
-            if self._stop_event.is_set():
-                self.log("Daily tasks aborted by Stop.")
-                return
-            if success:
-                self.daily_set.mark_as_completed()
-                self.log("Daily tasks completed and marked as done for today.")
+            if run_daily_set:
+                self._daily_set_attempted = True
+                human = HumanBehavior(self._driver, show_cursor=True, mobile=False)
+                success = self.daily_set.perform_daily_set(
+                    self._driver, human, stop_event=self._stop_event
+                )
+                # Record cards completed + scrape the balance while we're still
+                # on the rewards dashboard, before any Stop check returns early.
+                totals = self.daily_set.last_totals
+                self._session_counts["cards"] += totals.get("newly", 0)
+                self._session_counts["earn"] += totals.get("earn", 0)
+                self._session_counts["quests"] += totals.get("quests", 0)
+                self._try_scrape_balance()
+                if self._stop_event.is_set():
+                    self.log("Daily tasks aborted by Stop.")
+                    return
+                if success:
+                    self.daily_set.mark_as_completed()
+                    self.log("Daily tasks completed and marked as done for today.")
+                else:
+                    self.log("Daily tasks failed. Not marked as done for today.")
             else:
-                self.log("Daily tasks failed. Not marked as done for today.")
+                self.log(
+                    "Daily tasks already completed today. Skipping. "
+                    "(Enable 'Force daily tasks' in Settings to run them anyway.)"
+                )
+                self._try_scrape_balance()
+
+            # Run the visual search even if the Daily Set failed or was skipped.
+            if not self._stop_event.is_set():
+                self._run_visual_search_if_needed()
 
         finally:
             try:
@@ -2350,7 +2816,233 @@ class AutoRewarderAPI:
             self._driver = None
             time.sleep(0.5)
 
-    def _run_phase(self, mobile, count, do_daily_set):
+    def _build_queries(self, count):
+        """
+        Build the list of queries for a phase.
+
+        When LLM generation is enabled and an API key is set, ask the chosen
+        provider for `count` fresh queries in the user's language. Any failure
+        (no key, invalid key, quota, offline, malformed answer) or a shortfall
+        is transparently topped up / replaced with a random sample from the
+        static assets/queries.json, so the daily search target is still met and
+        the run never depends on the network.
+
+        Args:
+            count (int): how many queries to produce.
+
+        Returns:
+            list: up to `count` query strings (empty only if the static file is
+            missing).
+        """
+        if count <= 0:
+            return []
+
+        queries = []
+        cfg = self.global_settings.get_llm_config()
+        if cfg["use_llm_queries"]:
+            if cfg["llm_api_key"]:
+                locale = resolve_search_locale(
+                    self.global_settings.get_settings(), self.log
+                )
+                self.log(
+                    f"Generating {count} queries via LLM "
+                    f"({cfg['llm_provider']}, {locale})…"
+                )
+                queries = llm.generate_queries(
+                    count,
+                    locale,
+                    provider=cfg["llm_provider"],
+                    model=cfg["llm_model"],
+                    api_key=cfg["llm_api_key"],
+                    base_url=cfg["llm_base_url"],
+                    logger=self.log,
+                )
+                if not queries:
+                    self.log(
+                        "[WARNING] LLM generation failed — "
+                        "falling back to static queries."
+                    )
+            else:
+                self.log(
+                    "[WARNING] LLM enabled but no API key set — "
+                    "using static queries."
+                )
+
+        if len(queries) >= count:
+            return queries[:count]
+
+        # Top up from the static file, skipping any query the LLM already
+        # produced. Request extra headroom so de-dup can't leave us short.
+        static = self.search_engine.load_queries_from_json(
+            JSON_FILE_PATH, num_needed=count + len(queries)
+        )
+
+        if not queries:
+            from .utils import humanize_queries
+
+            return humanize_queries(static)
+
+        seen = set(queries)
+        extra = [q for q in static if q not in seen][: count - len(queries)]
+        self.log(
+            f"LLM returned {len(queries)}/{count} queries — "
+            f"topped up with {len(extra)} static queries."
+        )
+        return queries + extra
+
+    def _run_visual_search_if_needed(self):
+        """
+        Controls the visual search process.
+
+        Checks if the task is needed today, generates a unique image,
+        performs the search, and updates the status after successful completion.
+
+        A day already marked as done is skipped, unless the "Force visual
+        search" setting is on — the saved status can be stale (a search that
+        was credited but is worth redoing, or a status file the user doesn't
+        trust), and that toggle is how the user says so.
+
+        Returns:
+            bool: True if visual search was performed, False otherwise.
+        """
+        if self.daily_set is None or self.search_engine is None:
+            return False
+
+        force = (
+            not self._visual_search_attempted
+            and self.global_settings.get_force_tasks()["force_visual_search"]
+        )
+        already_done = not self.daily_set.should_perform_visual_search()
+
+        if already_done and not force:
+            self.log("Visual Search already completed today. Skipping.")
+            return False
+
+        if already_done:
+            self.log(
+                "Visual Search already marked as done today, but running anyway "
+                "(Force visual search is ON)."
+            )
+        else:
+            self.log(
+                "Visual Search not completed today. Starting Visual Search task..."
+            )
+
+        self._visual_search_attempted = True
+
+        used_images = self.daily_set.get_used_visual_search_images()
+        mission_url = getattr(self.daily_set, "visual_search_url", None)
+
+        # Surface to search from: None lets the engine use its own order; the
+        # second pass forces the other one when Rewards ignored the first.
+        search_url = None
+
+        for attempt in (1, 2):
+            image_id, updated_images = self.search_engine.get_next_image_id(used_images)
+
+            image_path = self.search_engine.prepare_unique_image(image_id)
+
+            if image_path is None:
+                return False
+
+            try:
+                success = self.search_engine.perform_visual_search(
+                    self._driver,
+                    image_path,
+                    stop_event=self._stop_event,
+                    entry_url=mission_url,
+                    search_url=search_url,
+                )
+
+                # Rewards is the authority, in both directions: a results page
+                # is not proof of credit, and Bing rendering the results
+                # somewhere we didn't recognise is not proof of failure. So ask
+                # the mission.
+                stopped = self._stop_event is not None and self._stop_event.is_set()
+                credited = None if stopped else self._check_visual_search_credited()
+
+                # The image reached Bing in either of these cases, so don't
+                # offer it again on the next run.
+                if success or credited is True:
+                    self.daily_set.save_used_visual_search_images(updated_images)
+                    used_images = updated_images
+
+                if not success:
+                    if credited is not True:
+                        return False
+                    self.log(
+                        "Bing's results page never loaded, but Rewards counted "
+                        "the search anyway."
+                    )
+                elif credited is False:
+                    # Which surface Rewards credits is Microsoft's call and has
+                    # changed before, so one refusal doesn't write the day off:
+                    # search again from the other surface, once, with a fresh
+                    # image.
+                    other = self.search_engine.other_surface_url()
+
+                    if attempt == 1 and other and not stopped:
+                        self.log(
+                            f"Rewards ignored a search from "
+                            f"{self.search_engine.last_search_url}. "
+                            f"Trying again from {other}."
+                        )
+                        search_url = other
+                        continue
+
+                    self.log(
+                        "[WARNING] Rewards did not count the visual search. "
+                        "Not marked as done for today."
+                    )
+                    return False
+
+                self.daily_set.mark_visual_search_as_completed()
+                self.log("Visual search marked as done for today.")
+
+                return True
+
+            except Exception as e:
+                self.log(f"[WARNING] Visual search failed: {e}")
+                return False
+
+            finally:
+                if os.path.exists(image_path):
+                    try:
+                        os.remove(image_path)
+                    except Exception as e:
+                        self.log(
+                            f"[WARNING] Failed to remove temporary image file: {e}"
+                        )
+
+        return False
+
+    def _check_visual_search_credited(self):
+        """
+        Check the Rewards "visual search streak" mission after a search.
+
+        Returns:
+            bool: True when the mission counted the search, False when it
+                explicitly still shows no activity today, or None when there
+                is nothing to compare against (legacy dashboard, mission not
+                offered, or the progress couldn't be read).
+        """
+        try:
+            progress = self.daily_set.read_visual_search_progress(self._driver)
+        except Exception as e:
+            self.log(f"[WARNING] Could not read the visual search mission: {e}")
+            return None
+
+        if progress is None:
+            return None
+
+        done, total = progress
+        before = getattr(self.daily_set, "visual_search_progress", None)
+        was = f" (was {before[0]}/{before[1]})" if before else ""
+        self.log(f"Rewards visual search streak: {done}/{total}{was}")
+
+        return done > 0
+
+    def _run_phase(self, mobile, count, do_daily_set, search_delay_range):
         """
         Open a driver for a single phase (PC or Mobile), do `count` searches,
         optionally run the Daily Set, then quit.
@@ -2365,9 +3057,7 @@ class AutoRewarderAPI:
             f"=== {label} phase — {count} {'queries' if count != 1 else 'query'} ==="
         )
 
-        queries_to_search = self.search_engine.load_queries_from_json(
-            JSON_FILE_PATH, num_needed=count
-        )
+        queries_to_search = self._build_queries(count)
         if not queries_to_search:
             self.log(f"[WARNING] {label}: no queries available. Skipping phase.")
             if self.history is not None:
@@ -2383,23 +3073,46 @@ class AutoRewarderAPI:
                 queries_to_search,
                 mobile=mobile,
                 stop_event=self._stop_event,
+                search_delay_range=search_delay_range,
             )
             # Tally successful searches against the right platform bucket.
             bucket = "mobile" if mobile else "pc"
             self._session_counts[bucket] += int(done or 0)
 
             ran_daily_set = False
+
+            # Only the PC phase runs the Daily Set, and a day already marked as
+            # done is skipped unless "Force daily tasks" is on.
+            daily_done = False
+            force_daily = False
+            if do_daily_set and self.daily_set is not None:
+                daily_done = not self.daily_set.should_perform_daily_set()
+                force_daily = (
+                    not self._daily_set_attempted
+                    and self.global_settings.get_force_tasks()["force_daily_tasks"]
+                )
+
             if (
                 do_daily_set
+                and self.daily_set is not None
                 and not self._stop_event.is_set()
-                and self.daily_set.should_perform_daily_set()
+                and (not daily_done or force_daily)
             ):
-                self.log("Daily Set not completed today. Starting Daily Set tasks...")
+                if daily_done:
+                    self.log(
+                        "Daily Set already marked as done today, but running "
+                        "anyway (Force daily tasks is ON)."
+                    )
+                else:
+                    self.log(
+                        "Daily Set not completed today. Starting Daily Set tasks..."
+                    )
                 human = HumanBehavior(self._driver, show_cursor=True, mobile=mobile)
                 success = self.daily_set.perform_daily_set(
                     self._driver, human, stop_event=self._stop_event
                 )
                 ran_daily_set = True
+                self._daily_set_attempted = True
                 # Record cards + scrape the balance while still on the rewards
                 # dashboard, before the Stop check can short-circuit.
                 totals = self.daily_set.last_totals
@@ -2415,6 +3128,17 @@ class AutoRewarderAPI:
                         )
                     else:
                         self.log("Daily Set failed. Not marked as done for today.")
+
+            elif daily_done and not self._stop_event.is_set():
+                self.log(
+                    "Daily Set already completed today. Skipping. "
+                    "(Enable 'Force daily tasks' in Settings to run it anyway.)"
+                )
+
+            # Visual search runs only in PC phase,
+            # do_daily_set=False in Mobile phase.
+            if do_daily_set and not self._stop_event.is_set():
+                self._run_visual_search_if_needed()
 
             # When the Daily Set didn't run (mobile phase, or already done
             # today) the rewards counter on the current Bing SERP is still a

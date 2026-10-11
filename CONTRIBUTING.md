@@ -1,6 +1,14 @@
-# Contributing Localized Datasets
+# Contributing to AutoRewarder
 
-Thank you for your interest in helping improve AutoRewarder!
+Thank you for your interest in helping improve AutoRewarder! Whether you want to write code, improve datasets, or report bugs, your contributions are highly appreciated.
+
+## Where to Start? (Good First Issues)
+
+If you are new to the project, check out our issues labeled **`good first issue`**. These are specifically chosen tasks that are relatively simple and perfect for getting familiar with the codebase.
+
+If you find an issue you'd like to work on, just leave a comment saying "I'd like to work on this" so others know it's taken.
+
+## Contributing Localized Datasets
 
 Currently, the tool uses a generic dataset [`queries.json`](https://github.com/safarsin/AutoRewarder/blob/main/assets/queries.json), but to make the automation look as natural as possible, we are collecting **Region & Language-specific search queries**. Having localized datasets helps reduce detection risks and improves the tool for everyone.
 
@@ -17,7 +25,7 @@ If you know how to use Git, this is the preferred method. You'll automatically g
 3. Find the JSON file for your region (e.g., `it-IT.json` for Italian, `en-AU.json` for Australian English). If your language file doesn't exist yet, you can create it!
 4. Open the file and add natural search queries to the `queries` list.
 
-`en-AU.json`:
+**Example (`en-AU.json`):**
 
 ```json
 {

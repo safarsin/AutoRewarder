@@ -20,6 +20,11 @@ import os
 import sys
 
 if __name__ == "__main__":
+    if sys.platform == "darwin":
+        import appnope
+
+        appnope.nope()
+
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         "--headless", action="store_true", help="Run in headless/background mode"

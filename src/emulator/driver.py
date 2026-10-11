@@ -88,7 +88,8 @@ class DriverManager:
 
         if headless:
             options.add_argument("--headless=new")
-            options.add_argument("--disable-gpu")
+            # Disabled to allow the "browse 30 min" task to progress.
+            # options.add_argument("--disable-gpu")
             options.add_argument("--window-position=-32000,-32000")
 
         _driver = webdriver.Edge(options=options)
