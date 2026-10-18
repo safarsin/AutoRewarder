@@ -32,9 +32,11 @@ Welcome! This guide will help you get started with AutoRewarder and explain all 
 - [System Tray & Application Exit](#system-tray--application-exit)
 
 ### Activity
-- [Viewing Search History](#viewing-search-history)
-- [View background process logs](#view-background-process-logs)
+- [Search History](#search-history)
+- [Statistics Dashboard](#statistics-dashboard)
+- [Background logs](#background-logs)
 - [Tips & Best Practices](#tips--best-practices)
+- [Runtime Data](#runtime-data)
 
 ### Troubleshooting & Support
 - [Troubleshooting](#troubleshooting)
@@ -44,25 +46,9 @@ Welcome! This guide will help you get started with AutoRewarder and explain all 
 
 ## Installation
 
-### Step 1: Download
-1. Go to the [Releases page](https://github.com/safarsin/AutoRewarder/releases) on GitHub
-2. Find the latest release (v3.4 or newer)
-3. Download `AutoRewarder-Setup.exe`
+AutoRewarder is available for Windows (installer and portable) and Linux.
 
-### Step 2: Install
-1. Double-click the downloaded `AutoRewarder-Setup.exe`
-2. The installer will:
-   - Verify you have Microsoft Edge installed
-   - Verify you have .NET Framework 4.8 or higher
-   - Install AutoRewarder to Program Files
-3. Click **Next** through the setup wizard
-4. Optionally create a desktop shortcut (recommended)
-5. Click **Finish**
-
-### Step 3: Run
-1. Just run the app from the Start Menu or desktop shortcut
-
-**That's it!** Installer handles everything for you.
+For download links and installation instructions, please refer to the [Installation](README.md#installation) section in the README.
 
 ---
 
@@ -123,14 +109,16 @@ Adding another account is slightly different, so please follow these steps:
 
 ### Starting a Session
 
-1. Open AutoRewarder.exe
+1. Open AutoRewarder
 2. Select an account from the dropdown
 3. Set PC and Mobile query counts (PC 0-130, Mobile 0-99). Set one to 0 to skip it. Your preferred search limits are saved automatically and will load on your next launch.
-4. *(Optional)* Toggle **"Daily tasks only"** to skip searches and only collect dashboard click-through tasks
-5. Click the **"Start run"** button
-6. Watch the status indicator show that AutoRewarder is working
-7. The terminal-like window below shows what's happening in real-time
-8. To interrupt the run at any time, click the **"Stop"** button — the browser will close cleanly and no orphan processes are left behind
+4. *(Optional)* Toggle **"Advanced scheduling"** to spread searches across a longer duration (see [Scheduled runs](#scheduled-runs) for details)
+5. *(Optional)* Configure the minimum and maximum delay between manual searches (see [Manual Search Delays](#manual-search-delays) for details)
+6. *(Optional)* Toggle **"Daily tasks only"** to skip searches and only collect dashboard click-through tasks
+7. Click the **"Start run"** button
+8. Watch the status indicator show that AutoRewarder is working
+9. The terminal-like window below shows what's happening in real-time
+10. To interrupt the run at any time, click the **"Stop"** button — the browser will close cleanly and no orphan processes are left behind
 
 > [!TIP]
 > Closing the main window sends AutoRewarder to the system tray. Use the tray icon to reopen the window or choose **Exit** to fully close the app.
@@ -138,7 +126,7 @@ Adding another account is slightly different, so please follow these steps:
 ### What's Happening?
 
 - AutoRewarder opens Microsoft Edge (you can see it if hide-browser is off)
-- It performs random searches from a built-in list of 8,154 real search queries from a google-trends dataset
+- It performs random searches from a built-in list of +10k real search queries (from a google-trends dataset) or from your own LLM provider (if enabled)
 - Each search has human-like delays and behavior
 - It runs the PC phase first, then the Mobile phase (iPhone emulation)
 - It may occasionally switch to Images/Videos/News tabs
@@ -204,6 +192,22 @@ This toggle controls whether you can see Microsoft Edge while searches are happe
 - Less distracting if you're working on something else
 - Slightly faster performance since it doesn't have to render the browser window what will save system resources (RAM/CPU)
 
+### Manual Search Delays
+
+In **Settings → General**, you can configure the random delay between manual search queries.
+
+- **Minimum delay** — the shortest possible pause between searches
+- **Maximum delay** — the longest possible pause between searches
+- Allowed values range from **0 to 1,800 seconds**
+- The default range is **4–10 seconds**
+
+For each search, AutoRewarder randomly selects a delay between the configured minimum and maximum values. This allows you to make manual search runs faster or spread them out more gradually.
+
+The values are saved in the application settings and reused during future manual runs.
+
+> [!NOTE]
+> These settings apply to normal manual runs only. Scheduled runs and runs using Advanced Scheduling from GUI use their own pacing rules and do not use the configured manual delay range.
+
 ### Force daily tasks & visual search
 
 AutoRewarder records, per account and per day, that the Daily Set and the Visual Search have been done, so a second run of the same day skips them. Two toggles in the **Daily tasks** section of the Settings window let you override that record:
@@ -222,7 +226,7 @@ By default, AutoRewarder draws its searches from a large built-in list of Englis
 - **API key:** Paste a key from your chosen provider — the **Get an API key** link under the field opens the right page (OpenAI Platform, Anthropic Console or Google AI Studio). The key is stored locally in your `settings.json` (plain text) and is only sent to that provider to request queries or list its models — no personal data is shared.
 - **Language:** Leave **`auto`** to follow the language of the computer running AutoRewarder (detected automatically), or type a locale such as `fr-FR`, `it-IT`, or `en-US` to force one.
 
-On each run, AutoRewarder asks the provider for a fresh batch of queries in your language. If generation fails for any reason — no key, an invalid key, an exceeded quota, or no internet — it silently falls back to the built-in list, so your run always completes.
+On each run, AutoRewarder asks the provider for a fresh batch of queries in your language. If generation fails for any reason — no key, an invalid key, an exceeded quota, or no internet — it falls back to the built-in list, so your run always completes.
 
 > [!NOTE]
 > Using an LLM provider may incur costs on your provider account, depending on their pricing. Query generation uses very few tokens per run.
@@ -231,7 +235,7 @@ On each run, AutoRewarder asks the provider for a fresh batch of queries in your
 When enabled, AutoRewarder uses your operating system's native task scheduler (Windows Task Scheduler or Linux systemd) to launch headless runs in the background.
 
 - **Independent Schedules:** You can set a specific **Daily run time** (HH:MM) for each account individually on its account page in Settings.
-- **Missed Run Catch-up:** If your computer is turned off or asleep during a scheduled time, the run is not lost. The system will automatically catch up and execute the task a few minutes after your next boot.
+- **Missed Run Catch-up:** If your computer is turned off or asleep during a scheduled time, the run is not lost. The system will automatically catch up and execute the task as soon as the computer is available again.
 - **Smart Deduplication:** If you manually start a run before a delayed catch-up task fires, AutoRewarder detects this and safely skips the scheduled run to prevent double execution.
 
 To disable automated background runs, turn off **Enable Background Auto-Run** or disable scheduling for specific accounts.
@@ -275,14 +279,17 @@ For background runs (Autostart or CLI mode) where there's no visible window, use
 
 Each account has its own page in the Settings window (pick it under **Accounts** in the left-hand navigation); the **Scheduled run** group sits at the bottom of that page. The main schedule toggle turns on automated background runs, but it also controls how your manual GUI runs behave.
 
+> [!NOTE]
+> The manual search delay settings do not affect scheduled runs. Standard scheduled runs and Advanced Scheduling use their own pacing logic.
+
 **Standard Schedule**
-Turn on the main Schedule toggle, but leave Advanced scheduling *off*. The bot will run automatically at a random minute, processing the PC and Mobile queries in one go.
+Turn on the main Schedule toggle, but leave Advanced scheduling *off*. The bot will run automatically at the configured time for this account, processing the PC and Mobile queries in one go.
 
 **Advanced Scheduling**
-Turn on **both** the **Schedule toggle** and the **Advanced scheduling** toggle. This changes the bot's behavior entirely: instead of doing all searches at once, it safely spreads your queries across the specified **Run duration**, taking jittered breaks (+/- 25%) to mimic human behavior.
+Turn on **both** the **Schedule toggle** and the **Advanced scheduling** toggle. This changes the bot's behavior entirely: instead of doing all searches at once, it safely spreads your queries across the specified **Run duration**. To mimic human behavior, the breaks between batches are randomized (+/- 25%), meaning the actual total run time will naturally vary (e.g., a 3-hour schedule may finish in 2.5 to 3.5 hours).
 
 You can use scheduling in two ways:
-* **Automated Background Runs:** Runs triggered automatically when using **Start with Windows** or headless CLI.
+* **Automated Background Runs:** Runs triggered automatically when using **Background Auto-Run** or headless CLI.
 * **Manual GUI Runs:** If **Advanced scheduling** and the **Schedule toggle** are enabled in the settings, clicking the **Start** button on the main screen will respect these settings. It will spread the total queries across your specified run duration.
 
 *(Note: If the Schedule toggle is OFF, manual GUI runs will always use the classic run).*
@@ -295,36 +302,37 @@ You can use scheduling in two ways:
 
 ---
 
-## Viewing Search History
+## Search History
 
 AutoRewarder keeps track of all searches it has performed.
 
-### How to View History
-
-1. In the main AutoRewarder window, click **"History"** button
+1. In the main AutoRewarder window, click **History** button
 2. A new window opens showing:
    - **Date** — when the search was performed
    - **Time** — exact time
    - **Query** — what was searched
    - **Status** — success/failure
 
-### Where is History Saved?
 
-History is saved per account in your user data folder:
+## Statistics Dashboard
 
-```
-C:\Users\[YourUsername]\AppData\Local\AutoRewarder\accounts\<account_id>\history.json
-```
+Click the **Stats** card on the main screen to open the statistics dashboard.
 
-You don't need to access this directly — use the History button in the app instead.
+The dashboard shows:
 
-### View background process logs
+- current scraped Microsoft Rewards points balance;
+- points earned during the last run;
+- PC and Mobile search totals;
+- Daily Set and other task activity;
+- per-day activity charts;
+- a summary across multiple accounts.
 
-If you want to see detailed logs of the background process (for debugging or monitoring), you can find them in the `background_log.txt` file located in the same user data folder:
+## Background logs
 
-```
-C:\Users\[YourUsername]\AppData\Local\AutoRewarder\background_log.txt
-```
+To view background logs, click **Background logs** in the Activity section of the main window. The log window shows output from scheduled and headless runs and includes a **Refresh** button.
+
+> [!NOTE]
+> You can find the file paths for your raw history, background logs, and settings in the [Runtime Data](#runtime-data) section.
 
 
 ---
@@ -343,7 +351,7 @@ C:\Users\[YourUsername]\AppData\Local\AutoRewarder\background_log.txt
 - Don't manually interact with the AutoRewarder Edge profile while it is running (you can still use your main profile)
 - Don't use Bing while AutoRewarder is performing searches (it may be detected as unusual activity)
 - Don't force-close the app while a session is running
-- Don't modify files in `AppData\Local\AutoRewarder` manually
+- Don't modify files in runtime directories manually
 - Don't run multiple AutoRewarder instances simultaneously
 - Don't run multiple accounts at the same time
 - Don't run multiple accounts from the same IP address
@@ -357,14 +365,11 @@ To keep your accounts safe and avoid detection, we highly recommend following on
 4. **Mix up your searches:** Vary the number of searches each time to mimic natural behavior.
 5. **Use hide-browser mode:** Enable this if you want to do other work while the bot runs in the background.
 
----
+## Runtime Data
 
+AutoRewarder stores your settings, search history, logs, and account profiles in a dedicated data folder. Depending on your OS and whether you use a portable version, these files are located in different directories.
 
-### Need Help?
-
-For any issues, check the [Troubleshooting](#troubleshooting) section below.
-
-If your issue isn't listed, please open an issue on GitHub.
+If you need to access these files directly (e.g., for backup or troubleshooting), see the [Runtime Data](README.md#runtime-data) section in the README for paths and directory structures.
 
 ---
 
@@ -378,7 +383,9 @@ If your issue isn't listed, please open an issue on GitHub.
 
 **`session not created: DevToolsActivePort file doesn't exist` / Edge failed to start:**
 - Close AutoRewarder and any Edge windows
-- Open Windows Task Manager and kill all `msedge.exe` processes (and `msedgedriver.exe` if present)
+- Kill all Edge and WebDriver processes:
+  - **Windows:** Open Task Manager and end all `msedge.exe` processes (and `msedgedriver.exe` if present).
+  - **Linux:** Run `pkill -f msedge` and `pkill -f msedgedriver` in your terminal.
 - Open Edge normally and complete any pending updates at `edge://settings/help`
 - Re-run AutoRewarder
 - If it still fails, open the account in **Settings** and choose **Re-run setup**
@@ -386,7 +393,9 @@ If your issue isn't listed, please open an issue on GitHub.
 **Application crashes on startup:**
 - In **Settings**, open the affected account under **Accounts** and delete it or re-run its setup
 - Verify dependencies: `pip install -r requirements.txt` if running from source
-- Check Windows Event Viewer for error details
+- Check system logs for error details:
+  - **Windows:** Check Windows Event Viewer.
+  - **Linux:** Run the app from the terminal to see the traceback output directly.
 
 **Searches not completing:**
 - Verify internet connection
@@ -394,6 +403,14 @@ If your issue isn't listed, please open an issue on GitHub.
 
 **"No account selected" or "Setup pending":**
 - Add an account and complete First Setup before starting
+
+---
+
+### Need Help?
+
+If your issue isn't listed, please open an issue on GitHub.
+
+---
 
 ## FAQ
 
@@ -404,11 +421,11 @@ A: AutoRewarder is completely free of viruses and malware. The project is fully 
 **Q: Will this ban my Microsoft Rewards account?**
 
 A: Microsoft Rewards' Terms of Service prohibit automation. Use at your own risk.
-AutoRewarder is designed to mimic human behavior with randomized delays and real search queries to reduce the risk of detection. However, there is always a possibility of account suspension if detected such as searching with Bing while AutoRewarder is running or running multiple sessions at the same time.
+AutoRewarder is designed to mimic human behavior using advanced scheduling, realistic search queries, and W3C Actions (Bezier curves, human-like typing) to reduce the risk of detection. However, there is always a possibility of account suspension if detected such as searching with Bing while AutoRewarder is running or running multiple sessions at the same time.
 
 **Q: How many searches can I do per day?**
 
-A: You can run as many sessions as you want. The UI allows PC (0-130) and Mobile (0-99) per run, but Microsoft Rewards limits depend on region and account status.
+A: You can run as many sessions as you want. The UI allows PC (0-130) and Mobile (0-99) per run, but Microsoft Rewards limits depend on region and account status. Running additional sessions may increase the risk of account restrictions.
 
 **Q: Why does it ask me to do First Setup?**
 
@@ -424,12 +441,12 @@ A: Closing the window sends AutoRewarder to the system tray so it can keep runni
 
 **Q: Can I run this on Mac or Linux?**
 
-A: Currently, the pre-built installer and standalone executable are only available for Windows. The application can run on Linux, but it requires manual setup from the source code. macOS is not supported.
+A: AutoRewarder officially supports Windows (installer and portable) and Linux (standalone executable). You can download the pre-built archives for both platforms from the [Releases page](https://github.com/safarsin/AutoRewarder/releases/latest). macOS is not officially supported.
 
 ---
 
-**Last Updated**: September 2026
+**Last Updated**: October 2026
 
-**Version**: 4.3
+**Version**: 4.4
 
 Enjoy using AutoRewarder! 🎉

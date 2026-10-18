@@ -6,7 +6,7 @@
 
 An advanced, set-and-forget automation tool for Microsoft Rewards (supporting both the legacy and new dashboards). AutoRewarder performs Bing searches for PC and mobile point collection using a massive dataset of realistic queries (with optional, bring-your-own-key AI generation), completes Daily Sets and More Activities, includes Bing Visual Search tasks, and uses mathematically driven, human-like input simulation (W3C Actions, Bezier curves, smart scrolling and realistic keyboard typos).
 
-Built with a robust Python/Selenium backend, it offers two modes of operation: a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview, and a headless runner (CLI) for scheduled background runs and automation scripts. Packaged as an executable Windows app (via Inno Setup) for a seamless, plug-and-play experience.
+Built with a robust Python/Selenium backend, it offers two modes of operation: a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview, and a headless runner (CLI) for scheduled background runs and automation scripts. Packaged as a standalone application for Windows (installer and portable) and Linux, ensuring a seamless, cross-platform, plug-and-play experience.
 
 > **Ready to start? Check out the complete [USER GUIDE](USER_GUIDE.md)**
 
@@ -40,11 +40,17 @@ Built with a robust Python/Selenium backend, it offers two modes of operation: a
 
 ## Installation
 
-**Easy Way (Recommended):**
+**Windows (Installer):**
 Download `AutoRewarder-Setup.exe` from the [latest release](https://github.com/safarsin/AutoRewarder/releases/latest) and run it. The installer will verify all dependencies and install the app for you.
 
-**Portable Way:**
-Download `AutoRewarder.zip` from the [latest release](https://github.com/safarsin/AutoRewarder/releases/latest) and extract it to any folder (e.g., a USB drive). Run the executable. All your settings and profiles will be saved locally inside the `config` folder.
+**Windows & Linux (Portable):**
+Download the archive for your platform from the [latest release](https://github.com/safarsin/AutoRewarder/releases/latest):
+- **Windows**: `AutoRewarder-windows.zip` (includes the `config` folder for portable use)
+- **Linux**: `AutoRewarder-linux.tar.gz`
+
+- **On Windows:** Extract the archive to any folder and run the executable. All settings and profiles will be saved locally inside the included `config` folder.
+- **On Linux:** Extract the archive and run the executable. By default, settings and profiles are saved to the standard Linux directory (`~/.local/share/AutoRewarder`). If you prefer a portable setup, simply create a `config` folder next to the executable.
+
 > **Note:** Because the portable version is a single-file build, it may take a few seconds longer to start up compared to the installed version while it unpacks core components. Once open, it works at full speed.
 
 **Manual Way (Source):**
@@ -54,17 +60,17 @@ See the [Development Setup](#development-setup-for-developers) section.
 
 ## Screenshots & Demo
 
-| Perform Searches | App Demo |
+| App Demo |
+| :---: |
+|<img src="assets/screenshots/app_demo_v4.4.gif">|
+
+| Perform Searches | Visual Search |
 | :---: | :---: |
-|<img src="assets/screenshots/perform_demo.gif">|<img src="assets/screenshots/app_demo_v4.1.gif">|
+| <img src="assets/screenshots/perform_searches_v4.4.gif"> | <img src="assets/screenshots/visual_search_demo_v4.2.gif"> |
 
 | Daily Sets (New Dashboard) & Claim action | Tab Switching |
 | :---: | :---: |
-|<img src="assets/screenshots/daily_sets_demo_v4.0.gif">|<img src="assets/screenshots/tab_perform.gif">|
-
-| Visual Search |
-| :---: |
-|<img src="assets/screenshots/visual_search_demo_v4.2.gif">|
+| <img src="assets/screenshots/daily_sets_demo_v4.0.gif"> | <img src="assets/screenshots/tab_perform.gif"> |
 
 <details>
   <summary><b>View Legacy Dashboard Demo (click to expand)</b></summary>
@@ -73,16 +79,27 @@ See the [Development Setup](#development-setup-for-developers) section.
 
   | Daily Sets (Legacy Dashboard) |
   | :---: |
-  |<img src="assets/screenshots/daily_set.gif">|
+  | <img src="assets/screenshots/daily_set.gif"> |
 
 </details>
 
 > <sub>*Demo is sped up for viewing purposes. Actual execution includes randomized delays and pauses to mimic human behavior.*</sub>
 
-| Main Window & Account Management | Settings |
+| Main Window | General Settings |
 | :---: | :---: |
-| <img src="assets/screenshots/main_window_v4.0.jpg"> | <img src="assets/screenshots/settings_1_v4.1.jpg"> |
-| <img src="assets/screenshots/account_management_v4.0.jpg"> | <img src="assets/screenshots/settings_2_v4.1.jpg"> |
+| <img src="assets/screenshots/main_window_v4.4.jpg"> | <img src="assets/screenshots/settings_general_v4.4.jpg"> |
+
+| Daily Tasks Settings | Search Terms Settings  |
+| :---: | :---: |
+| <img src="assets/screenshots/settings_daily_tasks_v4.4.jpg"> | <img src="assets/screenshots/settings_search_terms_v4.4.jpg"> |
+
+| Settings: Accounts | Account Management |
+| :---: | :---: |
+| <img src="assets/screenshots/settings_accounts_v4.4.jpg"> |<img src="assets/screenshots/account_management_v4.4.jpg"> |
+
+| About | Background Logs |
+| :---: | :---: |
+| <img src="assets/screenshots/settings_about_v4.4.jpg"> | <img src="assets/screenshots/background_logs_v4.4.jpg"> |
 
 | History | Statistics Dashboard |
 | :---: | :---: |
@@ -94,7 +111,7 @@ See the [Development Setup](#development-setup-for-developers) section.
 
 | Layer | Technology |
 |-------|------------|
-| Backend | Python 3.12, [selenium](https://www.selenium.dev/), [pywebview](https://pywebview.flowrl.com/), pystray, Pillow, [nlpaug](https://github.com/makcedward/nlpaug/tree/master) |
+| Backend | Python 3.12, [selenium](https://www.selenium.dev/), [pywebview](https://pywebview.flowrl.com/), [pystray](https://pypi.org/project/pystray/), [Pillow](https://github.com/python-pillow/Pillow), [nlpaug](https://github.com/makcedward/nlpaug/tree/master), [PySide6](https://doc.qt.io/qtforpython-6/index.html) *(Linux GUI)*, [PyGObject](https://pygobject.gnome.org/) *(Linux Tray)*|
 | Frontend | HTML, CSS, JavaScript |
 | Bridge | pywebview JS API (pywebview.api) |
 | Build | [PyInstaller](https://pyinstaller.org/), [Inno Setup](https://jrsoftware.org/isinfo.php) |
@@ -103,11 +120,11 @@ See the [Development Setup](#development-setup-for-developers) section.
 
 ## System Requirements
 
-- **OS**: Windows 10 or later (installer), or Linux via source setup (no prebuilt executable)
+- **OS**: Windows 10 or later (installer or portable), or Linux (standalone executable build)
 - **Browser**: Microsoft Edge (driver managed by Selenium Manager)
-- **.NET Framework**: 4.8 or higher (automatically checked by installer)
+- **.NET Framework**: 4.8 or higher (automatically checked by installer) for Windows builds
 - **RAM**: Minimum 512 MB (1 GB recommended)
-- **Disk Space**: ~100 MB
+- **Disk Space**: ~50 MB for Windows, ~300 MB for Linux (due to PySide6 dependencies)
 
 ---
 
@@ -127,6 +144,12 @@ See the [Development Setup](#development-setup-for-developers) section.
 - Safe recovery for corrupted settings/history files
 - Detailed analytics window (lifetime counters, real balances, per-day activity charts)
 - Compact stats UI (total points and last run earnings card on main window)
+- Background log viewer for scheduled and headless runs
+- Redesigned Settings with side navigation and per-account pages
+- About page (app details, update checks, data-folder access)
+- Unsaved-change indicators in Settings
+- LLM Model Picker (provider-based selection, custom models, API key visibility)
+- Customizable delays between manual searches (min/max pause range)
 
 **Automation & Core Logic:**
 - OS-level daily autostart (launches headless runs at per-account scheduled times)
@@ -135,14 +158,16 @@ See the [Development Setup](#development-setup-for-developers) section.
 - Human-like search behavior (typing delays, random pauses, smooth scrolling)
 - Visual Search integration for Bing tasks in both daily-task and standard workflows
 - Hash-bypass architecture that generates a large pool of image variants to avoid file-hash checks
+- Drag-and-drop image uploads for Visual Search with fallback to input
 - Mobile emulation for Rewards credit (iPhone UA and touch)
-- Uses real-world queries from assets/queries.json (8154 unique entries from google-trends dataset)
+- Uses real-world queries from assets/queries.json (+10k unique entries from google-trends dataset)
+- AI-generated search queries in your language (bring-your-own-key LLM: Gemini, Anthropic, OpenAI, OpenAI-compatible)
+- Custom OpenAI-compatible endpoint support (bring-your-own base URL)
 - Randomized delays to reduce repetitive patterns
 - Optional tab switching between result categories (Images/Videos/News)
 - Natural mouse movement/clicking (W3C Actions/randomized Bezier trajectories)
 - Daily Set task collection (runs once per day, per account)
 - Separate browser profile per account
-- AI-generated search queries in your language (bring-your-own-key LLM)
 - Localization detection (language, region)
 - Simulated human typos in search queries (via nlpaug)
 - Smart dashboard selection (automatic detection and switching between legacy and new versions at runtime)
@@ -155,9 +180,11 @@ See the [Development Setup](#development-setup-for-developers) section.
 
 ## Quick Start (For Users)
 
-You do not need Python to use release builds.
+Everything is bundled — no Python, no libraries, no manual setup required.
 
-1. Download `AutoRewarder-Setup.exe` from the latest release
+1. Download the build for your platform from the latest release:
+   - **Windows**: `AutoRewarder-Setup.exe` (installer) or `AutoRewarder-windows.zip` (portable)
+   - **Linux**: `AutoRewarder-linux.tar.gz` (standalone executable)
 2. Install and run the app
 3. Add your first account and complete setup
 4. Set PC/Mobile counts and start a run
@@ -171,16 +198,25 @@ For detailed guide, see [USER_GUIDE.md](USER_GUIDE.md)
 ## Development Setup (For Developers)
 
 1. Clone the repository.
-2. Create and activate a virtual environment.
-3. Install dependencies.
-4. Run the app.
-
-```bash
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python AutoRewarder.py
-```
+2. Create a virtual environment:
+  - Windows:
+      ```bash
+      python -m venv .venv
+      .\.venv\Scripts\Activate.ps1
+      ```
+  - Linux:
+      ```bash
+      python3 -m venv .venv
+      source .venv/bin/activate
+      ```
+3. Install dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
+4. Run the app:
+    ```bash
+    python AutoRewarder.py
+    ```
 ---
 
 ## CLI Usage
@@ -219,14 +255,19 @@ python AutoRewarder.py --headless --account "Main" --pc 30 --force
 
 ## Build & Distribution
 
+> [!NOTE]
+> Ensure you have installed the development dependencies, including PyInstaller (`pip install -r requirements-dev.txt`).
+
+### Windows
+
 **Build EXE (for installer creation):**
 ```bash
-.\.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean AutoRewarder.spec
+pyinstaller --noconfirm --clean AutoRewarder.spec
 ```
 
 **Build Portable EXE (Standalone Onefile):**
 ```bash
-.\.venv\Scripts\python.exe -m PyInstaller --noconfirm --clean AutoRewarder_Portable.spec
+pyinstaller --noconfirm --clean AutoRewarder_Portable.spec
 ```
 
 **Create Windows Installer:**
@@ -235,6 +276,23 @@ python AutoRewarder.py --headless --account "Main" --pc 30 --force
 ```
 Or use the Inno Setup IDE to open `AutoRewarder.iss` and compile it.
 Output: `dist/AutoRewarder-Setup.exe` (Installer) and `dist/AutoRewarder.exe` (Portable)
+
+### Linux
+
+**Build Standalone Executable (onedirectory):**
+```bash
+pyinstaller --noconfirm --clean AutoRewarder.spec
+```
+Output: `dist/AutoRewarder/` (directory with executable)
+
+**Build Standalone Executable (onefile):**
+```bash
+pyinstaller --noconfirm --clean AutoRewarder_Portable.spec
+```
+Output: `dist/AutoRewarder` (single executable file)
+
+> [!WARNING]
+> `onedirectory` and `onefile` builds output to the same `dist/AutoRewarder` path. Since Linux binaries have no extension, running both with `--noconfirm` will overwrite the previous artifact. Clean the `dist/` folder between builds.
 
 ---
 
@@ -248,12 +306,15 @@ AutoRewarder/
 │   ├── history.css            # History view styling
 │   ├── dashboard.html         # Statistics dashboard UI
 │   ├── dashboard.css          # Statistics dashboard styling
+│   ├── background_logs.html   # Background logs viewer UI
+│   ├── background_logs.css    # Background logs viewer styling
 │   ├── script.js              # Frontend logic and bridge calls
 │   ├── settings.js            # Settings page logic and bridge calls
 │   ├── styles.css             # App styling
 │   └── normalize.css          # CSS reset
 ├── assets/
-│   ├── icon.ico               # App icon
+│   ├── icon.ico               # App icon (for Windows)
+│   ├── icon.png               # App icon (for Linux)
 │   ├── queries.json           # Search query dataset
 │   ├── visual_search_assets/  # Visual search assets
 │   └── screenshots/           # Screenshots and GIFs for documentation
@@ -288,7 +349,9 @@ AutoRewarder/
 ├── AutoRewarder_Portable.spec # Portable PyInstaller build spec
 ├── AutoRewarder.iss           # Inno Setup installer script
 ├── update_badges.py           # README badge data updater
+├── .flake8                    # Flake8 linting configuration
 ├── .pre-commit-config.yaml    # Pre-commit hooks configuration
+├── mypy.ini                   # MyPy static type checking configuration
 ├── requirements.txt           # Production dependencies
 ├── requirements-dev.txt       # Development & testing dependencies
 ├── CODE_OF_CONDUCT.md         # Community guidelines
@@ -303,6 +366,8 @@ AutoRewarder/
 ## Runtime Data
 
 The application stores its runtime files (profiles, history, logs, and settings) in a dedicated folder separate from your main browser.
+
+If a `config` folder exists in the same directory as the executable, all data is stored inside it. Otherwise, it is stored in in the following directories:
 
 **On Windows:**
 ```text
@@ -338,6 +403,17 @@ For common issues and solutions, see the [Troubleshooting](USER_GUIDE.md#trouble
 
 ## Roadmap
 
+- [ ] Human typos simulation for different keyboard/language layouts (AZERTY, QWERTZ, etc.)
+- [ ] Human-like typing with random spaces/backspaces
+- [ ] Independent toggle for Visual Search task (for unsupported regions)
+- [ ] Explore on Bing support
+- [ ] Region-specific search query datasets (US, UK, CA, AU, IN, etc.)
+- [ ] Keyboard shortcuts
+- [ ] Per-account proxy support
+
+<details>
+<summary><b>Completed features (Click to expand)</b></summary>
+
 - [x] Windows installer with dependency checking (Inno Setup)
 - [x] Action Chains Selenium/W3C Actions for more natural mouse movement and clicks
 - [x] Daily Set collector
@@ -361,15 +437,11 @@ For common issues and solutions, see the [Troubleshooting](USER_GUIDE.md#trouble
 - [x] AI-generated search queries in your language (bring-your-own-key LLM)
 - [x] Simulated human typos in search queries (via nlpaug)
 - [x] Visual search integration
-- [ ] View background logs directly in the UI
+- [x] View background logs directly in the UI
 - [x] Custom OpenAI compatible endpoints
-- [ ] Human typos simulation for different keyboard/language layouts (AZERTY, QWERTZ, etc.)
-- [ ] Human-like typing with random spaces/backspaces
-- [ ] Per-account proxy support
-- [ ] Explore on Bing support
-- [ ] Region-specific search query datasets (US, UK, CA, AU, IN, etc.)
-- [ ] Browser choice (Chrome, Firefox support in addition to Edge)
-- [ ] Keyboard shortcuts
+- [x] Standalone Linux build (PySide6 GUI + PyGObject tray)
+
+</details>
 
 ---
 
@@ -382,7 +454,7 @@ You are responsible for your own usage.
 
 ## Contact
 
-- **[Issues](https://github.com/safarsin/AutoRewarder/issues)** — for bug reports and errors.
+- **[Issues](https://github.com/safarsin/AutoRewarder/issues)** — for bug reports, feature requests, and errors.
 - **[Discussions](https://github.com/safarsin/AutoRewarder/discussions)** — for questions, ideas, and general help.
 
 ---
