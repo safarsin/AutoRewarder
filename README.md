@@ -60,17 +60,17 @@ See the [Development Setup](#development-setup-for-developers) section.
 
 ## Screenshots & Demo
 
-| Perform Searches | App Demo |
+| App Demo |
+| :---: |
+|<img src="assets/screenshots/app_demo_v4.4.gif">|
+
+| Perform Searches | Visual Search |
 | :---: | :---: |
-|<img src="assets/screenshots/perform_demo.gif">|<img src="assets/screenshots/app_demo_v4.1.gif">|
+| <img src="assets/screenshots/perform_searches_v4.4.gif"> | <img src="assets/screenshots/visual_search_demo_v4.2.gif"> |
 
 | Daily Sets (New Dashboard) & Claim action | Tab Switching |
 | :---: | :---: |
-|<img src="assets/screenshots/daily_sets_demo_v4.0.gif">|<img src="assets/screenshots/tab_perform.gif">|
-
-| Visual Search |
-| :---: |
-|<img src="assets/screenshots/visual_search_demo_v4.2.gif">|
+| <img src="assets/screenshots/daily_sets_demo_v4.0.gif"> | <img src="assets/screenshots/tab_perform.gif"> |
 
 <details>
   <summary><b>View Legacy Dashboard Demo (click to expand)</b></summary>
@@ -79,16 +79,27 @@ See the [Development Setup](#development-setup-for-developers) section.
 
   | Daily Sets (Legacy Dashboard) |
   | :---: |
-  |<img src="assets/screenshots/daily_set.gif">|
+  | <img src="assets/screenshots/daily_set.gif"> |
 
 </details>
 
 > <sub>*Demo is sped up for viewing purposes. Actual execution includes randomized delays and pauses to mimic human behavior.*</sub>
 
-| Main Window & Account Management | Settings |
+| Main Window | General Settings |
 | :---: | :---: |
-| <img src="assets/screenshots/main_window_v4.0.jpg"> | <img src="assets/screenshots/settings_1_v4.1.jpg"> |
-| <img src="assets/screenshots/account_management_v4.0.jpg"> | <img src="assets/screenshots/settings_2_v4.1.jpg"> |
+| <img src="assets/screenshots/main_window_v4.4.jpg"> | <img src="assets/screenshots/settings_general_v4.4.jpg"> |
+
+| Daily Tasks Settings | Search Terms Settings  |
+| :---: | :---: |
+| <img src="assets/screenshots/settings_daily_tasks_v4.4.jpg"> | <img src="assets/screenshots/settings_search_terms_v4.4.jpg"> |
+
+| Settings: Accounts | Account Management |
+| :---: | :---: |
+| <img src="assets/screenshots/settings_accounts_v4.4.jpg"> |<img src="assets/screenshots/account_management_v4.4.jpg"> |
+
+| About | Background Logs |
+| :---: | :---: |
+| <img src="assets/screenshots/settings_about_v4.4.jpg"> | <img src="assets/screenshots/background_logs_v4.4.jpg"> |
 
 | History | Statistics Dashboard |
 | :---: | :---: |
