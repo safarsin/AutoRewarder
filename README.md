@@ -255,6 +255,9 @@ python AutoRewarder.py --headless --account "Main" --pc 30 --force
 
 ## Build & Distribution
 
+> [!NOTE]
+> Ensure you have installed the development dependencies, including PyInstaller (`pip install -r requirements-dev.txt`).
+
 ### Windows
 
 **Build EXE (for installer creation):**
@@ -287,6 +290,9 @@ Output: `dist/AutoRewarder/` (directory with executable)
 pyinstaller --noconfirm --clean AutoRewarder_Portable.spec
 ```
 Output: `dist/AutoRewarder` (single executable file)
+
+> [!WARNING]
+> `onedirectory` and `onefile` builds output to the same `dist/AutoRewarder` path. Since Linux binaries have no extension, running both with `--noconfirm` will overwrite the previous artifact. Clean the `dist/` folder between builds.
 
 ---
 

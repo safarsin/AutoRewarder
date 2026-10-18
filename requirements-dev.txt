@@ -8,3 +8,4 @@ black==26.3.1
 flake8==7.3.0
 mypy==1.9.0
 types-requests
+pyinstaller

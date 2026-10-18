@@ -109,7 +109,7 @@ Adding another account is slightly different, so please follow these steps:
 
 ### Starting a Session
 
-1. Open AutoRewarder.exe
+1. Open AutoRewarder
 2. Select an account from the dropdown
 3. Set PC and Mobile query counts (PC 0-130, Mobile 0-99). Set one to 0 to skip it. Your preferred search limits are saved automatically and will load on your next launch.
 4. *(Optional)* Toggle **"Advanced scheduling"** to spread searches across a longer duration (see [Scheduled runs](#scheduled-runs) for details)
