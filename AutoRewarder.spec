@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 import sys
 import os
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, copy_metadata
 
 is_windows = sys.platform == 'win32'
 app_icon = os.path.join('assets', 'icon.ico') if is_windows else os.path.join('assets', 'icon.png')
@@ -21,7 +21,10 @@ a = Analysis(
     ['AutoRewarder.py'],
     pathex=[],
     binaries=[],
-    datas=[('gui', 'gui'), ('assets', 'assets')] + collect_data_files('nlpaug'),
+    datas=[('gui', 'gui'), ('assets', 'assets')]
+        + collect_data_files('nlpaug')
+        + copy_metadata('gdown')
+        + copy_metadata('nlpaug'),
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},
