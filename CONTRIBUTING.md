@@ -1,6 +1,6 @@
 # Contributing to AutoRewarder
 
-Thank you for your interest in helping improve AutoRewarder! Whether you want to write code, improve datasets, or report bugs, your contributions are highly appreciated.
+Thank you for your interest in helping improve AutoRewarder! Whether you want to write code, report bugs, or suggest new features, your contributions are highly appreciated.
 
 ## Where to Start? (Good First Issues)
 
@@ -8,47 +8,21 @@ If you are new to the project, check out our issues labeled **`good first issue`
 
 If you find an issue you'd like to work on, just leave a comment saying "I'd like to work on this" so others know it's taken.
 
-## Contributing Localized Datasets
-
-Currently, the tool uses a generic dataset [`queries.json`](https://github.com/safarsin/AutoRewarder/blob/main/assets/queries.json), but to make the automation look as natural as possible, we are collecting **Region & Language-specific search queries**. Having localized datasets helps reduce detection risks and improves the tool for everyone.
-
 ## How to Contribute
 
-You can contribute in two ways: via GitHub Pull Request (if you know Git) or by simply submitting a text file.
+1. **Bug Reports & Feature Requests:** Feel free to open an issue if you find a bug or have a suggestion. Please check existing issues first to avoid duplicates.
+2. **Code Contributions:**
+   - Fork this repository.
+   - Create a new branch for your feature or bugfix.
+   - Commit your changes and open a Pull Request.
 
-### Option 1: For Developers (Pull Request)
+### Pull Request Guidelines
 
-If you know how to use Git, this is the preferred method. You'll automatically get a "Contributor" badge on GitHub.
+To make the review process efficient and keep the project history clean, please follow these rules when submitting a PR:
 
-1. **Fork** this repository.
-2. Navigate to the `datasets` folder.
-3. Find the JSON file for your region (e.g., `it-IT.json` for Italian, `en-AU.json` for Australian English). If your language file doesn't exist yet, you can create it!
-4. Open the file and add natural search queries to the `queries` list.
-
-**Example (`en-AU.json`):**
-
-```json
-{
-  "queries": [
-    "what I need to do if I got beat up by a kangaroo",
-    "woolworths online shopping",
-    "can I sue a kangaroo for beating me up",
-    "..."
-  ]
-}
-
-```
-
-5. Commit your changes and open a Pull Request.
-
-### Option 2: For Users (Submit a File)
-
-If you don't want to mess with JSON or Pull Requests, you can still help!
-
-1. Create a simple `.txt` file with one search query per line.
-2. Simply attach your `.txt` file to the comments of our **[Discussion](https://github.com/safarsin/AutoRewarder/discussions/59)**.
-3. I'll format it into JSON, add it to the project, and manually add you to the contributors list.
-
-Every query counts, even if you add just 100-500 new lines!
+* **Keep it focused:** One Pull Request = One Feature or Bugfix. Do not mix multiple unrelated changes into a single PR.
+* **Keep it reasonably sized:** Avoid massive PRs (e.g., thousands of lines of changes). If your feature is huge, please open a discussion or issue first to agree on the implementation.
+* **Clean commit history:** Avoid PRs with dozens of small, messy commits (e.g., `update`, `fix typo`, `oops`). Please squash your commits into meaningful, atomic chunks before requesting a review.
+* **Test your changes:** Ensure the bot starts and runs correctly with your changes before submitting.
 
 Thank you for making this project better!
