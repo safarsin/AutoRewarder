@@ -421,6 +421,12 @@ class StatsManager:
             prior = stats["balance"]["current"]
             if isinstance(prior, int):
                 points_delta = balance - prior
+
+                # Balance decreased (for example, if user redeemed a gift card during the run).
+                # Let the API fall back to the activity estimate when the delta is negative.
+                if points_delta < 0:
+                    points_delta = None
+
             stats["balance"]["previous"] = prior
             stats["balance"]["current"] = balance
             stats["balance"]["updated_at"] = now_iso
