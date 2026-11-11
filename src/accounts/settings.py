@@ -130,6 +130,8 @@ class GlobalSettingsManager:
             # failed after being marked as done).
             "force_daily_tasks": False,
             "force_visual_search": False,
+            # Run the Daily Set before the PC phase's searches instead of after.
+            "daily_first": False,
             # Default query counts.
             "queries_pc": 30,
             "queries_mobile": 20,
@@ -264,6 +266,16 @@ class GlobalSettingsManager:
         settings = self.settings_for_update()
         settings["force_daily_tasks"] = bool(force_daily_tasks)
         settings["force_visual_search"] = bool(force_visual_search)
+        self.save_settings(settings)
+
+    def get_daily_first(self):
+        """Return whether the Daily Set runs before the search queries."""
+        return bool(self.get_settings().get("daily_first", False))
+
+    def set_daily_first(self, enabled):
+        """Persist whether the Daily Set runs before the search queries."""
+        settings = self.settings_for_update()
+        settings["daily_first"] = bool(enabled)
         self.save_settings(settings)
 
     def get_queries_pc(self):
