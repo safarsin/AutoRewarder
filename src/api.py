@@ -53,13 +53,15 @@ from .stats import (
 # meta.json; this constant is only the fallback default for fresh accounts.
 AUTOSTART_TIME = "09:00"
 
-# Naming prefix for the OS-level scheduled task / systemd unit. Each
-# account gets its own task: AutoRewarder.<account_id> on Windows,
-# autorewarder-<account_id>.{service,timer} on Linux. The unsuffixed
+# Naming prefix for the OS-level scheduled task / systemd unit / LaunchAgent.
+# Each account gets its own task: AutoRewarder.<account_id> on Windows,
+# autorewarder-<account_id>.{service,timer} on Linux, and
+# com.autorewarder.<account_id>.plist on macOS. The unsuffixed
 # names (without account_id) are reserved as legacy markers from the
 # previous single-task design and only cleaned up, never created.
 _AUTOSTART_TASK_NAME = "AutoRewarder"
 _SYSTEMD_UNIT_NAME = "autorewarder"
+_LAUNCH_AGENT_PREFIX = "com.autorewarder"
 
 # Default min/max delay for normal manual searches, in seconds.
 DEFAULT_SEARCH_DELAY = (4.0, 10.0)
@@ -860,7 +862,7 @@ class AutoRewarderAPI:
         queriesPerHour (1..99), queries_pc (0..130), queries_mobile (0..99),
         run_time (HH:MM 24h). Unknown keys are ignored.
 
-        After persisting, if the global "Start with Windows/Linux" toggle
+        After persisting, if the global background autostart toggle
         is on, the account's OS-level scheduled task is (re)created or
         removed to match the new state.
 
@@ -918,7 +920,7 @@ class AutoRewarderAPI:
             self.log(f"Schedule '{label}' disabled.")
 
         # Re-sync the OS-level scheduled task. _sync_account_autostart
-        # itself respects the global Start-with-Windows toggle and the
+        # itself respects the global background autostart toggle and the
         # new schedule.enabled value, so it correctly creates / updates
         # / removes the task in any state.
         try:
@@ -1005,10 +1007,11 @@ class AutoRewarderAPI:
     #     resulting task carries StartWhenAvailable=true — without it,
     #     Windows silently skips daily triggers that fired while the
     #     machine was off, unlike systemd's Persistent=true on Linux.
+    #   * v3 added macOS LaunchAgent registration.
     # Stored in global_settings as `autostart_schema_version`. Users on
     # autoStartUp=True with a lower version get all their tasks re-
     # registered on next launch.
-    _AUTOSTART_SCHEMA_VERSION = 2
+    _AUTOSTART_SCHEMA_VERSION = 3
 
     def _migrate_legacy_autostart(self):
         """
@@ -1018,8 +1021,7 @@ class AutoRewarderAPI:
            enables autostart, even if the user previously had it on
            under the old model: their explicit intent is whatever
            `autoStartUp` says today. If they want per-account
-           autostart back, they re-toggle Start-with-Windows in
-           Settings.
+           autostart back, they re-toggle background autostart in Settings.
         2. User is on per-account model (autoStartUp=True) AND
            `autostart_schema_version` is below current → re-register
            every task so format changes (e.g. python.exe → pythonw.exe)
@@ -1111,10 +1113,106 @@ class AutoRewarderAPI:
         """Base name for the systemd service + timer of a specific account."""
         return f"{_SYSTEMD_UNIT_NAME}-{account_id}"
 
+    def _launch_agents_dir(self):
+        """Return the per-user macOS LaunchAgents directory."""
+        return os.path.join(os.path.expanduser("~"), "Library", "LaunchAgents")
+
+    def _launch_agent_label(self, account_id):
+        """Return the stable launchd label for an account."""
+        return f"{_LAUNCH_AGENT_PREFIX}.{account_id}"
+
+    def _launch_agent_path(self, account_id):
+        """Return the plist path for an account's LaunchAgent."""
+        return os.path.join(
+            self._launch_agents_dir(), f"{self._launch_agent_label(account_id)}.plist"
+        )
+
+    def _launch_agent_domain(self):
+        """Return the current user's launchd GUI domain."""
+        return f"gui/{os.getuid()}"
+
+    def _launch_agent_program_arguments(self, account_id):
+        """Return the argv list launchd should execute for an account."""
+        if getattr(sys, "frozen", False):
+            return [sys.executable, "--headless", "--account", account_id]
+        return [
+            sys.executable,
+            os.path.join(BASE_DIR, "AutoRewarder.py"),
+            "--headless",
+            "--account",
+            account_id,
+        ]
+
+    def _register_macos_launch_agent(self, account_id, run_time, label=None):
+        """Write and load a per-account macOS LaunchAgent plist."""
+        import plistlib
+
+        try:
+            hour, minute = (int(part) for part in run_time.split(":", 1))
+            base = self._launch_agents_dir()
+            path = self._launch_agent_path(account_id)
+            agent_label = self._launch_agent_label(account_id)
+            desc_label = label or account_id
+
+            os.makedirs(base, exist_ok=True)
+            subprocess.run(
+                ["launchctl", "bootout", self._launch_agent_domain(), path],
+                capture_output=True,
+            )
+
+            plist = {
+                "Label": agent_label,
+                "ProgramArguments": self._launch_agent_program_arguments(account_id),
+                "WorkingDirectory": BASE_DIR,
+                "StartCalendarInterval": {"Hour": hour, "Minute": minute},
+                "RunAtLoad": False,
+                "ProcessType": "Background",
+                "ThrottleInterval": 60,
+                "StandardOutPath": LOG_FILE_PATH,
+                "StandardErrorPath": LOG_FILE_PATH,
+            }
+            with open(path, "wb") as fh:
+                plistlib.dump(plist, fh, sort_keys=False)
+
+            result = subprocess.run(
+                ["launchctl", "bootstrap", self._launch_agent_domain(), path],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                self.log(
+                    f"[ERROR] launchctl bootstrap failed for {desc_label}: "
+                    f"{(result.stderr or result.stdout).strip()}"
+                )
+                return False
+            self.log(f"LaunchAgent registered: '{desc_label}' at {run_time}")
+            return True
+        except FileNotFoundError:
+            self.log("[ERROR] launchctl not found — macOS autostart unavailable.")
+            return False
+        except Exception as e:
+            self.log(f"[ERROR] Failed to register macOS LaunchAgent: {e}")
+            return False
+
+    def _remove_macos_launch_agent(self, account_id):
+        """Unload and delete an account's macOS LaunchAgent plist."""
+        try:
+            path = self._launch_agent_path(account_id)
+            subprocess.run(
+                ["launchctl", "bootout", self._launch_agent_domain(), path],
+                capture_output=True,
+            )
+            if os.path.exists(path):
+                os.remove(path)
+            return True
+        except Exception:
+            return False
+
     # ------------------------------------------------------------------
     # Autostart — daily scheduled task (Windows Task Scheduler / systemd
-    # user timer). Replaces the previous "fire on login" model so a daily
-    # run still happens even when the machine stays logged in for days.
+    # user timer / macOS LaunchAgent). Replaces the previous "fire on login"
+    # model so a daily run still happens even when the machine stays logged in
+    # for days.
     # ------------------------------------------------------------------
 
     def _systemd_user_dir(self):
@@ -1496,13 +1594,15 @@ class AutoRewarderAPI:
             return self._remove_windows_task(account_id)
         if system == "Linux":
             return self._remove_systemd_unit(account_id)
+        if system == "Darwin":
+            return self._remove_macos_launch_agent(account_id)
         return False
 
     def _sync_account_autostart(self, account_id):
         """
         Bring one account's OS-level scheduled task in sync with its
         meta.json schedule. Called whenever set_schedule mutates an
-        account, or the global Start-with-Windows toggle is flipped on.
+        account, or the global background autostart toggle is flipped on.
 
         Semantics:
           * Global toggle OFF → always remove (regardless of schedule.enabled)
@@ -1533,7 +1633,9 @@ class AutoRewarderAPI:
             return self._register_windows_task(account_id, run_time, label)
         if system == "Linux":
             return self._register_systemd_unit(account_id, run_time, label)
-        self.log("Autostart is only supported on Windows and Linux.")
+        if system == "Darwin":
+            return self._register_macos_launch_agent(account_id, run_time, label)
+        self.log("Autostart is only supported on Windows, Linux, and macOS.")
         return False
 
     def _sync_all_autostart(self):
@@ -1560,8 +1662,8 @@ class AutoRewarderAPI:
         are always cleaned up on either path.
         """
         system_name = platform.system()
-        if system_name not in ("Windows", "Linux"):
-            self.log("Autostart is only supported on Windows and Linux.")
+        if system_name not in ("Windows", "Linux", "Darwin"):
+            self.log("Autostart is only supported on Windows, Linux, and macOS.")
             return False
 
         # Persist user intent FIRST so _sync_account_autostart reads the
@@ -1590,7 +1692,7 @@ class AutoRewarderAPI:
         return True
 
     def is_autostart_enabled(self):
-        """Return True if the global 'Start with Windows/Linux' toggle is on.
+        """Return True if the global background autostart toggle is on.
 
         Per-account OS tasks are derived from this AND each account's
         schedule.enabled — the toggle here is the master switch.
@@ -1604,7 +1706,7 @@ class AutoRewarderAPI:
         """Return OS support flag + current autostart state for the Settings UI."""
         system_name = platform.system()
         return {
-            "supported": system_name in ("Windows", "Linux"),
+            "supported": system_name in ("Windows", "Linux", "Darwin"),
             "enabled": self.is_autostart_enabled(),
         }
 

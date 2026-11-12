@@ -46,7 +46,7 @@ Welcome! This guide will help you get started with AutoRewarder and explain all 
 
 ## Installation
 
-AutoRewarder is available for Windows (installer and portable) and Linux.
+AutoRewarder is available for Windows (installer and portable), Linux, and macOS when run from source. There is currently no pre-built macOS archive.
 
 For download links and installation instructions, please refer to the [Installation](README.md#installation) section in the README.
 
@@ -386,6 +386,7 @@ If you need to access these files directly (e.g., for backup or troubleshooting)
 - Kill all Edge and WebDriver processes:
   - **Windows:** Open Task Manager and end all `msedge.exe` processes (and `msedgedriver.exe` if present).
   - **Linux:** Run `pkill -f msedge` and `pkill -f msedgedriver` in your terminal.
+  - **macOS:** Run `pkill -f Microsoft\ Edge` and `pkill -f msedgedriver` in Terminal.
 - Open Edge normally and complete any pending updates at `edge://settings/help`
 - Re-run AutoRewarder
 - If it still fails, open the account in **Settings** and choose **Re-run setup**
@@ -395,7 +396,7 @@ If you need to access these files directly (e.g., for backup or troubleshooting)
 - Verify dependencies: `pip install -r requirements.txt` if running from source
 - Check system logs for error details:
   - **Windows:** Check Windows Event Viewer.
-  - **Linux:** Run the app from the terminal to see the traceback output directly.
+  - **Linux/macOS:** Run the app from the terminal to see the traceback output directly.
 
 **Searches not completing:**
 - Verify internet connection
@@ -441,11 +442,11 @@ A: Closing the window sends AutoRewarder to the system tray so it can keep runni
 
 **Q: Can I run this on Mac or Linux?**
 
-A: AutoRewarder officially supports Windows (installer and portable) and Linux (standalone executable). You can download the pre-built archives for both platforms from the [Releases page](https://github.com/safarsin/AutoRewarder/releases/latest). macOS is not officially supported.
+A: AutoRewarder officially supports Windows (installer and portable) and Linux (standalone executable). macOS is supported when running from source, including OS-level daily autostart through a per-account LaunchAgent, but no pre-built macOS archive is currently published.
 
 ---
 
-**Last Updated**: October 2026
+**Last Updated**: November 2026
 
 **Version**: 4.4
 

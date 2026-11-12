@@ -145,6 +145,9 @@ if __name__ == "__main__":
     if sys.platform == "win32":
         icon_file = "icon.ico"
         webview.start(icon=os.path.join(ASSETS_DIR, icon_file))
+    elif sys.platform == "darwin":
+        icon_file = "icon.png"
+        webview.start(icon=os.path.join(ASSETS_DIR, icon_file))
     else:
         icon_file = "icon.png"
         webview.start(icon=os.path.join(ASSETS_DIR, icon_file), gui="qt")
