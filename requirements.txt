@@ -6,3 +6,8 @@ Pillow==10.4.0
 nlpaug==1.1.11
 PyGObject; sys_platform == "linux"
 PySide6; sys_platform == "linux"
+pyobjc-core; sys_platform == "darwin"
+pyobjc-framework-Cocoa; sys_platform == "darwin"
+pyobjc-framework-Quartz; sys_platform == "darwin"
+pyobjc-framework-WebKit; sys_platform == "darwin"
+pyobjc-framework-Security; sys_platform == "darwin"

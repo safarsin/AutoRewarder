@@ -6,7 +6,7 @@
 
 An advanced, set-and-forget automation tool for Microsoft Rewards (supporting both the legacy and new dashboards). AutoRewarder performs Bing searches for PC and mobile point collection using a massive dataset of realistic queries (with optional, bring-your-own-key AI generation), completes Daily Sets and More Activities, includes Bing Visual Search tasks, and uses mathematically driven, human-like input simulation (W3C Actions, Bezier curves, smart scrolling and realistic keyboard typos).
 
-Built with a robust Python/Selenium backend, it offers two modes of operation: a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview, and a headless runner (CLI) for scheduled background runs and automation scripts. Packaged as a standalone application for Windows (installer and portable) and Linux, ensuring a seamless, cross-platform, plug-and-play experience.
+Built with a robust Python/Selenium backend, it offers two modes of operation: a sleek HTML/CSS/JS frontend wrapped in a native window via pywebview, and a headless runner (CLI) for scheduled background runs and automation scripts. Packaged as a standalone application for Windows (installer and portable) and Linux, with source-based macOS support.
 
 > **Ready to start? Check out the complete [USER GUIDE](USER_GUIDE.md)**
 
@@ -55,6 +55,9 @@ Download the archive for your platform from the [latest release](https://github.
 
 **Manual Way (Source):**
 See the [Development Setup](#development-setup-for-developers) section.
+
+**macOS (Source):**
+macOS is supported when running from source. There is currently no pre-built macOS release. The macOS build uses pywebview's native Cocoa backend and stores runtime data in `~/Library/Application Support/AutoRewarder`.
 
 ---
 
@@ -120,11 +123,11 @@ See the [Development Setup](#development-setup-for-developers) section.
 
 ## System Requirements
 
-- **OS**: Windows 10 or later (installer or portable), or Linux (standalone executable build)
+- **OS**: Windows 10 or later (installer or portable), Linux (standalone executable build), or macOS (source install)
 - **Browser**: Microsoft Edge (driver managed by Selenium Manager)
 - **.NET Framework**: 4.8 or higher (automatically checked by installer) for Windows builds
 - **RAM**: Minimum 512 MB (1 GB recommended)
-- **Disk Space**: ~50 MB for Windows, ~300 MB for Linux (due to PySide6 dependencies)
+- **Disk Space**: ~50 MB for Windows, ~300 MB for Linux (due to PySide6 dependencies), or the source dependencies on macOS
 
 ---
 
@@ -137,7 +140,7 @@ See the [Development Setup](#development-setup-for-developers) section.
 - Optional hide-browser mode (headless UI toggle)
 - Close-to-tray behavior with a tray menu (reopen or exit)
 - Per-account scheduled runs (simple or advanced)
-- Start with Windows/Linux toggle (autostart)
+- Start with Windows/Linux toggle (autostart; not available on macOS)
 - Live terminal-like logs with update notifications (GitHub Releases)
 - Local history view per account (date, time, query, status)
 - Statistics dashboard: real scraped points balance, per-run earnings, lifetime activity counters, and a multi-account recap
@@ -185,6 +188,7 @@ Everything is bundled — no Python, no libraries, no manual setup required.
 1. Download the build for your platform from the latest release:
    - **Windows**: `AutoRewarder-Setup.exe` (installer) or `AutoRewarder-windows.zip` (portable)
    - **Linux**: `AutoRewarder-linux.tar.gz` (standalone executable)
+   - **macOS**: Run from source; no pre-built macOS archive is currently published
 2. Install and run the app
 3. Add your first account and complete setup
 4. Set PC/Mobile counts and start a run
@@ -205,6 +209,11 @@ For detailed guide, see [USER_GUIDE.md](USER_GUIDE.md)
       .\.venv\Scripts\Activate.ps1
       ```
   - Linux:
+      ```bash
+      python3 -m venv .venv
+      source .venv/bin/activate
+      ```
+  - macOS:
       ```bash
       python3 -m venv .venv
       source .venv/bin/activate
@@ -377,6 +386,11 @@ If a `config` folder exists in the same directory as the executable, all data is
 **On Linux:**
 ```text
 ~/.local/share/AutoRewarder
+```
+
+**On macOS:**
+```text
+~/Library/Application Support/AutoRewarder
 ```
 
 Created files and folders:
