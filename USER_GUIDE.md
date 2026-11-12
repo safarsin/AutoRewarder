@@ -442,7 +442,7 @@ A: Closing the window sends AutoRewarder to the system tray so it can keep runni
 
 **Q: Can I run this on Mac or Linux?**
 
-A: AutoRewarder officially supports Windows (installer and portable) and Linux (standalone executable). macOS is supported when running from source, but no pre-built macOS archive is currently published. The Windows/Linux OS-level autostart setting is not available on macOS.
+A: AutoRewarder officially supports Windows (installer and portable) and Linux (standalone executable). macOS is supported when running from source, including OS-level daily autostart through a per-account LaunchAgent, but no pre-built macOS archive is currently published.
 
 ---
 

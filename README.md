@@ -140,7 +140,7 @@ macOS is supported when running from source. There is currently no pre-built mac
 - Optional hide-browser mode (headless UI toggle)
 - Close-to-tray behavior with a tray menu (reopen or exit)
 - Per-account scheduled runs (simple or advanced)
-- Start with Windows/Linux toggle (autostart; not available on macOS)
+- Background Auto-Run toggle (OS-level autostart on Windows, Linux, and macOS)
 - Live terminal-like logs with update notifications (GitHub Releases)
 - Local history view per account (date, time, query, status)
 - Statistics dashboard: real scraped points balance, per-run earnings, lifetime activity counters, and a multi-account recap
