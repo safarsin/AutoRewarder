@@ -2846,7 +2846,7 @@ class AutoRewarderAPI:
         if not queries:
             from .utils import humanize_queries
 
-            return humanize_queries(static)
+            return humanize_queries(static, self.log)
 
         seen = set(queries)
         extra = [q for q in static if q not in seen][: count - len(queries)]
