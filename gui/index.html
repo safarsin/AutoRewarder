@@ -303,7 +303,7 @@
 
           <!-- Daily tasks -->
           <div class="settings-panel" data-panel="tasks" data-title="Daily tasks"
-               data-desc="A task that already ran today is skipped on the next run. Turn these on to run it again anyway.">
+               data-desc="A task that already ran today is skipped on the next run. Turn these on to run it again anyway, or run the Daily Set before the searches.">
             <label class="settings-row">
               <div class="settings-row-text">
                 <div class="settings-row-label">Force daily tasks</div>
@@ -321,6 +321,16 @@
               </div>
               <span class="toggle-compact">
                 <input type="checkbox" id="forceVisualToggle">
+                <span class="toggle-pill"></span>
+              </span>
+            </label>
+            <label class="settings-row">
+              <div class="settings-row-text">
+                <div class="settings-row-label">Daily Set first</div>
+                <div class="settings-row-hint">Run the Daily Set and More Activities before the PC phase's search queries, so their points are banked even if a later phase crashes.</div>
+              </div>
+              <span class="toggle-compact">
+                <input type="checkbox" id="dailyFirstToggle">
                 <span class="toggle-pill"></span>
               </span>
             </label>

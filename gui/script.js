@@ -888,9 +888,10 @@ function open_settings_modal(panelId) {
     pywebview.api.get_close_to_tray(),
     pywebview.api.get_llm_config(),
     pywebview.api.get_force_tasks(),
+    pywebview.api.get_daily_first(),
     pywebview.api.get_app_info(),
     pywebview.api.get_manual_search_delay(),
-  ]).then(([schedules, startup, closeToTray, llmConfig, forceTasks, appInfo, manualSearchDelay]) => {
+  ]).then(([schedules, startup, closeToTray, llmConfig, forceTasks, dailyFirst, appInfo, manualSearchDelay]) => {
     render_account_panels(Array.isArray(schedules) ? schedules : []);
 
     // Background auto-run toggle — disable row on unsupported OS.
@@ -933,6 +934,10 @@ function open_settings_modal(panelId) {
     const forceVisualToggle = document.getElementById('forceVisualToggle');
     if (forceDailyToggle) forceDailyToggle.checked = Boolean(force.force_daily_tasks);
     if (forceVisualToggle) forceVisualToggle.checked = Boolean(force.force_visual_search);
+
+    // Daily Set ordering — default to searches-first if the API failed.
+    const dailyFirstToggle = document.getElementById('dailyFirstToggle');
+    if (dailyFirstToggle) dailyFirstToggle.checked = Boolean(dailyFirst);
 
     // LLM search-term generation.
     const cfg = llmConfig || {};
@@ -1777,6 +1782,10 @@ async function save_settings() {
       Boolean(forceDailyEl && forceDailyEl.checked),
       Boolean(forceVisualEl && forceVisualEl.checked)
     );
+
+    // Persist the Daily Set ordering (independent of the schedule slicing).
+    const dailyFirstEl = document.getElementById('dailyFirstToggle');
+    await pywebview.api.set_daily_first(Boolean(dailyFirstEl && dailyFirstEl.checked));
 
     // Persist LLM search-term config (independent of the schedule slicing).
     const llmToggleEl = document.getElementById('llmToggle');
