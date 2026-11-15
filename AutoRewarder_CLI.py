@@ -196,9 +196,10 @@ def _run_scheduled(api, pc, mobile, duration_hours, queries_per_hour, account_lo
 # ---------------------------------------------------------------------------
 
 
-def _create_headless_api():
+def _create_headless_api(visible=False):
     """
-    Build an AutoRewarderAPI bound to the console logger and force hide_browser.
+    Build an AutoRewarderAPI bound to the console logger, headless unless
+    `visible`.
 
     Returns:
         AutoRewarderAPI: a ready-to-run API instance with no GUI
@@ -208,12 +209,12 @@ def _create_headless_api():
     api.log = console_log
     api._safe_log = console_log
 
-    # Force headless at runtime only — do NOT call api.set_hide_browser(True),
+    # Toggle headless at runtime only — do NOT call api.set_hide_browser(),
     # which persists to settings.json and would silently flip the user's GUI
     # preference every time a scheduled run fires.
-    api.hide_browser = True
+    api.hide_browser = not visible
     if api.driver_manager is not None:
-        api.driver_manager.hide_browser = True
+        api.driver_manager.hide_browser = not visible
 
     # Rebind the logger on per-account managers that captured it early.
     if api.history is not None:
@@ -377,6 +378,11 @@ def main():
         action="store_true",
         help="Run the Daily Set and More Activities before the search queries.",
     )
+    parser.add_argument(
+        "--visible",
+        action="store_true",
+        help="Show the browser window (non-headless mode).",
+    )
     args = parser.parse_args()
 
     if args.pc is not None and args.pc < 0:
@@ -384,7 +390,7 @@ def main():
     if args.mobile is not None and args.mobile < 0:
         parser.error("--mobile must be >= 0")
 
-    api = _create_headless_api()
+    api = _create_headless_api(visible=args.visible)
 
     if args.daily_first:
         # Runtime-only: a scheduled run must not persist a GUI preference.
