@@ -372,6 +372,11 @@ def main():
         action="store_true",
         help="Run even if already triggered today.",
     )
+    parser.add_argument(
+        "--daily-first",
+        action="store_true",
+        help="Run the Daily Set and More Activities before the search queries.",
+    )
     args = parser.parse_args()
 
     if args.pc is not None and args.pc < 0:
@@ -380,6 +385,11 @@ def main():
         parser.error("--mobile must be >= 0")
 
     api = _create_headless_api()
+
+    if args.daily_first:
+        # Runtime-only: a scheduled run must not persist a GUI preference.
+        api.daily_first = True
+        console_log("Daily Set order: before the search queries (--daily-first).")
 
     accounts = api.account_manager.list()
     if not accounts:
