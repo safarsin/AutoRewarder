@@ -29,6 +29,12 @@ elif PLATFORM_NAME == "Windows":
         os.environ["USERPROFILE"], "AppData", "Local", "AutoRewarder"
     )
 
+# Get macOS app directory
+elif PLATFORM_NAME == "Darwin":
+    APP_DIR = os.path.expanduser(
+        "~/Library/Application Support/AutoRewarder"
+    )
+
 # Quit on invalid platform
 else:
     raise OSError(f"Unsupported platform: {PLATFORM_NAME}")
